@@ -1,8 +1,9 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { GridValues, FlexValues, Policy, Transaction } from "../page";
+// import { GridValues, FlexValues, Policy, Transaction}  from "../page";
 import { Switch } from "@/components/ui/switch";
+import { FlexValues, GridValues, Policy } from "@/components/molecues/bookings/reuseables";
 
 const page = () => {
   const params = useParams();
