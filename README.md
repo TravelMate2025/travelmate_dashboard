@@ -1,3 +1,64 @@
+🚀 TravelMate Git Workflow
+
+🔧 1. Initial Setup
+Create the development branch from main:
+
+git checkout -b development
+git push -u origin development
+
+
+👨‍💻2. Daily Development Workflow
+🔁 All day-to-day commits go to development.
+📦 Create feature branches from development:
+
+git checkout development
+git pull origin development        # Always pull the latest
+git checkout -b feature/something  # Create a new feature branch
+
+
+🛠 Work on your feature:
+
+# Make changes...
+git add .
+git commit -m "Add feature X"
+
+
+🔄 3. Sync Your Feature with Latest Development
+Before you open a pull request:
+
+
+git checkout development
+git pull origin development        # Get the latest development changes
+
+git checkout feature/something
+git merge development              # OR: git rebase development
+# Resolve any merge conflicts
+git push                           # Push updated feature branch
+
+
+✅ Now your feature branch is up to date with development.
+
+🚀 4. Push and Open a Pull Request
+
+git push -u origin feature/something
+
+Go to GitHub
+Create a PR into development
+Team leads can assign a different target branch if needed
+Merge only after review and tests pass
+
+
+✅ 5. Releasing to Production
+When you're ready to release:
+
+
+git checkout main
+git pull origin main              # Ensure it's up to date
+git merge development
+git push origin main
+
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

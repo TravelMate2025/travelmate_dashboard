@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 import instance from "@/hooks/initializers/useAxiosDefaults";
 import {
@@ -185,45 +186,96 @@ export default function ReportsPage() {
   const processedTrendsData = useMemo(() => {
     if (!bookingTrendsData?.length) return [];
 
-    return bookingTrendsData.map((item) => ({
-      ...item,
-      total_bookings:
+    const processed = bookingTrendsData.map((item) => {
+      const total_bookings =
         (item.flight_bookings || 0) +
         (item.car_bookings || 0) +
-        (item.hotel_bookings || 0),
-      total_revenue:
+        (item.hotel_bookings || 0);
+      const total_revenue =
         (item.flight_revenue || 0) +
         (item.car_revenue || 0) +
-        (item.hotel_revenue || 0),
-      // Format label for better display
-      displayLabel:
-        selectedOption === "This Year"
-          ? new Date(item.label).toLocaleString("en-US", { month: "long" })
-          : new Date(item.label).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            }),
-    }));
+        (item.hotel_revenue || 0);
+
+      // Safely parse label and fallback if invalid
+      let displayLabel = "";
+      const parsed = new Date(item.label);
+      if (!isNaN(parsed.getTime())) {
+        displayLabel =
+          selectedOption === "This Year"
+            ? parsed.toLocaleString("en-US", { month: "long" })
+            : parsed.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              });
+      } else if (selectedOption === "This Year" && typeof item.label === "number") {
+        const m = Number(item.label);
+        if (m >= 1 && m <= 12) {
+          displayLabel = new Date(0, m - 1).toLocaleString("en-US", {
+            month: "long",
+          });
+        }
+      } else {
+        displayLabel = item.label || "";
+      }
+
+      return {
+        ...item,
+        total_bookings,
+        total_revenue,
+        displayLabel,
+      };
+    });
+
+    return processed;
   }, [bookingTrendsData, selectedOption]);
+
+  const hasTrendsValues = useMemo(() => {
+    return processedTrendsData.some(
+      (d) => (d.total_bookings || 0) > 0 || (d.total_revenue || 0) > 0
+    );
+  }, [processedTrendsData]);
 
   const processedCombinedData = useMemo(() => {
     if (!revenueBookingsData?.length) return [];
 
-    return revenueBookingsData.map((item) => ({
-      ...item,
-      displayLabel:
-        selectedOption === "This Year"
-          ? new Date(item.label).toLocaleString("en-US", { month: "long" })
-          : new Date(item.label).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            }),
-    }));
+    return revenueBookingsData.map((item) => {
+      let displayLabel = "";
+      const parsed = new Date(item.label);
+      if (!isNaN(parsed.getTime())) {
+        displayLabel =
+          selectedOption === "This Year"
+            ? parsed.toLocaleString("en-US", { month: "long" })
+            : parsed.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              });
+      } else if (selectedOption === "This Year" && typeof item.label === "number") {
+        const m = Number(item.label);
+        if (m >= 1 && m <= 12) {
+          displayLabel = new Date(0, m - 1).toLocaleString("en-US", {
+            month: "long",
+          });
+        }
+      } else {
+        displayLabel = item.label || "";
+      }
+
+      return {
+        ...item,
+        displayLabel,
+      };
+    });
   }, [revenueBookingsData, selectedOption]);
+
+  const hasCombinedValues = useMemo(() => {
+    return processedCombinedData.some(
+      (d) => (d.bookings || 0) > 0 || (d.revenue || 0) > 0
+    );
+  }, [processedCombinedData]);
 
   useEffect(() => {
     fetchAdminData();
-  }, [selectedOption]);
+  }, [fetchAdminData]);
 
   const periodFilter = [
     "This Week",
@@ -426,7 +478,7 @@ export default function ReportsPage() {
                       Booking & Revenue Overview
                     </h3>
                     <div className="h-[400px]">
-                      {processedCombinedData.length === 0 ? (
+                      {processedCombinedData.length === 0 || !hasCombinedValues ? (
                         <EmptyState message="No booking or revenue data available" />
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
@@ -436,12 +488,24 @@ export default function ReportsPage() {
                               className="stroke-muted"
                             />
                             <XAxis dataKey="displayLabel" />
-                            <YAxis tickFormatter={formatCurrency} />
+                            {/* Left axis: counts (bookings) */}
+                            <YAxis
+                              yAxisId="left"
+                              tickFormatter={(v) =>
+                                typeof v === "number" ? v.toLocaleString() : v
+                              }
+                            />
+                            {/* Right axis: currency (revenue) */}
+                            <YAxis
+                              yAxisId="right"
+                              orientation="right"
+                              tickFormatter={formatCurrency}
+                            />
                             <Tooltip
                               formatter={(value, name) => [
                                 typeof value === "number"
                                   ? name === "Revenue"
-                                    ? formatCurrency(value)
+                                    ? formatCurrency(Number(value))
                                     : value.toLocaleString()
                                   : value,
                                 name,
@@ -452,16 +516,19 @@ export default function ReportsPage() {
                                 borderRadius: "8px",
                               }}
                             />
+                            <Legend />
                             <Bar
                               dataKey="bookings"
                               fill="#1e40af"
                               name="Bookings"
+                              yAxisId="left"
                             />
                             {isSuperadmin && (
                               <Bar
                                 dataKey="revenue"
                                 fill="#f97316"
                                 name="Revenue"
+                                yAxisId="right"
                               />
                             )}
                           </BarChart>
@@ -476,7 +543,7 @@ export default function ReportsPage() {
                       Booking Trends
                     </h3>
                     <div className="h-[400px]">
-                      {processedTrendsData.length === 0 ? (
+                      {processedTrendsData.length === 0 || !hasTrendsValues ? (
                         <EmptyState message="No booking trends data available" />
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
@@ -488,10 +555,11 @@ export default function ReportsPage() {
                             <XAxis dataKey="displayLabel" />
                             <YAxis />
                             <Tooltip
-                              formatter={(value) => [
+                              formatter={(value, name) => [
                                 typeof value === "number"
                                   ? value.toLocaleString()
                                   : value,
+                                name,
                               ]}
                               contentStyle={{
                                 background: "white",
@@ -536,7 +604,7 @@ export default function ReportsPage() {
                       User Activities
                     </h3>
                     <div className="h-[400px]">
-                      {processedTrendsData.length === 0 ? (
+                      {processedTrendsData.length === 0 || !hasTrendsValues ? (
                         <EmptyState message="No user activity data available" />
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
@@ -581,7 +649,7 @@ export default function ReportsPage() {
                         Revenue Analysis
                       </h3>
                       <div className="h-[400px]">
-                        {processedTrendsData.length === 0 ? (
+                        {processedTrendsData.length === 0 || !hasTrendsValues ? (
                           <EmptyState message="No revenue data available" />
                         ) : (
                           <ResponsiveContainer width="100%" height="100%">
