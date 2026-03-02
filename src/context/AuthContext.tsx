@@ -6,9 +6,7 @@ import React, {
   Dispatch,
   useContext,
 } from "react";
-import usePersistAppContext, {
-  getInitialStateFromLocalStorage,
-} from "@/hooks/context/auth/usePersistAuthContext";
+import usePersistAppContext from "@/hooks/context/auth/usePersistAuthContext";
 
 import useAxiosDefaults from "@/hooks/initializers/useAxiosDefaults";
 import env from "@/config/env";
@@ -38,9 +36,7 @@ export function useUpdateAuthContext() {
 export function AuthContextWrapper({
   children,
 }: TAuthContextProps): React.JSX.Element {
-  const [appState, setAppState] = useState<TAppState>(
-    getInitialStateFromLocalStorage
-  );
+  const [appState, setAppState] = useState<TAppState>(INITIAL_APP_STATE);
 
   usePersistAppContext({ appState, setAppState });
 

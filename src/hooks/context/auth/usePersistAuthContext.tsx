@@ -30,11 +30,5 @@ const usePersistAppContext = ({
   return null;
 };
 
-export const getInitialStateFromLocalStorage = () => {
-  const storage = typeof window !== "undefined" ? window.localStorage : null;
-
-  const value = storage?.getItem(PERSIST_AUTH_KEY);
-  return value ? JSON.parse(value) : INITIAL_APP_STATE;
-};
 
 export default usePersistAppContext;

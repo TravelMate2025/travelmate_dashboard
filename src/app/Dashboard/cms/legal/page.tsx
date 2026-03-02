@@ -11,6 +11,7 @@ import Link from "next/link";
 import Loading from "../../admin/loading";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import HistoryModal from "@/components/molecues/legal/modals/HistoryModal";
+import Image from "next/image";
 import {
   fetchAllContents,
   addAbout,
@@ -378,7 +379,7 @@ const ContentTab = () => {
               </button>
             )}
             {activeTab !== "partner" && (
-              <img
+              <Image
                 onClick={() => {
                   setEditStates((prev) => ({
                     ...prev,
@@ -389,6 +390,8 @@ const ContentTab = () => {
                 src="/assets/icons/mode_edit.svg"
                 alt="Edit"
                 className="cursor-pointer lg:hidden "
+                width={24}
+                height={24}
               />
             )}
           </div>

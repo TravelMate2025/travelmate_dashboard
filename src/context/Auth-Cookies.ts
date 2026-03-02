@@ -1,17 +1,2 @@
-"use server";
-import { cookies } from "next/headers";
-
-export interface TokenInfo {
-  accessToken: string | null;
-  refreshToken: string | null;
-}
-
-export async function getCookies(): Promise<TokenInfo> {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get("accessToken")?.value || null;
-  const refreshToken = cookieStore.get("refreshToken")?.value || null;
-  return {
-    accessToken,
-    refreshToken,
-  };
-}
+export const ACCESS_TOKEN_KEY = "accessToken";
+export const REFRESH_TOKEN_KEY = "refreshToken";

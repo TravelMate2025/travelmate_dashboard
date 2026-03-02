@@ -7,6 +7,7 @@ import {
   InputOTP,
 } from "@/components/ui/input-otp";
 import Link from "next/link";
+import Image from "next/image";
 
 const page = () => {
   return (
@@ -20,10 +21,12 @@ const OtpComponent = () => {
   return (
     <div className="bg-[#fff] p-[40px] space-y-[36px] rounded-[20px]">
       <div className="flex flex-col items-center gap-4">
-        <img
+        <Image
           src="/assets/images/company-logo.svg"
           alt=""
           className="lg:w-28 w-28 "
+          width={112}
+          height={112}
         />
         <p className="text-[#181818] lg:text-2xl lg:font-semibold font-[500] text-[18px] ">
           Verification Required
@@ -34,7 +37,7 @@ const OtpComponent = () => {
 
       <div className="">
         <p className="text-gray-700 lg:text-[20px] text-[14px] font-medium text-center">
-          Didn't receive a code?{" "}
+          Didn&apos;t receive a code?{" "}
           <span className="underline text-[#023E8A] ">Resend</span>{" "}
         </p>
       </div>

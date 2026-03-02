@@ -1,21 +1,38 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  ACCESS_TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
+} from "./context/Auth-Cookies";
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const publicPaths = ["/auth/login", "/auth/signin", "/invitations"];
+  const { value: accessToken } = request.cookies.get(ACCESS_TOKEN_KEY) ?? {
+    value: null,
+  };
+  const { value: refreshToken } = request.cookies.get(REFRESH_TOKEN_KEY) ?? {
+    value: null,
+  };
 
-  if (publicPaths.some((path) => pathname.startsWith(path))) {
-    return NextResponse.next();
-  }
-  const authToken = request.cookies.get("accessToken")?.value;
+  const response = NextResponse.next();
 
-  if (!authToken) {
-    return NextResponse.redirect(new URL("/auth/login", request.url));
+  if (accessToken) {
+    response.cookies.set(ACCESS_TOKEN_KEY, accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
   }
-  return NextResponse.next();
+
+  if (refreshToken) {
+    response.cookies.set(REFRESH_TOKEN_KEY, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+  }
+
+  return response;
 }
 
 export const config = {
-  matcher: ["/Dashboard/:path*", "/dashboard/:path*"],
+  matcher: "/:path*",
 };

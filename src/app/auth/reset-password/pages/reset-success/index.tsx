@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Button from "@/components/reuseables/Button";
 import AuthWrapper from "@/app/auth/AuthWrapper";
@@ -10,10 +11,12 @@ const ResetSuccess = () => {
       <div>
         <div className="bg-[#fff] p-[40px] space-y-10 rounded-[20px]">
           <div className="flex flex-col items-center gap-4">
-            <img
+            <Image
               src="/assets/icons/blue-success.svg"
               alt=""
               className="lg:w-28 w-28 "
+              width={112}
+              height={112}
             />
             <p className="text-[#181818] lg:text-2xl lg:font-semibold font-[500] text-[18px] ">
               New Password Confirmed

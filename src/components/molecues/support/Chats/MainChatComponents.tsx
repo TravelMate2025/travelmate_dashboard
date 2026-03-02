@@ -1,18 +1,22 @@
-"use client";
-import React from "react";
-import { useRef, useEffect, useState, useMemo } from "react";
-import { useFormik } from "formik";
-import * as Yup from "yup";
+import Image from "next/image";
+import React, { useRef, useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useGetChat } from "@/hooks/api/chat";
-import { useParams } from "next/navigation";
 import { format } from "date-fns";
+import { useGetChat } from "@/hooks/api/chat";
 import { useWebSocketService } from "@/hooks/api/chat";
 import ChatService from "@/services/chat";
 import { useAuthContext } from "@/context/AuthContext";
 import { useMyRoles } from "@/hooks/api/roles";
-import { FileText, ArrowUpRight, DownloadIcon, X } from "lucide-react";
-import { getCookies } from "@/context/Auth-Cookies";
+import { FileText, DownloadIcon, X } from "lucide-react";
+import {
+  MainChatComponentsProps,
+  SessionProps,
+  Chat,
+  Message,
+  ChatMessage,
+  MyRolesData,
+} from "@/types";
+
 const Spinner = () => (
   <svg
     className="inline w-6 h-6 ml-2 animate-spin text-white"
@@ -35,82 +39,80 @@ const Spinner = () => (
   </svg>
 );
 
-const formatDate = (isoDate: any) => {
+const formatDate = (isoDate: string | undefined) => {
   if (!isoDate) {
     return "Invalid date";
   }
-
   const date = new Date(isoDate);
-
   if (isNaN(date.getTime())) {
     return "Invalid date";
   }
-
   return format(date, "EEEE dd/MM/yyyy | hh:mm a");
 };
 
-export const MainChatComponents = ({ sessionId, accessToken }: any) => {
+export const MainChatComponents = ({
+  sessionId,
+  accessToken,
+}: MainChatComponentsProps) => {
   const APP_STATE = useAuthContext();
   const currentUser = APP_STATE?.user?.user_id || "";
-  const { id } = useParams<{ id: string }>();
 
-  const { chat, loadingChat } = useGetChat({
-    ChatId: sessionId as string,
-    initialFetch: !!id,
-    successCallback: (message) => {
-      console.log(message);
-    },
-    errorCallback: (error) => {
-      console.error(error);
-    },
-  });
-  const { loading, data } = useMyRoles({ modalVisible: chat?.id });
+  const { chat, loadingChat }: { chat: Chat | null; loadingChat: boolean } =
+    useGetChat({
+      ChatId: sessionId,
+      initialFetch: !!sessionId,
+    });
+
+  const { data } = useMyRoles({ modalVisible: !!chat?.id });
+  const rolesData = data as MyRolesData;
   const canViewMessage =
-    data?.current_permission_group_slugs?.includes("support-tickets");
+    rolesData?.current_permission_group_slugs?.includes("support-tickets");
 
-  const isInputDisabled = chat?.status === "CLOSED" || !canViewMessage;
-  !(
+  const isParticipant =
     chat?.assigned_admin_info === null ||
     chat?.claimed_by_info?.id === currentUser ||
-    chat?.assigned_admin_info?.id === currentUser
-  );
+    chat?.assigned_admin_info?.id === currentUser;
+
+  const isInputDisabled =
+    chat?.status === "CLOSED" || !canViewMessage || !isParticipant;
 
   const router = useRouter();
   const [closing, setClosing] = useState(false);
 
-  // Close chat handler
   const handleCloseChat = async () => {
     if (!chat?.id) return;
     setClosing(true);
     try {
       await ChatService.closeChat({ id: chat.id });
-      // Optionally, show a toast or notification
-      router.push("/Dashboard/support/chats"); // Redirect after closing
+      router.push("/Dashboard/support/chats");
     } catch (error) {
-      // Optionally, show error toast
       console.error(error);
     } finally {
       setClosing(false);
     }
   };
+
   return (
     <div className="space-y-[24px]">
       <div className="flex justify-between items-center">
-        <img
+        <Image
           src="/assets/icons/arrow-back.svg"
           alt="Back"
           className="cursor-pointer"
           onClick={() => router.back()}
+          width={24}
+          height={24}
         />
         <div className="flex space-x-6">
           <button
+            type="button"
             className={`rounded-[8px] font-medium p-4 cursor-pointer ${
               isInputDisabled
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-[#023E8A] text-white"
             }`}
             onClick={handleCloseChat}
-            disabled={closing || isInputDisabled || !canViewMessage}
+            disabled={closing || isInputDisabled}
           >
             {closing ? "Closing..." : "Close chat"}
           </button>
@@ -133,8 +135,7 @@ export const MainChatComponents = ({ sessionId, accessToken }: any) => {
             </p>
             <div className="w-2 h-2 bg-[#9B9EA4] rounded-full"></div>
             <p className="lg:text-[16px] text-[12px]  font-semibold text-[#4E4F52]">
-              Chat ID:{" "}
-              <span className="font-medium">{"Chat--" + chat?.id}</span>
+              Chat ID: <span className="font-medium">{"Chat--" + chat?.id}</span>
             </p>
             <div className="w-2 h-2 bg-[#9B9EA4] rounded-full"></div>
             <p className="lg:text-[16px] text-[12px] font-semibold text-[#4E4F52] capitalize">
@@ -148,8 +149,6 @@ export const MainChatComponents = ({ sessionId, accessToken }: any) => {
       <Session
         chat={chat}
         loadingChat={loadingChat}
-        isAdmin={isInputDisabled}
-        canViewMessage={canViewMessage}
         currentUser={currentUser}
         accessToken={accessToken}
       />
@@ -160,39 +159,35 @@ export const MainChatComponents = ({ sessionId, accessToken }: any) => {
 export const Session = ({
   chat,
   loadingChat,
-  isAdmin,
-  canViewMessage,
   currentUser,
   accessToken,
-}: any) => {
-  const {
-    messages: liveMessages,
-    send,
-    socket,
-  } = useWebSocketService({ sessionId: chat?.id, accessToken });
+}: SessionProps) => {
+  const { messages: liveMessages, send } = useWebSocketService({
+    sessionId: chat?.id,
+    accessToken,
+  });
   const [input, setInput] = useState("");
   const lastMessageRef = useRef<HTMLDivElement | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [uploadingMessages, setUploadingMessages] = useState<any[]>([]);
+  const [uploadingMessages, setUploadingMessages] = useState<Message[]>([]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!modalImage) return;
-    fetch(modalImage)
-      .then((response) => response.blob())
-      .then((blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.style.display = "none";
-        a.href = url;
-        a.download = "image";
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      })
-      .catch((err) => console.error("Failed to download image:", err));
+    try {
+      const response = await fetch(modalImage);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = url;
+      a.download = "image";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Failed to download image:", err);
+    }
   };
 
   const handleCloseModal = () => setModalImage(null);
@@ -202,29 +197,31 @@ export const Session = ({
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (file) {
+    if (file && chat?.id) {
       const reader = new FileReader();
       reader.onload = () => {
         const base64String = reader.result as string;
         const clientMessageId = Date.now();
         const payload = {
-          clientMessageId, // for tracking
-          message: file.name, // Use file name as content
-          chatId: chat?.id,
-          attachment: base64String, // base64 string
+          clientMessageId,
+          message: file.name,
+          chatId: chat.id,
+          attachment: base64String,
           attachmentType: file.type,
         };
-        setUploadingMessages((prev) => [
-          ...prev,
-          {
-            clientMessageId,
-            message: file.name,
-            sender_id: currentUser,
-            attachment_type: "other",
-            uploading: true,
-            created_at: new Date().toISOString(),
-          },
-        ]);
+
+        const optimisticMessage: Message = {
+          id: String(clientMessageId),
+          clientMessageId,
+          message: file.name,
+          sender_id: currentUser,
+          attachment_type: file.type.startsWith("image/") ? "image" : "file",
+          attachment_url: base64String,
+          uploading: true,
+          created_at: new Date().toISOString(),
+        };
+
+        setUploadingMessages((prev) => [...prev, optimisticMessage]);
         send(payload);
       };
       reader.readAsDataURL(file);
@@ -232,59 +229,53 @@ export const Session = ({
   };
 
   const systemErrorMessage = useMemo(() => {
-    const errorMsgObj = liveMessages.find((msg: any) => msg.type === "error");
-    return errorMsgObj ? errorMsgObj.message : null;
+    const errorMsg = (liveMessages as ChatMessage[]).find(
+      (msg) => msg.type === "error"
+    );
+    return errorMsg ? errorMsg.message : null;
   }, [liveMessages]);
 
-  // Remove uploading message when real message arrives (match by clientMessageId)
   useEffect(() => {
     if (uploadingMessages.length === 0) return;
-    setUploadingMessages((prev) =>
-      prev.filter(
-        (umsg) =>
-          !liveMessages.some(
-            (msg: any) =>
-              (msg.clientMessageId &&
-                msg.clientMessageId === umsg.clientMessageId) ||
-              // fallback: match by file name, sender, and created_at (if backend doesn't echo clientMessageId)
-              (msg.message === umsg.message && msg.sender_id === umsg.sender_id)
-          )
-      )
+    const receivedIds = new Set(
+      liveMessages.map((msg: ChatMessage) => msg.clientMessageId)
     );
-  }, [liveMessages]);
+    setUploadingMessages((prev) =>
+      prev.filter((umsg) => !receivedIds.has(umsg.clientMessageId))
+    );
+  }, [liveMessages, uploadingMessages.length]);
 
   const allMessages = useMemo(() => {
-    const history = chat?.messages || [];
-    const live = liveMessages.filter(
-      (live: any) =>
-        live.type !== "session_info" &&
-        live.type !== "error" &&
-        !history.some((msg: any) => msg.id === live.id)
+    const history: Message[] = chat?.messages || [];
+    const live = (liveMessages as ChatMessage[]).filter(
+      (liveMsg) =>
+        liveMsg.type !== "session_info" &&
+        liveMsg.type !== "error" &&
+        !history.some((msg) => msg.id === liveMsg.id)
     );
-    return [...history, ...live, ...uploadingMessages];
+    return [...history, ...live, ...uploadingMessages].sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
   }, [chat?.messages, liveMessages, uploadingMessages]);
 
   const handleSend = () => {
-    if (input.trim()) {
+    if (input.trim() && chat?.id) {
       const payload = {
         messageId: Date.now(),
         message: input,
-        chatId: chat?.id,
+        chatId: chat.id,
       };
-
       send(payload);
       setInput("");
     }
   };
 
   useEffect(() => {
-    if (lastMessageRef.current) {
-      lastMessageRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    lastMessageRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [allMessages, systemErrorMessage]);
 
-  const isInputDisabled =
-    chat?.status === "CLOSED" || systemErrorMessage !== null || isAdmin;
+  const isInputDisabled = chat?.status === "CLOSED" || !!systemErrorMessage;
 
   return (
     <>
@@ -319,13 +310,13 @@ export const Session = ({
           <div className="text-center text-gray-500">Loading messages...</div>
         ) : (
           <div className="flex-1 overflow-auto p-4 space-y-4">
-            {allMessages.map((mes: any, index: any) => {
+            {allMessages.map((mes, index) => {
               const isUser =
                 chat?.user_info?.id === mes.sender_info?.id ||
                 chat?.user_info?.id === mes.sender_id;
               return (
                 <div
-                  key={index}
+                  key={mes.id || index}
                   className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                   ref={index === allMessages.length - 1 ? lastMessageRef : null}
                 >
@@ -345,14 +336,19 @@ export const Session = ({
 
                     {mes.attachment_url && (
                       <div className="mt-2">
-                        {mes.attachment_type === "other" ? (
-                          <img
+                        {mes.attachment_type === "image" ? (
+                          <Image
                             src={mes.attachment_url}
                             alt="Attachment"
                             className={`w-[250px] h-auto rounded-lg shadow-lg cursor-pointer ${
                               isUser ? "ml-auto" : "mr-auto"
                             }`}
-                            onClick={() => handleImageClick(mes.attachment_url)}
+                            onClick={() =>
+                              handleImageClick(mes.attachment_url!)
+                            }
+                            width={250}
+                            height={200}
+                            objectFit="cover"
                           />
                         ) : (
                           <a
@@ -396,7 +392,7 @@ export const Session = ({
         )}
 
         <div className="p-4 border-t flex items-center gap-4">
-          {chat?.status === "resolved" ? (
+          {chat?.status === "RESOLVED" ? (
             <p className="text-center w-full text-gray-500">
               This chat has been marked as resolved
             </p>
@@ -409,6 +405,7 @@ export const Session = ({
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Type a message..."
+                    aria-label="Type a message"
                     className="flex-1 w-full outline-none bg-transparent"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !isInputDisabled) {
@@ -417,12 +414,17 @@ export const Session = ({
                     }}
                     disabled={isInputDisabled}
                   />
-                  <button type="button">
-                    <label htmlFor="attachment-input">
-                      <img
+                  <div>
+                    <label
+                      htmlFor="attachment-input"
+                      title="Attach file"
+                      className="cursor-pointer"
+                    >
+                      <Image
                         src="/assets/icons/attach-ment.svg"
-                        alt="Attach"
-                        className="cursor-pointer"
+                        alt="Attach a file"
+                        width={24}
+                        height={24}
                       />
                     </label>
                     <input
@@ -431,18 +433,20 @@ export const Session = ({
                       className="hidden"
                       onChange={handleAttachmentChange}
                       accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                      disabled={isInputDisabled}
                     />
-                  </button>
+                  </div>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={handleSend}
                 className={`p-3 rounded-lg ${
                   isInputDisabled
                     ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                     : "bg-[#023E8A] text-white"
                 }`}
-                disabled={isInputDisabled}
+                disabled={isInputDisabled || !input.trim()}
               >
                 Send
               </button>
@@ -456,22 +460,28 @@ export const Session = ({
           <div className="relative w-auto max-w-3xl max-h-[90vh]">
             <div className="absolute top-4 right-4 flex gap-2">
               <button
+                type="button"
+                title="Close image"
                 className="text-white bg-black bg-opacity-50 rounded-full p-2"
                 onClick={handleCloseModal}
               >
                 <X className="w-6 h-6" />
               </button>
               <button
+                type="button"
+                title="Download image"
                 onClick={handleDownload}
                 className="text-white bg-black bg-opacity-50 rounded-full p-2"
               >
                 <DownloadIcon className="w-6 h-6" />
               </button>
             </div>
-            <img
+            <Image
               src={modalImage}
               alt="Modal Content"
               className="max-w-full max-h-full rounded-lg shadow-lg"
+              fill
+              objectFit="contain"
             />
           </div>
         </div>

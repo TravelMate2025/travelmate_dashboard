@@ -1,495 +1,435 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import React, { useEffect, useReducer, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { LoaderCircleIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogHeader,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import env from "@/config/env";
+import { LoaderCircleIcon, SearchIcon, X } from "lucide-react";
+import { AxiosError } from "axios";
 
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DeleteIcon, RemoveFormattingIcon, SearchIcon, X } from "lucide-react";
-import Loading from "../../loading";
+
 import { showErrorToast } from "@/utils/toasters";
 import { assignUserToRole, fetchRoles, removeUsersFromRole } from "@/services/admin";
+import ClientOnly from "@/app/components/ClientOnly";
 
+// --- TYPES ---
 type AssignedUser = {
   id: number;
   email: string;
   name: string;
 };
-type Roles = {
+
+type Role = {
   id: string;
   name: string;
   assigned_users: AssignedUser[];
 };
 
-const ManageUsers = () => {
-  const [defaultTab, setDefaultTab] = useState("addNewUser");
+type UserWithRole = AssignedUser & { roleName: string };
+
+type ApiErrorResponse = {
+  message: string;
+};
+
+type State = {
+  roles: Role[];
+  isLoading: boolean;
+  isAdding: boolean;
+  isRemoving: boolean;
+  searchQuery: string;
+  selectedUserIdsToAdd: number[];
+  selectedUserIdsToRemove: number[];
+  modals: {
+    showAddUser: boolean;
+    showConfirmAdd: boolean;
+    showSuccessAdd: boolean;
+    showConfirmRemove: boolean;
+    showSuccessRemove: boolean;
+  };
+};
+
+type Action =
+  | { type: "FETCH_ROLES_START" }
+  | { type: "FETCH_ROLES_SUCCESS"; payload: Role[] }
+  | { type: "FETCH_ROLES_FAILURE" }
+  | { type: "SET_SEARCH_QUERY"; payload: string }
+  | { type: "TOGGLE_USER_SELECTION_ADD"; payload: number }
+  | { type: "TOGGLE_USER_SELECTION_REMOVE"; payload: number }
+  | { type: "SET_MODAL_STATE"; payload: { modal: keyof State["modals"]; isOpen: boolean } }
+  | { type: "ADD_USERS_START" }
+  | { type: "ADD_USERS_SUCCESS" }
+  | { type: "ADD_USERS_FAILURE" }
+  | { type: "REMOVE_USERS_START" }
+  | { type: "REMOVE_USERS_SUCCESS" }
+  | { type: "REMOVE_USERS_FAILURE" }
+  | { type: "RESET_SUCCESS_MODALS" };
+
+// --- REDUCER ---
+const initialState: State = {
+  roles: [],
+  isLoading: true,
+  isAdding: false,
+  isRemoving: false,
+  searchQuery: "",
+  selectedUserIdsToAdd: [],
+  selectedUserIdsToRemove: [],
+  modals: {
+    showAddUser: false,
+    showConfirmAdd: false,
+    showSuccessAdd: false,
+    showConfirmRemove: false,
+    showSuccessRemove: false,
+  },
+};
+
+const reducer = (state: State, action: Action): State => {
+  switch (action.type) {
+    case "FETCH_ROLES_START":
+      return { ...state, isLoading: true };
+    case "FETCH_ROLES_SUCCESS":
+      return { ...state, roles: action.payload, isLoading: false };
+    case "FETCH_ROLES_FAILURE":
+      return { ...state, roles: [], isLoading: false };
+    case "SET_SEARCH_QUERY":
+      return { ...state, searchQuery: action.payload };
+    case "TOGGLE_USER_SELECTION_ADD":
+      return {
+        ...state,
+        selectedUserIdsToAdd: state.selectedUserIdsToAdd.includes(action.payload)
+          ? state.selectedUserIdsToAdd.filter((id) => id !== action.payload)
+          : [...state.selectedUserIdsToAdd, action.payload],
+      };
+    case "TOGGLE_USER_SELECTION_REMOVE":
+        return {
+          ...state,
+          selectedUserIdsToRemove: state.selectedUserIdsToRemove.includes(action.payload)
+            ? state.selectedUserIdsToRemove.filter((id) => id !== action.payload)
+            : [...state.selectedUserIdsToRemove, action.payload],
+        };
+    case "SET_MODAL_STATE":
+      return { ...state, modals: { ...state.modals, [action.payload.modal]: action.payload.isOpen } };
+    case "ADD_USERS_START":
+      return { ...state, isAdding: true };
+    case "ADD_USERS_SUCCESS":
+      return { ...state, isAdding: false, selectedUserIdsToAdd: [], modals: { ...state.modals, showConfirmAdd: false, showSuccessAdd: true } };
+    case "ADD_USERS_FAILURE":
+        return { ...state, isAdding: false };
+    case "REMOVE_USERS_START":
+        return { ...state, isRemoving: true };
+    case "REMOVE_USERS_SUCCESS":
+        return { ...state, isRemoving: false, selectedUserIdsToRemove: [], modals: { ...state.modals, showConfirmRemove: false, showSuccessRemove: true } };
+    case "REMOVE_USERS_FAILURE":
+        return { ...state, isRemoving: false };
+    case "RESET_SUCCESS_MODALS":
+        return { ...state, modals: { ...state.modals, showSuccessAdd: false, showSuccessRemove: false } };
+    default:
+      return state;
+  }
+};
+
+// --- HOOKS & UTILS ---
+const useRoleData = (dispatch: React.Dispatch<Action>) => {
+    const fetchRoleData = useCallback(async () => {
+        dispatch({ type: "FETCH_ROLES_START" });
+        try {
+            const response = await fetchRoles();
+            dispatch({ type: "FETCH_ROLES_SUCCESS", payload: response.data.results || [] });
+        } catch {
+            showErrorToast({ message: "Error fetching roles" });
+            dispatch({ type: "FETCH_ROLES_FAILURE" });
+        }
+    }, [dispatch]);
+
+    useEffect(() => {
+        fetchRoleData();
+    }, [fetchRoleData]);
+
+    return { refetch: fetchRoleData };
+};
+
+
+// --- MAIN COMPONENT ---
+const ManageUsersPage = () => {
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const { refetch } = useRoleData(dispatch);
   const route = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [addUSerModal, setIsAddUserModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-
-  // New state for "Remove Existing Users" modals
-  const [showConfirmRemoveModal, setShowConfirmRemoveModal] = useState(false);
-  const [showSuccessRemoveModal, setShowSuccessRemoveModal] = useState(false);
-
   const params = useParams();
   const roleId = params?.id as string;
 
-  const [loading, setLoading] = useState(true);
-  const [roles, setRoles] = useState<Roles[]>([]);
-  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const { roles, isLoading, isAdding, isRemoving, searchQuery, selectedUserIdsToAdd, selectedUserIdsToRemove, modals } = state;
 
-  const [selectedUserIdRemove, setSelectedUserIdRemove] = useState<number[]>(
-    []
-  );
-  const [isLoadRemove, setIsLoadRemove] = useState(false);
-  const [isLoadAdd, setIsLoadAdd] = useState(false);
+  // --- MEMOIZED DATA ---
+  const currentRole = useMemo(() => roles.find((role) => String(role.id) === String(roleId)), [roles, roleId]);
+  
+  const usersAssignedToOtherRoles = useMemo(() => roles
+    .filter((role) => String(role.id) !== String(roleId) && role.name !== "Super Admin")
+    .flatMap((role) => role.assigned_users.map((user) => ({ ...user, roleName: role.name }))), [roles, roleId]);
 
-  const currentRole = roles.find((role) => String(role.id) === String(roleId));
+  const filteredUsersToAdd = useMemo(() => usersAssignedToOtherRoles.filter(user =>
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  ), [usersAssignedToOtherRoles, searchQuery]);
 
-  const handleSelectAdd = (userId: number) => {
-    setSelectedUserIds((prevSelected) =>
-      prevSelected.includes(userId)
-        ? prevSelected.filter((id) => id !== userId)
-        : [...prevSelected, userId]
-    );
-  };
-  const handleSelectRemove = (userId: number) => {
-    setSelectedUserIdRemove((prevSelected) =>
-      prevSelected.includes(userId)
-        ? prevSelected.filter((id) => id !== userId)
-        : [...prevSelected, userId]
-    );
-  };
-
-  const fetchRole = async () => {
-    try {
-      setLoading(true);
-      const response = await fetchRoles();
-      setRoles(response.data.results || []);
-    } catch (error) {
-      console.error("Error fetching roles:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // --- EFFECTS ---
   useEffect(() => {
-    fetchRole();
+    if (modals.showSuccessAdd || modals.showSuccessRemove) {
+      const timer = setTimeout(() => dispatch({ type: "RESET_SUCCESS_MODALS" }), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [modals.showSuccessAdd, modals.showSuccessRemove]);
+
+  // --- HANDLERS ---
+  const setModalState = useCallback((modal: keyof State["modals"], isOpen: boolean) => {
+    dispatch({ type: "SET_MODAL_STATE", payload: { modal, isOpen } });
   }, []);
 
-  const usersAssignedToOtherRoles = roles
-    .filter(
-      (role) =>
-        String(role.id) !== String(roleId) && role.name !== "Super Admin"
-    )
-    .flatMap((role) =>
-      role.assigned_users.map((user) => ({
-        ...user,
-        roleName: role.name,
-      }))
-    );
-
-  const addUsersToRole = async () => {
+  const addUsersToRole = useCallback(async () => {
     const emailsToAdd = usersAssignedToOtherRoles
-      .filter((user) => selectedUserIds.includes(user.id))
+      .filter((user) => selectedUserIdsToAdd.includes(user.id))
       .map((user) => user.email.trim());
+
+    if (emailsToAdd.length === 0) {
+        showErrorToast({ message: "No users selected to add." });
+        return;
+    }
+    
+    dispatch({ type: "ADD_USERS_START" });
     try {
-      setIsLoadAdd(true);
       await assignUserToRole(roleId, emailsToAdd.join(","));
-      setShowConfirmModal(false);
-      setShowSuccessModal(true);
-      setSelectedUserIds([]);
-      await fetchRoles();
-    } catch (error: any) {
-      console.log(error);
-      showErrorToast({
-        message: error?.response?.data?.message || "Failed to add users.",
-      });
-    } finally {
-      setIsLoadAdd(false);
+      dispatch({ type: "ADD_USERS_SUCCESS" });
+      await refetch();
+    } catch (error) {
+        if (error instanceof AxiosError) {
+            const apiError = error.response?.data as ApiErrorResponse;
+            showErrorToast({ message: apiError?.message || "Failed to add users." });
+        } else {
+            showErrorToast({ message: "An unexpected error occurred." });
+        }
+      dispatch({ type: "ADD_USERS_FAILURE" });
     }
-  };
+  }, [usersAssignedToOtherRoles, selectedUserIdsToAdd, roleId, refetch]);
 
-  const removeExistingUsers = async () => {
-    const emailsToRemove = roles
-      .filter((role) => String(role.id) === String(roleId))
-      .flatMap((role) =>
-        role.assigned_users
-          .filter((user) => selectedUserIdRemove.includes(user.id))
-          .map((user) => user.email.trim())
-      );
+  const removeExistingUsers = useCallback(async () => {
+    const emailsToRemove = currentRole?.assigned_users
+        .filter((user) => selectedUserIdsToRemove.includes(user.id))
+        .map((user) => user.email.trim()) || [];
+
+    if (emailsToRemove.length === 0) {
+        showErrorToast({ message: "No users selected to remove." });
+        return;
+    }
+        
+    dispatch({ type: "REMOVE_USERS_START" });
     try {
-      setIsLoadRemove(true);
-      await removeUsersFromRole(roleId, emailsToRemove)
-      setShowConfirmRemoveModal(false);
-      setShowSuccessRemoveModal(true);
-      setSelectedUserIdRemove([]);
-      await fetchRoles();
-    } catch (error: any) {
-      console.log(error);
-      showErrorToast({
-        message: error?.response?.data?.message || "Failed to remove users.",
-      });
-    } finally {
-      setIsLoadRemove(false);
+      await removeUsersFromRole(roleId, emailsToRemove);
+      dispatch({ type: "REMOVE_USERS_SUCCESS" });
+      await refetch();
+    } catch (error) {
+        if (error instanceof AxiosError) {
+            const apiError = error.response?.data as ApiErrorResponse;
+            showErrorToast({ message: apiError?.message || "Failed to remove users." });
+        } else {
+            showErrorToast({ message: "An unexpected error occurred." });
+        }
+      dispatch({ type: "REMOVE_USERS_FAILURE" });
     }
-  };
-  useEffect(() => {
-    if (showSuccessModal || showSuccessRemoveModal) {
-      const timeout = setTimeout(() => {
-        setShowSuccessModal(false);
-        setShowSuccessRemoveModal(false);
-      }, 3000);
-      return () => clearTimeout(timeout);
-    }
-  });
+  }, [currentRole, selectedUserIdsToRemove, roleId, refetch]);
 
-  //SEARCH USERS TO ADD
-  const handleSearch = (e: any) => {
-    setSearchQuery(e.target.value);
-  };
+  if (isLoading && roles.length === 0) {
+    return <div className="flex min-h-screen bg-background rounded-lg items-center justify-center"><LoaderCircleIcon className="animate-spin" /></div>;
+  }
+
   return (
     <div className="flex min-h-screen bg-background rounded-lg">
       <main className="w-full">
         <div className="rounded-lg bg-card md:px-5 px-0 pt-5">
           <div className="flex items-center justify-normal lg:gap-72 gap-32 mb-5">
-            <Image
-              src="/assets/icons/arrow-back.svg"
-              alt="arrow-back"
-              width={20}
-              height={20}
-              className="font-bold cursor-pointer"
-              onClick={() => route.back()}
-            />
+            <Button variant="ghost" size="icon" onClick={() => route.back()}>
+                <Image src="/assets/icons/arrow-back.svg" alt="Back" width={20} height={20} />
+            </Button>
             <h1 className="text-lg font-bold text-center ">Manage User</h1>
           </div>
-          <Tabs
-            defaultValue="addNewUser"
-            className="space-y-6"
-            onValueChange={setDefaultTab}
-          >
+          <Tabs defaultValue="addNewUser" className="space-y-6">
             <TabsList className="w-full border-b rounded-none bg-transparent p-0 h-auto">
-              <TabsTrigger
-                value="addNewUser"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 cursor-pointer"
-              >
-                Add New User
-              </TabsTrigger>
-
-              <TabsTrigger
-                value="removeExistingUser"
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2 cursor-pointer"
-              >
-                Remove Existing User
-              </TabsTrigger>
+              <TabsTrigger value="addNewUser">Add New User</TabsTrigger>
+              <TabsTrigger value="removeExistingUser">Remove Existing User</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="addNewUser" className="space-y-4 px-3">
-              <div>
-                <p>Assign user from another role</p>
-                <div onClick={() => setIsAddUserModal(true)}>
-                  <button className="w-full p-2 py-3 rounded-[8px] space-x-4 mt-3 border-[#9b9ea4] border-[1px] flex justify-between bg-transparent">
-                    <span>
-                      {selectedUserIds.length > 0
-                        ? `${selectedUserIds.length} user${
-                            selectedUserIds.length > 1 ? "s" : ""
-                          } selected`
-                        : "Select User"}
-                    </span>
-
-                    <img
-                      src="/assets/icons/arrow-down.svg"
-                      alt=""
-                      className="w-3 h-3 ml-auto mt-2 mr-2"
-                    />
-                  </button>
-                </div>
-                <Dialog open={addUSerModal} onOpenChange={setIsAddUserModal}>
-                  <DialogContent className="fixed md:top-[10vh] top-[20vh] left-1/2 max-w-2xl mt-64 mb-64 overflow-y-auto w-[90vw] max-h-[85vh]">
-                    <DialogHeader>
-                      <DialogTitle></DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-6">
-                      <div className="space-y-4 py-10">
-                        <div className="flex justify-normal items-center relative">
-                          <SearchIcon className="w-5 absolute left-3" />
-                          <input
-                            type="search"
-                            className="w-full border border-black rounded-lg p-2 pl-10"
-                            placeholder="Search Users"
-                            value={searchQuery}
-                            onChange={handleSearch}
-                          />
-                        </div>
-
-                        {loading ? (
-                          <Loading />
-                        ) : (
-                          <div className="space-y-4">
-                            {usersAssignedToOtherRoles.length === 0 ? (
-                              <p className="text-center text-gray-500">
-                                No users available to add.
-                              </p>
-                            ) : (
-                              usersAssignedToOtherRoles
-                                .filter(
-                                  (user) =>
-                                    user.email
-                                      .toLowerCase()
-                                      .includes(searchQuery.toLowerCase()) ||
-                                    user.email
-                                      .toLowerCase()
-                                      .includes(searchQuery.toLowerCase())
-                                )
-                                .map((user, index) => (
-                                  <div
-                                    key={index}
-                                    className="flex justify-between w-full lg:items-center items-start py-2 border-b"
-                                  >
-                                    <div className="flex justify-normal items-center gap-10">
-                                      <input
-                                        type="checkbox"
-                                        name={`add-${user.id}`}
-                                        id={`add-${user.id}`}
-                                        checked={selectedUserIds.includes(
-                                          user.id
-                                        )}
-                                        onChange={() =>
-                                          handleSelectAdd(user.id)
-                                        }
-                                      />
-
-                                      <div>
-                                        <p>{user.name || "Unkownn user"}</p>
-                                        <p className="text-muted-foreground">
-                                          {user.email}
-                                        </p>
-                                      </div>
-                                    </div>
-
-                                    <p className="text-blue-500 text-nowrap lg:text-base text-xs">
-                                      {user.roleName}
-                                    </p>
-                                  </div>
-                                ))
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                <div className="flex justify-normal gap-5 items-start">
-                  {selectedUserIds.length
-                    ? usersAssignedToOtherRoles
-                        .filter((user) => selectedUserIds.includes(user.id))
-                        .map((user, index) => (
-                          <div
-                            key={index}
-                            className="flex justify-normal items-center align-middle gap-4 bg-[#F5F5F5] p-2 mt-4 w-fit"
-                          >
-                            <p>{user.name}</p>
-                            <X
-                              fontSize={2}
-                              className="w-4 h-4 mt-[2px] cursor-pointer"
-                              onClick={() =>
-                                setSelectedUserIds((prev) =>
-                                  prev.filter((id) => id !== user.id)
-                                )
-                              }
-                            />
-                          </div>
-                        ))
-                    : null}
-                </div>
-
-                <Button
-                  onClick={() => setShowConfirmModal(true)}
-                  className="bg-[#023E8A] hover:bg-blue-800 cursor-pointer mt-24 w-full text-center"
-                >
-                  Add
-                </Button>
-              </div>
+            <TabsContent value="addNewUser">
+                <AddNewUserTab
+                    selectedUserIds={selectedUserIdsToAdd}
+                    usersAssignedToOtherRoles={usersAssignedToOtherRoles}
+                    onUserSelect={(id) => dispatch({ type: 'TOGGLE_USER_SELECTION_ADD', payload: id })}
+                    onShowUserModal={() => setModalState("showAddUser", true)}
+                    onConfirm={() => setModalState("showConfirmAdd", true)}
+                />
             </TabsContent>
-
-            <TabsContent value="removeExistingUser" className="space-y-8 px-3">
-              <div>
-                <p className="font-bold">Select Users to remove</p>
-                {roles
-                  .filter((role) => String(role.id) === String(roleId))
-                  .flatMap((role) => role.assigned_users)
-                  .map((user) => (
-                    <div
-                      key={user.id}
-                      className="flex justify-between items-center py-3 w-full"
-                    >
-                      <div>
-                        <p>{user.name}</p>
-                        <p>{user.email}</p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        name={`remove-${user.id}`}
-                        id={`remove-${user.id}`}
-                        checked={selectedUserIdRemove?.includes(user.id)}
-                        onChange={() => handleSelectRemove(user.id)}
-                      />
-                    </div>
-                  ))}
-                <Button
-                  onClick={() => setShowConfirmRemoveModal(true)}
-                  className="bg-[#D72638] hover:bg-red-800 cursor-pointer mt-24 w-full text-center"
-                  disabled={selectedUserIdRemove.length < 1}
-                >
-                  Remove
-                </Button>
-              </div>
+            <TabsContent value="removeExistingUser">
+                <RemoveExistingUserTab
+                    users={currentRole?.assigned_users || []}
+                    selectedUserIds={selectedUserIdsToRemove}
+                    onUserSelect={(id) => dispatch({ type: 'TOGGLE_USER_SELECTION_REMOVE', payload: id })}
+                    onConfirm={() => setModalState("showConfirmRemove", true)}
+                    disabled={selectedUserIdsToRemove.length === 0}
+                />
             </TabsContent>
           </Tabs>
         </div>
 
-        {/* Confirm Member Transfer Modal */}
-        <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-          <DialogContent className="w-full lg:max-w-lg max-w-sm p-4">
-            <div className="lg:space-y-[40px] space-y-3 flex flex-col items-center">
-              <DialogHeader className="text-left">
-                <DialogTitle className="text-xl font-bold text-[#181818]">
-                  Confirm Member Transfer?
-                </DialogTitle>
-              </DialogHeader>
-              <DialogDescription className="lg:text-base text-[12px] text-gray-700 text-left px-4 font-[500]">
-                You are about to add {selectedUserIds.length} selected user
-                {selectedUserIds.length > 1 && `s`} to this role. These users
-                will be removed from their current roles. Do you want to
-                proceed?
-              </DialogDescription>
-            </div>
-            <div className="flex items-center gap-2 justify-end lg:pt-5 pt-2">
-              <Button
-                className="border text-black border-[#023E8A] p-2 bg-transparent hover:bg-transparent cursor-pointer"
-                onClick={() => setShowConfirmModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  addUsersToRole();
-                }}
-                className="bg-[#023E8A] p-2 px-4 hover:bg-blue-700 cursor-pointer"
-              >
-                {isLoadAdd && (
-                  <LoaderCircleIcon
-                    stroke="#ffffff"
-                    style={{ animation: "spin 1s linear infinite" }}
-                  />
-                )}
-                Yes, Proceed
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Success Modal for Adding New User */}
-        <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
-          <DialogContent className="w-full lg:max-w-sm max-w-sm p-8">
-            <div className="flex flex-col items-center">
-              <DialogHeader className="text-center">
-                <DialogTitle className="text-xl font-[500] text-[#181818]">
-                  Success
-                </DialogTitle>
-              </DialogHeader>
-              <img
-                src="/assets/icons/blue-success.svg"
-                alt="Success"
-                className="w-20 h-20 my-6"
-              />
-              <DialogDescription className="lg:text-lg text-[14px] text-gray-700 text-center px-4 font-bold">
-                User Added Successfully
-              </DialogDescription>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Confirm Remove Users Modal */}
-        <Dialog
-          open={showConfirmRemoveModal}
-          onOpenChange={setShowConfirmRemoveModal}
-        >
-          <DialogContent className="w-full lg:max-w-lg max-w-sm p-4">
-            <div className="space-y-[40px] flex flex-col items-center">
-              <DialogHeader className="text-left">
-                <DialogTitle className="text-xl font-bold text-[#181818]">
-                  Confirm Remove Users?
-                </DialogTitle>
-              </DialogHeader>
-              <DialogDescription className="lg:text-base text-[12px] text-gray-700 text-left px-4 font-[500]">
-                You are about to remove the selected users from{" "}
-                {currentRole?.name} role. They will no longer have access to
-                these role permissions. Do you want to proceed?
-              </DialogDescription>
-            </div>
-            <div className="flex items-center gap-2 justify-end pt-5">
-              <Button
-                className="border text-black border-[#023E8A] p-2 bg-transparent hover:bg-transparent cursor-pointer"
-                onClick={() => setShowConfirmRemoveModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  removeExistingUsers();
-                }}
-                className="bg-[#023E8A] p-2 px-4 hover:bg-blue-700 cursor-pointer"
-              >
-                {isLoadRemove && (
-                  <LoaderCircleIcon
-                    stroke="#ffffff"
-                    style={{ animation: "spin 1s linear infinite" }}
-                  />
-                )}
-                Yes, Proceed
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Success Modal for Removing Users */}
-        <Dialog
-          open={showSuccessRemoveModal}
-          onOpenChange={setShowSuccessRemoveModal}
-        >
-          <DialogContent className="w-full lg:max-w-sm max-w-sm p-8">
-            <div className="flex flex-col items-center">
-              <DialogHeader className="text-center">
-                <DialogTitle className="text-xl font-[500] text-[#181818]"></DialogTitle>
-              </DialogHeader>
-              <img
-                src="/assets/icons/blue-success.svg"
-                alt="Success"
-                className="w-20 h-20 my-6"
-              />
-              <DialogDescription className="lg:text-lg text-[14px] text-gray-700 text-center px-4 font-bold">
-                Users Removed Successfully
-              </DialogDescription>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <ClientOnly>
+          <UserSelectionModal
+            isOpen={modals.showAddUser}
+            onClose={() => setModalState("showAddUser", false)}
+            users={filteredUsersToAdd}
+            selectedUserIds={selectedUserIdsToAdd}
+            searchQuery={searchQuery}
+            onSearchChange={(e) => dispatch({ type: 'SET_SEARCH_QUERY', payload: e.target.value })}
+            onUserSelect={(id) => dispatch({ type: 'TOGGLE_USER_SELECTION_ADD', payload: id })}
+            isLoading={isLoading}
+          />
+          <ConfirmModal
+            isOpen={modals.showConfirmAdd}
+            onClose={() => setModalState("showConfirmAdd", false)}
+            onConfirm={addUsersToRole}
+            title="Confirm Member Transfer?"
+            description={`You are about to add ${selectedUserIdsToAdd.length} selected user(s) to this role. These users will be removed from their current roles. Do you want to proceed?`}
+            isLoading={isAdding}
+          />
+          <SuccessModal
+            isOpen={modals.showSuccessAdd}
+            onClose={() => setModalState("showSuccessAdd", false)}
+            title="Success"
+            description="User Added Successfully"
+          />
+          <ConfirmModal
+            isOpen={modals.showConfirmRemove}
+            onClose={() => setModalState("showConfirmRemove", false)}
+            onConfirm={removeExistingUsers}
+            title="Confirm Remove Users?"
+            description={`You are about to remove the selected users from ${currentRole?.name} role. They will no longer have access to these role permissions. Do you want to proceed?`}
+            isLoading={isRemoving}
+            confirmButtonVariant="destructive"
+          />
+          <SuccessModal
+            isOpen={modals.showSuccessRemove}
+            onClose={() => setModalState("showSuccessRemove", false)}
+            title="Success"
+            description="Users Removed Successfully"
+          />
+        </ClientOnly>
       </main>
     </div>
   );
 };
 
-export default ManageUsers;
+// --- SUB-COMPONENTS ---
+
+const AddNewUserTab = ({ selectedUserIds, usersAssignedToOtherRoles, onUserSelect, onShowUserModal, onConfirm }: { selectedUserIds: number[], usersAssignedToOtherRoles: UserWithRole[], onUserSelect: (id: number) => void, onShowUserModal: () => void, onConfirm: () => void }) => (
+    <div className="space-y-4 px-3">
+        <p>Assign user from another role</p>
+        <Button variant="outline" className="w-full justify-between" onClick={onShowUserModal}>
+            <span>{selectedUserIds.length > 0 ? `${selectedUserIds.length} user(s) selected` : "Select User"}</span>
+            <Image src="/assets/icons/arrow-down.svg" alt="arrow-down" width={12} height={12} />
+        </Button>
+        <div className="flex flex-wrap gap-2 items-start">
+          {selectedUserIds.length > 0 && usersAssignedToOtherRoles
+              .filter((user) => selectedUserIds.includes(user.id))
+              .map((user) => (
+                  <div key={user.id} className="flex items-center gap-2 bg-gray-100 p-2 rounded-md">
+                      <p>{user.name}</p>
+                      <X className="w-4 h-4 cursor-pointer" onClick={() => onUserSelect(user.id)} />
+                  </div>
+              ))
+          }
+        </div>
+        <Button onClick={onConfirm} className="mt-24 w-full" disabled={selectedUserIds.length === 0}>
+            Add
+        </Button>
+    </div>
+);
+
+const RemoveExistingUserTab = ({ users, selectedUserIds, onUserSelect, onConfirm, disabled }: { users: AssignedUser[], selectedUserIds: number[], onUserSelect: (id: number) => void, onConfirm: () => void, disabled: boolean }) => (
+    <div className="space-y-8 px-3">
+        <p className="font-bold">Select Users to remove</p>
+        {users.length > 0 ? users.map((user) => (
+            <div key={user.id} className="flex justify-between items-center py-2 border-b">
+                <div>
+                    <p className="font-semibold">{user.name || 'Unknown User'}</p>
+                    <p className="text-sm text-gray-500">{user.email}</p>
+                </div>
+                <input
+                    type="checkbox"
+                    className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary"
+                    title={`Select ${user.name} to remove`}
+                    checked={selectedUserIds.includes(user.id)}
+                    onChange={() => onUserSelect(user.id)}
+                    aria-label={`Remove ${user.name}`}
+                />
+            </div>
+        )) : <p className="text-center text-gray-500">No users in this role.</p>}
+        <Button onClick={onConfirm} variant="destructive" className="mt-24 w-full" disabled={disabled}>
+            Remove
+        </Button>
+    </div>
+);
+
+const UserSelectionModal = ({ isOpen, onClose, users, selectedUserIds, searchQuery, onSearchChange, onUserSelect, isLoading }: { isOpen: boolean, onClose: () => void, users: UserWithRole[], selectedUserIds: number[], searchQuery: string, onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void, onUserSelect: (id: number) => void, isLoading: boolean }) => (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl overflow-y-auto w-[90vw] max-h-[85vh]">
+            <DialogHeader><DialogTitle>Select Users to Add</DialogTitle></DialogHeader>
+            <div className="relative my-4">
+                <SearchIcon className="w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input type="search" className="w-full border border-gray-300 rounded-lg p-2 pl-10" placeholder="Search Users by name or email" value={searchQuery} onChange={onSearchChange} aria-label="Search Users by name or email" />
+            </div>
+            {isLoading ? <div className="flex justify-center p-8"><LoaderCircleIcon className="animate-spin" /></div> :
+                <div className="space-y-2">
+                    {users.length === 0 ? <p className="text-center text-gray-500">No users available to add.</p> :
+                        users.map((user) => (
+                            <div key={user.id} className="flex justify-between w-full items-center py-2 border-b">
+                                <div className="flex items-center gap-4">
+                                    <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary" title={`Select ${user.name} to add`} checked={selectedUserIds.includes(user.id)} onChange={() => onUserSelect(user.id)} aria-label={`Add ${user.name}`} />
+                                    <div>
+                                        <p>{user.name || "Unknown user"}</p>
+                                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                                    </div>
+                                </div>
+                                <p className="text-blue-500 text-nowrap text-sm">{user.roleName}</p>
+                            </div>
+                        ))}
+                </div>
+            }
+        </DialogContent>
+    </Dialog>
+);
+
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, description, isLoading, confirmButtonVariant = "default" }: { isOpen: boolean, onClose: () => void, onConfirm: () => void, title: string, description: string, isLoading: boolean, confirmButtonVariant?: "default" | "destructive" }) => (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent>
+            <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+            <DialogDescription className="pt-2">{description}</DialogDescription>
+            <div className="flex items-center gap-2 justify-end pt-5">
+                <Button variant="outline" onClick={onClose} disabled={isLoading}>Cancel</Button>
+                <Button onClick={onConfirm} variant={confirmButtonVariant} disabled={isLoading}>
+                    {isLoading && <LoaderCircleIcon className="animate-spin mr-2 h-4 w-4" />}
+                    Yes, Proceed
+                </Button>
+            </div>
+        </DialogContent>
+    </Dialog>
+);
+
+const SuccessModal = ({ isOpen, onClose, title, description }: { isOpen: boolean, onClose: () => void, title: string, description: string }) => (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent>
+            <div className="flex flex-col items-center text-center p-4">
+                <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+                <Image src="/assets/icons/blue-success.svg" alt="Success" width={80} height={80} className="my-6" />
+                <DialogDescription>{description}</DialogDescription>
+            </div>
+        </DialogContent>
+    </Dialog>
+);
+
+
+export default ManageUsersPage;

@@ -20,7 +20,6 @@ function ResetPasswordPage() {
 
   const handleSuccess = ({
     targetPage,
-    message,
   }: {
     targetPage: "reset" | "otp" | "otp-sent" | "newPassword" | "success";
     message?: string;

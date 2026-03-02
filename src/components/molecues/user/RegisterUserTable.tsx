@@ -8,7 +8,7 @@ import {
   UserActivationDialog,
 } from "@/components/molecues/user/AllUserComponents";
 
-import { useGetUsers, useExportCSV, useGetUser } from "@/hooks/api/user";
+import { useUsers, useExportCSV, useUser } from "@/hooks/api/user";
 import Button from "@/components/reuseables/Button";
 import { useRouter } from "next/navigation";
 import {
@@ -42,7 +42,7 @@ export const UsersTable = ({
     setDateJoinedAfter,
     setDateJoinedBefore,
     refetch,
-  } = useGetUsers();
+  } = useUsers({});
 
   useEffect(() => {
     setSearchTerm(searchTerm);
@@ -71,9 +71,9 @@ export const UsersTable = ({
   const [reactivatingUser, setReactivatingUser] = useState(null);
   const [isReactivateDialogOpen, setIsReactivateDialogOpen] = useState(false);
 
-  const { data: userDetails, loading: userLoading } = useGetUser({
-    UserId: userId as string,
-    initalFetch: !!userId,
+  const { data: userDetails, isLoading: userLoading } = useUser({
+    userId: userId as string,
+    initialFetch: !!userId,
     successCallback: (message) => {
       console.log("User details fetched successfully:", message);
     },
