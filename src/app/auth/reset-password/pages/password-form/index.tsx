@@ -3,18 +3,26 @@ import React from "react";
 import AuthWrapper from "@/app/auth/AuthWrapper";
 import Button from "@/components/reuseables/Button";
 import { InputReuseables } from "@/app/auth/login/page";
-import Link from "next/link";
-import { useField } from "formik";
-import { FieldMetaProps } from "formik/dist/types";
 import { Formik, Form } from "formik";
-import { useRouter } from "next/navigation";
-import * as Yup from "yup";
-import { useForgotPassword, useNewPassword } from "@/hooks/api/auth";
+import { useNewPassword } from "@/hooks/api/auth";
 import AuthService from "@/services/auth";
+import Image from "next/image";
 
 interface ResetPasswordFormProps {
-  form: any;
-  setForm: React.Dispatch<React.SetStateAction<any>>;
+  form: {
+    email: string;
+    password: string;
+    confirmPassword: string;
+    otp: string;
+  };
+  setForm: React.Dispatch<
+    React.SetStateAction<{
+      email: string;
+      password: string;
+      confirmPassword: string;
+      otp: string;
+    }>
+  >;
   handleSuccess: ({
     message,
     targetPage,
@@ -45,10 +53,7 @@ const NewPassword = ({
 export const ResetComponent = ({
   handleSuccess,
   form,
-  setForm,
 }: ResetPasswordFormProps) => {
-  const [errorMsg, setErrorMsg] = React.useState("");
-
   const { loading, onNewPassword } = useNewPassword({
     Service: AuthService,
   });
@@ -60,10 +65,8 @@ export const ResetComponent = ({
   }) => {
     const { email, otp } = form || {};
     const { password, confirmPassword } = values;
-    setErrorMsg("");
 
     if (password !== confirmPassword) {
-      setErrorMsg("Passwords do not match");
       return;
     }
 
@@ -76,12 +79,10 @@ export const ResetComponent = ({
 
     onNewPassword({
       payload,
-      successCallback: (message) => {
+      successCallback: () => {
         handleSuccess({ targetPage: "success" });
       },
-      errorCallback: ({ message }) => {
-        setErrorMsg(message || "");
-      },
+      errorCallback: () => {},
     });
   };
 
@@ -90,13 +91,15 @@ export const ResetComponent = ({
       initialValues={{ email: "", password: "", confirmPassword: "" }} // Include password and confirmPassword in initialValues
       onSubmit={handleSubmit}
     >
-      {({ isValid, values }) => (
+      {({ isValid }) => (
         <div className="bg-[#fff] p-[40px] space-y-10 rounded-[20px]">
           <div className="flex flex-col items-center gap-4">
-            <img
+            <Image
               src="/assets/images/company-logo.svg"
               alt=""
               className="lg:w-28 w-28 "
+              width={112}
+              height={112}
             />
             <p className="text-[#181818] lg:text-2xl lg:font-semibold font-[500] text-[18px] ">
               Reset Password
@@ -139,18 +142,6 @@ const Inputs = () => {
       />
     </div>
   );
-};
-
-// Reuse the FieldError component from your login page
-const FieldError = ({ meta }: { meta: FieldMetaProps<any> }) => {
-  if (meta.touched && meta.error) {
-    return (
-      <div className="mt-1 font-gordita text-xs leading-5 font-normal text-[#FF0000]">
-        {meta.error}
-      </div>
-    );
-  }
-  return null;
 };
 
 export default NewPassword;

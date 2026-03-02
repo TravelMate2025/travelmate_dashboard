@@ -1,5 +1,4 @@
-"use client";
-import React from "react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useGetBooking } from "@/hooks/api/bookings";
 
@@ -30,11 +29,13 @@ export default function BookingDetailsPage() {
       <div className="space-y-[24px]">
         <div className="flex justify-between items-center">
           <div className="flex space-x-4 items-center">
-            <img
+            <Image
               src="/assets/icons/arrow-back.svg"
               alt="Go back"
               className="cursor-pointer"
               onClick={() => router.back()}
+              width={24}
+              height={24}
             />
             <h1 className="text-[28px] font-semibold text-[#181818]">
               Booking Details
@@ -125,11 +126,13 @@ export default function BookingDetailsPage() {
     <div className="space-y-[24px]">
       <div className="flex justify-between items-center">
         <div className="flex space-x-4 items-center">
-          <img
+          <Image
             src="/assets/icons/arrow-back.svg"
             alt="Go back"
             className="cursor-pointer"
             onClick={() => router.back()}
+            width={24}
+            height={24}
           />
           <h1 className="text-[28px] font-semibold text-[#181818]">
             Booking Details

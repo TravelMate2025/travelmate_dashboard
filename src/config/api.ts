@@ -1,5 +1,8 @@
-const api = () => {
-  const BASE_URL_LINK = "https://travelmate-backend-0suw.onrender.com";
+const api = ({ inProduction }: { inProduction: boolean }) => {
+  const BASE_URL_STAGING = "https://travelmate-backend-knvd.onrender.com/api";
+  const BASE_URL_PROD = "https://travelmate-backend-1-1lgj.onrender.com/api";
+
+  const BASE_URL_LINK = inProduction ? BASE_URL_PROD : BASE_URL_STAGING;
 
   return {
     auth: BASE_URL_LINK + "/api/auth/",

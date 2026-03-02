@@ -157,6 +157,7 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
                 notifications.length > 0
               }
               onChange={handleSelectAll}
+              aria-label="Select all notifications"
             />
             <button
               onClick={() => refetch()}
@@ -297,6 +298,7 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
                     className="form-checkbox h-5 w-5"
                     checked={selectedNotifications.includes(String(n.id))}
                     onChange={() => handleSelect(String(n.id))}
+                    aria-label={`Select notification ${n.id}`}
                   />
                   <div className="space-y-2 flex-1">
                     <p className="text-[18px] font-[500] text-[#181818]">

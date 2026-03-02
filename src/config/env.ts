@@ -3,12 +3,12 @@ import api from "./api";
 import links from "./links";
 
 const inProduction: boolean =
-  process.env.NEXT_PUBLIC_ENVIRONMENT !== "production" ? false : true;
+  process.env.NEXT_PUBLIC_ENVIRONMENT === "production";
 
 const env = {
   api: api({ inProduction }),
-  auth: auth({ inProduction }),
-  links: links({ inProduction }),
+  auth: auth(),
+  links: links(),
 };
 
 export default env;

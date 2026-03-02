@@ -1,133 +1,112 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import UserService from "@/services/user";
-import axios from "axios";
 import env from "@/config/env";
 import instance from "@/hooks/initializers/useAxiosDefaults";
+import { User, UsersResponse } from "@/types";
 
-export function useGetUser({
-  UserId,
-  initalFetch = true,
+export function useUser({
+  userId,
+  initialFetch = true,
   successCallback,
   errorCallback,
 }: {
-  UserId?: string;
-  initalFetch?: boolean;
+  userId?: string;
+  initialFetch?: boolean;
   successCallback?: (message: string) => void;
   errorCallback?: (props: { message?: string; description?: string }) => void;
 }) {
-  console.log("fetching...", UserId);
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [data, setData] = useState<User | null>(null);
 
-  const fetchUser = async () => {
-    if (!UserId) return;
-    setLoading(true);
+  const fetchUser = useCallback(async () => {
+    if (!userId) return;
+    setIsLoading(true);
     try {
-      const res = await UserService.getUser({ UserId });
+      const res = await UserService.getUser({ UserId: userId });
       setData(res.data);
       if (successCallback)
         successCallback("User Profile fetched successfully.");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       if (errorCallback)
         errorCallback({
-          message: "An error occurred while fetching the ticket",
-          description: error?.message || "Unknown error",
+          message: "An error occurred while fetching the user",
+          description: errorMessage,
+        });
+      else
+        showErrorToast({
+          message: "An error occurred while fetching the user",
         });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
+  }, [userId, successCallback, errorCallback]);
 
   useEffect(() => {
-    if (initalFetch) fetchUser();
-  }, [initalFetch, UserId]);
+    if (initialFetch) fetchUser();
+  }, [initialFetch, fetchUser]);
 
-  return { loading, data };
+  return { isLoading, data };
 }
 
-interface User {
-  id: number;
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
-  name: string;
-  profile_picture: string;
-  date_created: string;
-  total_bookings: number;
-  is_active: boolean;
-  reason: string;
-  deleted_at: string;
-}
-
-interface UsersResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: User[];
-}
-
-export const useGetUsers = () => {
-  const BASE_URL = "https://travelmate-backend-0suw.onrender.com/api/superuser";
-
+export const useUsers = ({
+  endpoint = env.api.users,
+}: {
+  endpoint?: string;
+}) => {
   const [users, setUsers] = useState<User[]>([]);
   const [nextPageUrl, setNextPageUrl] = useState<string | null>(null);
   const [previousPageUrl, setPreviousPageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isActive, setIsActive] = useState<string | null>(null);
 
   const [dateJoinedAfter, setDateJoinedAfter] = useState<string | null>(null);
-  const [dateJoinedBefore, setDateJoinedBefore] = useState<string | null>(null);
+  const [dateJoinedBefore, setDateJoinedBefore] = useState<string | null>(
+    null
+  );
 
-  const hasFetchedInitial = useRef(false);
-
-  const buildUrl = () => {
+  const buildUrl = useCallback(() => {
     const params = new URLSearchParams();
     if (searchTerm) params.append("search", searchTerm);
     if (isActive !== null) params.append("is_active", isActive);
     if (dateJoinedAfter) params.append("date_joined_after", dateJoinedAfter);
-    if (dateJoinedBefore) params.append("date_joined_before", dateJoinedBefore);
+    if (dateJoinedBefore)
+      params.append("date_joined_before", dateJoinedBefore);
 
-    return `${BASE_URL}${params.toString() ? `?${params.toString()}` : ""}`;
-  };
+    return `${endpoint}${params.toString() ? `?${params.toString()}` : ""}`;
+  }, [searchTerm, isActive, dateJoinedAfter, dateJoinedBefore, endpoint]);
 
-  const fetchUsers = async (url?: string, reset = false) => {
-    try {
-      setLoading(true);
-      setError(null);
+  const fetchUsers = useCallback(
+    async (url?: string, reset = false) => {
+      try {
+        setIsLoading(true);
 
-      const endpoint = url || buildUrl();
-      const response = await instance.get(endpoint);
-      const data: UsersResponse = response.data;
+        const newEndpoint = url || buildUrl();
+        const response = await instance.get(newEndpoint);
+        const data: UsersResponse = response.data;
 
-      setUsers((prev) => (reset ? data.results : [...prev, ...data.results]));
-      setNextPageUrl(data.next);
-      setPreviousPageUrl(data.previous);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+        setUsers((prev) =>
+          reset ? data.results : [...prev, ...data.results]
+        );
+        setNextPageUrl(data.next);
+        setPreviousPageUrl(data.previous);
+      } catch (err) {
+        showErrorToast({ message: "Failed to fetch users" });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [buildUrl]
+  );
 
-  // Fetch initial data once
-  useEffect(() => {
-    if (!hasFetchedInitial.current) {
-      fetchUsers(undefined, true);
-      hasFetchedInitial.current = true;
-    }
-  }, []);
-
-  // Refetch when filters change
   useEffect(() => {
     fetchUsers(undefined, true);
-  }, [searchTerm, isActive, dateJoinedAfter, dateJoinedBefore]);
+  }, [fetchUsers]);
 
   const loadNext = () => {
     if (nextPageUrl) fetchUsers(nextPageUrl, false);
@@ -145,8 +124,7 @@ export const useGetUsers = () => {
     users,
     loadNext,
     loadPrevious,
-    loading,
-    error,
+    isLoading,
     nextPageUrl,
     previousPageUrl,
     setSearchTerm,
@@ -157,102 +135,19 @@ export const useGetUsers = () => {
   };
 };
 
-
-export const useGetDeletedUsers = () => {
-  const BASE_URL =
-    "https://travelmate-backend-0suw.onrender.com/api/superuser/soft-deleted-users/";
-
-  const [users, setUsers] = useState<User[]>([]);
-  const [nextPageUrl, setNextPageUrl] = useState<string | null>(null);
-  const [previousPageUrl, setPreviousPageUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [isActive, setIsActive] = useState<string | null>(null);
-
-  const hasFetchedInitial = useRef(false);
-
-  const buildUrl = () => {
-    const params = new URLSearchParams();
-    if (searchTerm) params.append("search", searchTerm);
-    if (isActive !== null) params.append("is_active", isActive);
-
-    return `${BASE_URL}${params.toString() ? `?${params.toString()}` : ""}`;
-  };
-
-  const fetchUsers = async (url?: string, reset = false) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const endpoint = url || buildUrl();
-      const response = await instance.get(endpoint);
-      const data: UsersResponse = response.data;
-
-      // Replace the users list if reset === true, else append
-      setUsers(reset ? data.results : [...users, ...data.results]);
-      setNextPageUrl(data.next);
-      setPreviousPageUrl(data.previous);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch initial data once
-  useEffect(() => {
-    if (!hasFetchedInitial.current) {
-      fetchUsers(undefined, true);
-      hasFetchedInitial.current = true;
-    }
-  }, []);
-
-  // Refetch when searchTerm or isActive changes
-  useEffect(() => {
-    fetchUsers(undefined, true);
-  }, [searchTerm, isActive]);
-
-  // Load next page and replace user list
-  const loadNext = () => {
-    if (nextPageUrl) fetchUsers(nextPageUrl, true);
-  };
-
-  // Load previous page and replace user list
-  const loadPrevious = () => {
-    if (previousPageUrl) fetchUsers(previousPageUrl, true);
-  };
-
-  return {
-    users,
-    loadNext,
-    loadPrevious,
-    loading,
-    error,
-    nextPageUrl,
-    previousPageUrl,
-    setSearchTerm,
-    setIsActive,
-  };
-};
-
 export const useDeactivateUser = () => {
-  const [deactivating, setLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const onDeactivateUser = async ({
     payload,
     userId,
     successCallback,
   }: {
-    payload: { email: string; reason?: string; additional_note?: string };
-    userId: any;
+    payload: { reason?: string; additional_note?: string };
+    userId: string;
     successCallback?: () => void;
   }) => {
-    setLoading(true);
-    setIsSuccess(false);
+    setIsLoading(true);
 
     const data = {
       additional_reason: payload.additional_note,
@@ -268,40 +163,32 @@ export const useDeactivateUser = () => {
 
       showSuccessToast({ message, description });
 
-      try {
-        successCallback?.();
-      } catch (callbackError) {
-        console.error("Error in successCallback:", callbackError);
-      }
-
-      setIsSuccess(true);
-    } catch (error: any) {
+      successCallback?.();
+    } catch (error: unknown) {
       showErrorToast({
-        message: "unable to deactivate user at the moment",
+        message: "Unable to deactivate user at the moment",
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  return { deactivating, onDeactivateUser, isSuccess };
+  return { isLoading, onDeactivateUser };
 };
 
 export const useReactivateUser = () => {
-  const [reactivating, setLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const onReactivateUser = async ({
     payload,
     userId,
     successCallback,
   }: {
-    payload: { email: string; reason?: string; additional_note?: string };
-    userId: any;
+    payload: { reason?: string; additional_note?: string };
+    userId: string;
     successCallback?: () => void;
   }) => {
-    setLoading(true);
-    setIsSuccess(false);
+    setIsLoading(true);
 
     const data = {
       additional_reason: payload.additional_note,
@@ -317,28 +204,21 @@ export const useReactivateUser = () => {
 
       showSuccessToast({ message, description });
 
-      try {
-        successCallback?.();
-      } catch (callbackError) {
-        console.error("Error in successCallback:", callbackError);
-      }
-
-      setIsSuccess(true);
-    } catch (error: any) {
+      successCallback?.();
+    } catch (error: unknown) {
       showErrorToast({
-        message: "unable to deactivate user at the moment",
+        message: "Unable to reactivate user at the moment",
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  return { reactivating, onReactivateUser, isSuccess };
+  return { isLoading, onReactivateUser };
 };
 
 export const useExportCSV = () => {
-  const [exporting, setLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const onExportCSV = async ({
     successCallback,
@@ -347,8 +227,7 @@ export const useExportCSV = () => {
     successCallback?: () => void;
     errorCallback?: (error: Error) => void;
   }) => {
-    setLoading(true);
-    setIsSuccess(false);
+    setIsLoading(true);
 
     try {
       const res = await UserService.exportCSV();
@@ -363,13 +242,12 @@ export const useExportCSV = () => {
       document.body.removeChild(link);
 
       successCallback?.();
-      setIsSuccess(true);
 
       showSuccessToast({
         message: "CSV Export Successful",
         description: "The user data has been exported to CSV format.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error exporting CSV:", error);
 
       showErrorToast({
@@ -377,28 +255,28 @@ export const useExportCSV = () => {
         description: "An error occurred while exporting the CSV.",
       });
 
-      errorCallback?.(error as Error);
+      errorCallback?.(
+        error instanceof Error ? error : new Error(String(error))
+      );
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  return { exporting, onExportCSV, isSuccess };
+  return { isLoading, onExportCSV };
 };
 
 export const useDeleteUser = () => {
-  const [deleting, setLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const onDeleteUser = async ({
     userId,
     successCallback,
   }: {
-    userId: any;
+    userId: string;
     successCallback?: () => void;
   }) => {
-    setLoading(true);
-    setIsSuccess(false);
+    setIsLoading(true);
 
     try {
       const res = await UserService.deleteUser({ userId });
@@ -409,28 +287,21 @@ export const useDeleteUser = () => {
 
       showSuccessToast({ message, description });
 
-      try {
-        successCallback?.();
-      } catch (callbackError) {
-        console.error("Error in successCallback:", callbackError);
-      }
-
-      setIsSuccess(true);
-    } catch (error: any) {
+      successCallback?.();
+    } catch (error: unknown) {
       showErrorToast({
-        message: "unable to deactivate user at the moment",
+        message: "Unable to delete user at the moment",
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  return { deleting, onDeleteUser, isSuccess };
+  return { isLoading, onDeleteUser };
 };
 
 export const useBulkDeleteUser = () => {
-  const [deleting, setLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const onBulkDeleteUser = async ({
     userIds,
@@ -439,8 +310,7 @@ export const useBulkDeleteUser = () => {
     userIds: number[];
     successCallback?: () => void;
   }) => {
-    setLoading(true);
-    setIsSuccess(false);
+    setIsLoading(true);
 
     try {
       const res = await UserService.bulkDeleteUser({ userIds });
@@ -451,21 +321,15 @@ export const useBulkDeleteUser = () => {
 
       showSuccessToast({ message, description });
 
-      try {
-        successCallback?.();
-      } catch (callbackError) {
-        console.error("Error in successCallback:", callbackError);
-      }
-
-      setIsSuccess(true);
-    } catch (error: any) {
+      successCallback?.();
+    } catch (error: unknown) {
       showErrorToast({
         message: "Unable to delete users at the moment",
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  return { deleting, onBulkDeleteUser, isSuccess };
+  return { isLoading, onBulkDeleteUser };
 };

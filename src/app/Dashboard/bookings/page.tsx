@@ -6,6 +6,7 @@ import BookingTable from "@/components/molecues/bookings/BookingTable";
 import CarBookingTable from "@/components/molecues/bookings/CarsBooking";
 import FlightBookings from "@/components/molecues/bookings/FlightBookings";
 import { useGetAllBookings } from "@/hooks/api/bookings";
+import Image from "next/image";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -161,7 +162,7 @@ const BookingTab: React.FC = () => {
                   <span className="text-[#181818] text-[14px] font-[400]">
                     Currency: {currency === "NGN" ? "NGN – Nigerian Naira (₦)" : "USD – United States Dollar ($)"}
                   </span>
-                  <img src="/assets/icons/chevron-down.svg" alt="" className="rotate-90" />
+                  <Image src="/assets/icons/chevron-down.svg" alt="" className="rotate-90" width={16} height={16} />
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -190,7 +191,7 @@ const BookingTab: React.FC = () => {
                 console.log("Exporting bookings:", current);
               }}
             >
-              <img src="/assets/icons/orange-download.svg" alt="" className=" lg:w-auto" />
+              <Image src="/assets/icons/orange-download.svg" alt="" className=" lg:w-auto" width={24} height={24} />
               <span className="font-[600] text-[16px] lg:text-[16px] text-[#fff]">Export as CSV file</span>
             </div>
           </div>

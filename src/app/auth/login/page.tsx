@@ -8,13 +8,13 @@ import { useField } from "formik";
 import { FieldMetaProps } from "formik/dist/types";
 import { Formik, Form } from "formik";
 import {
-  SignInFormValues,
   authInitialValues,
   authSchema,
 } from "@/lib/auth/yupAuthSchema";
 import { useRouter } from "next/navigation";
 import { useLoginUser } from "@/hooks/api/auth";
 import AuthService from "@/services/auth";
+import Image from "next/image";
 
 const page = () => {
   return (
@@ -44,10 +44,12 @@ const LoginComponent = () => {
       {redirecting ? (
         <div className="bg-[#fff] p-[40px] space-y-10 rounded-[20px]">
           <div className="flex flex-col items-center gap-4">
-            <img
+            <Image
               src="/assets/icons/blue-success.svg"
               alt=""
               className="lg:w-28 w-20 "
+              width={112}
+              height={112}
             />
             <p className="text-[#181818] lg:text-2xl lg:font-semibold font-[500] text-[18px] ">
               Login Successful
@@ -73,10 +75,12 @@ const LoginComponent = () => {
           {({ isValid }) => (
             <div className="bg-[#fff] p-[40px] space-y-10 rounded-[20px]">
               <div className="flex flex-col items-center gap-4">
-                <img
+                <Image
                   src="/assets/images/company-logo.svg"
                   alt=""
                   className="lg:w-28 w-28 "
+                  width={112}
+                  height={112}
                 />
                 <p className="text-[#181818] lg:text-2xl lg:font-semibold font-[500] text-[18px] ">
                   TravelMate
@@ -227,7 +231,7 @@ export const InputReuseables = ({
 interface ErrorProps {
   error?: string;
   touched: boolean;
-  value: any;
+  value: string | number | boolean | string[] | undefined;
   initialError?: string;
   initialTouched: boolean;
   initialValue?: string;

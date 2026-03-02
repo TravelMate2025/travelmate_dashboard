@@ -35,7 +35,9 @@ export const ChatTableDropdown = ({
     >
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <div className="cursor-pointer select-none px-2 py-1 text-lg">⋮</div>
+          <button type="button" aria-label="Chat actions" className="cursor-pointer select-none px-2 py-1 text-lg">
+            ⋮
+          </button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent

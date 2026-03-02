@@ -2,10 +2,11 @@ import type React from "react";
 import type { Metadata } from "next";
 // import { Inter } from "next/font/google";
 import "./globals.css";
-import DashboardLayout from "./dashboard-layout";
 import NextTopLoader from "nextjs-toploader";
 import { AuthContextWrapper } from "@/context/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
+
+import ClientOnly from "./components/ClientOnly";
 
 // const inter = Inter({ subsets: ["latin"] });
 
@@ -20,12 +21,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
         <NextTopLoader color="#151357" height={5} />
-        <AuthContextWrapper>
-          <div className="">{children}</div>
-        </AuthContextWrapper>
+        <ClientOnly>
+          <AuthContextWrapper>
+            <div className="">{children}</div>
+          </AuthContextWrapper>
+        </ClientOnly>
         <Toaster richColors />
       </body>
     </html>

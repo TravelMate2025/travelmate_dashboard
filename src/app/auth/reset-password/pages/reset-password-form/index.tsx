@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Image from "next/image";
 import AuthWrapper from "@/app/auth/AuthWrapper";
 import Button from "@/components/reuseables/Button";
 import { InputReuseables } from "@/app/auth/login/page";
@@ -16,8 +17,20 @@ const resetPasswordSchema = Yup.object().shape({
 });
 
 interface ResetPasswordFormProps {
-  form: any;
-  setForm: React.Dispatch<React.SetStateAction<any>>;
+  form: {
+    email: string;
+    password: string;
+    confirmPassword: string;
+    otp: string;
+  };
+  setForm: React.Dispatch<
+    React.SetStateAction<{
+      email: string;
+      password: string;
+      confirmPassword: string;
+      otp: string;
+    }>
+  >;
   handleSuccess: ({
     message,
     targetPage,
@@ -41,10 +54,10 @@ export const ResetEmailForm: React.FC<ResetPasswordFormProps> = ({
 
     onForgotPassword({
       payload: { email: values.email },
-      successCallback: (message) => {
-        handleSuccess({ message, targetPage: "otp-sent" });
+      successCallback: () => {
+        handleSuccess({ targetPage: "otp-sent" });
       },
-      errorCallback: ({ message }) => {
+      errorCallback: () => {
         showErrorToast({ message: "An error occured" });
       },
     });
@@ -60,10 +73,12 @@ export const ResetEmailForm: React.FC<ResetPasswordFormProps> = ({
         {({ isValid }) => (
           <div className="bg-[#fff] p-[40px] space-y-10 rounded-[20px]">
             <div className="flex flex-col items-center gap-4">
-              <img
+              <Image
                 src="/assets/images/company-logo.svg"
                 alt=""
                 className="lg:w-28 w-28 "
+                width={112}
+                height={112}
               />
               <p className="text-[#181818] lg:text-2xl lg:font-semibold font-[500] text-[18px] ">
                 Reset Password

@@ -1,4 +1,4 @@
-const auth = ({ inProduction }: { inProduction: boolean }) => {
+const auth = () => {
   return {
     PERSIST_AUTH_KEY: "TRAVELMATE_APP_PERSISTOR",
     INITIAL_APP_STATE: {

@@ -25,6 +25,7 @@ import {
   DropdownMenuContent,
 } from "@/components/ui/dropdown-menu";
 import { Download, XCircle } from "lucide-react";
+import Image from "next/image";
 import {
   addRRoles,
   deleteRoles,
@@ -603,10 +604,12 @@ const AdminRolesPage: React.FC = () => {
                           <span className="text-sm">
                             {selectedOption || "Select Role"}
                           </span>
-                          <img
+                          <Image
                             src="/assets/icons/arrow-down.svg"
                             alt=""
                             className="w-3 h-3 ml-auto"
+                            width={12}
+                            height={12}
                           />
                         </button>
                       </DropdownMenuTrigger>
@@ -665,10 +668,12 @@ const AdminRolesPage: React.FC = () => {
                       Admin Added Successfully!
                     </DialogTitle>
                   </DialogHeader>
-                  <img
+                  <Image
                     src="/assets/images/Blue-check.svg"
                     alt="Success"
                     className="w-24 h-24"
+                    width={96}
+                    height={96}
                   />
                   <DialogDescription className="lg:text-lg text-[14px] text-gray-700 text-center px-4 font-[500]">
                     You have successfully invited a new Admin. An invitation

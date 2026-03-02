@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Image from "next/image";
 import { useState, useEffect } from "react";
 import EditDialog from "@/components/molecues/cms/EditDialog";
 import { useGetAllServices } from "@/hooks/api/cms";
@@ -62,10 +63,12 @@ const CmsContent = () => {
                       </td>
                       <td>
                         <div className="flex space-x-2 items-center cursor-pointer">
-                          <img
+                          <Image
                             src="/assets/icons/mode_edit.svg"
                             alt="Edit"
                             className="w-4 h-4 lg:w-5 lg:h-5"
+                            width={20}
+                            height={20}
                           />
                           <EditDialog
                             serviceId={service.id}
@@ -90,7 +93,12 @@ const CmsContent = () => {
         <div className="w-full h-[1px] bg-[#EBECED]"></div>
 
         <div className="p-[12px] flex space-x-[10px] bg-[#CCD8E833] border-[#023E8A] border rounded-lg items-start">
-          <img src="/assets/icons/in-fo.svg" alt="Info" />
+          <Image
+            src="/assets/icons/in-fo.svg"
+            alt="Info"
+            width={24}
+            height={24}
+          />
           <div>
             <h1 className="text-[16px] font-medium text-[#023E8A]">
               How Service Commission Works

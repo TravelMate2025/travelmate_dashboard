@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 // import { GridValues, FlexValues, Policy, Transaction}  from "../page";
 import { Switch } from "@/components/ui/switch";
@@ -21,11 +22,13 @@ const page = () => {
   return (
     <div className="space-y-[24px]">
       <div className="flex space-x-4 items-center">
-        <img
+        <Image
           src="/assets/icons/arrow-back.svg"
           alt=""
           className=" cursor-pointer "
           onClick={() => router.back()}
+          width={24}
+          height={24}
         />
         <h1 className="text-[24px] font-semibold text-[#181818]">
           Cancel Booking
@@ -117,7 +120,13 @@ const Form = () => {
 
         <div className="flex justify-between items-center bg-[#DEDFE126] rounded-[12px] p-[12px]">
           <div className="flex items-center space-x-1">
-            <img src="/assets/icons/vector-red.svg" alt="" className="" />
+            <Image
+              src="/assets/icons/vector-red.svg"
+              alt=""
+              className=""
+              width={16}
+              height={16}
+            />
             <p className="text-[#D72638] text-[18px] font-[500]">
               Override Policy
             </p>

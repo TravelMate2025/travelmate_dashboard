@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect, useMemo, useCallback, act } from "react";
 import {
   DropdownMenu,
@@ -33,8 +34,14 @@ export const TableDropdown = ({
     <div className="relative overflow-visible">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <div className="cursor-pointer select-none px-2 py-1 text-lg">⋮</div>
-        </DropdownMenuTrigger>
+            <button 
+              className="cursor-pointer select-none px-2 py-1 text-lg" 
+              aria-label="More options"
+              title="More options"
+            >
+              ⋮
+            </button>
+          </DropdownMenuTrigger>
 
         <DropdownMenuContent
           side="bottom"
@@ -197,8 +204,10 @@ export const TicketDetailsDialog = ({
         <button
           className="absolute top-[16px] right-[16px] text-gray-500 cursor-pointer"
           onClick={onClose}
+          aria-label="Close modal"
+          title="Close modal"
         >
-          <img src="/assets/icons/modalClose.svg" alt="" className="w-[20px]" />
+          <img src="/assets/icons/modalClose.svg" alt="Close modal" className="w-[20px]" />
         </button>
       </div>
     </div>
@@ -370,9 +379,10 @@ export const ViewingChatModal = ({
             <button
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 focus:outline-none"
               onClick={onClose}
-              aria-label="Close Modal"
+              aria-label="Close modal"
+              title="Close modal"
             >
-              <img src="/assets/icons/modalClose.svg" alt="Close Modal" />
+              <img src="/assets/icons/modalClose.svg" alt="Close modal" />
             </button>
           </>
         ) : null}
@@ -883,6 +893,7 @@ export const EscalatedTicketChatModal: React.FC<
         className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 focus:outline-none"
         onClick={onClose}
         aria-label="Close Modal"
+        title="Close Modal"
       >
         <img src="/assets/icons/modalClose.svg" alt="Close Modal" />
       </button>
@@ -1053,8 +1064,10 @@ export const EscalatedTicketDetailsDialog = ({
         <button
           className="absolute top-[16px] right-[16px] text-gray-500 cursor-pointer"
           onClick={onClose}
+          aria-label="Close modal"
+          title="Close modal"
         >
-          <img src="/assets/icons/modalClose.svg" alt="" className="w-[20px]" />
+          <img src="/assets/icons/modalClose.svg" alt="Close modal" className="w-[20px]" />
         </button>
       </div>
     </div>

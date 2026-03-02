@@ -1,3 +1,4 @@
+import Image from "next/image";
 import React from "react";
 import AuthWrapper from "../AuthWrapper";
 import Button from "@/components/reuseables/Button";
@@ -14,10 +15,12 @@ const EmailComponent = () => {
   return (
     <div className="bg-[#fff] p-[40px] space-y-10 rounded-[20px]">
       <div className="flex flex-col items-center gap-4">
-        <img
+        <Image
           src="/assets/images/company-logo.svg"
           alt=""
           className="lg:w-28 w-[53px]"
+          width={112}
+          height={112}
         />
         <p className="text-[#181818] lg:text-2xl lg:font-semibold font-[500] text-[18px] ">
           Email Sent

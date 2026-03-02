@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   UserDetailsDialog,
   UserDropdown,
@@ -10,8 +10,8 @@ import {
 } from "@/components/molecues/user/DeleteUserComponent";
 
 import {
-  useGetDeletedUsers,
-  useGetUser,
+  useUsers,
+  useUser,
   useBulkDeleteUser,
 } from "@/hooks/api/user";
 import {
@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { useMyRoles } from "@/hooks/api/roles";
-import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const BulkDeleteConfirmationDialog = ({
   isOpen,
@@ -100,23 +100,33 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
     setIsActive,
     nextPageUrl,
     previousPageUrl,
-  } = useGetDeletedUsers();
+  } = useUsers();
 
   const [selectedUser, setSelectedUser] = useState(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [deactivatingUser, setDeactivatingUser] = useState(null);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [parentWidth, setParentWidth] = useState<number>(0);
 
   // New state for bulk delete confirmation dialog
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
-  // Bulk delete hook
-  const { deleting, onBulkDeleteUser, isSuccess } = useBulkDeleteUser();
+  // Ref for table cell width calculation
+  const tableRef = useRef<HTMLDivElement>(null);
 
-  const { data: userDetails, loading: userLoading } = useGetUser({
+  // Bulk delete hook
+  const { deleting, onBulkDeleteUser } = useBulkDeleteUser();
+
+  useEffect(() => {
+    if (tableRef.current) {
+      setParentWidth(tableRef.current.offsetWidth);
+    }
+  }, []);
+
+  const { data: userDetails } = useUser({
     UserId: userId as string,
-    initialFetch: !!userId,
+    initalFetch: !!userId,
     successCallback: (message) => {
       console.log("User details fetched successfully:", message);
     },
@@ -168,13 +178,6 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
     setIsDeactivateDialogOpen(true);
   };
 
-  const confirmDeactivation = () => {
-    if (deactivatingUser) {
-      setDeactivatingUser(null);
-      setIsDeactivateDialogOpen(false);
-    }
-  };
-
   const handleDialogClose = () => {
     setSelectedUser(null);
     setUserId(null);
@@ -194,22 +197,23 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
   };
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedUserIds(checked ? users.map((user) => user.id) : []);
+    setSelectedUserIds(checked ? users.map((user) => user.id.toString()) : []);
   };
 
   return (
     <div className="relative w-full">
       {selectedUserIds.length > 0 && (
         <div className="flex justify-end mb-4">
-          <button
-            className={`text-white text-[14px] font-[400] py-2 px-4 rounded-[8px] transition duration-200 ${
-              deleting
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-red-500 hover:bg-red-600"
-            }`}
-            onClick={handleBulkDeleteClick}
-            disabled={deleting}
-          >
+            <button
+              type="button"
+              className={`text-white text-[14px] font-[400] py-2 px-4 rounded-[8px] transition duration-200 ${
+                deleting
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-red-500 hover:bg-red-600"
+              }`}
+              onClick={handleBulkDeleteClick}
+              disabled={deleting}
+            >
             {deleting
               ? "Deleting..."
               : `Delete Selected Users (${selectedUserIds.length})`}
@@ -249,6 +253,7 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
                               users.length > 0 &&
                               selectedUserIds.length === users.length
                             }
+                            aria-label="Select all users"
                             // React doesn't support indeterminate attribute on input directly,
                             // so you'd handle it via ref if needed — omitted for brevity
                           />
@@ -286,9 +291,10 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
                             <input
                               type="checkbox"
                               className="w-5 h-5 rounded border-gray-300 text-red-500 focus:ring-red-400"
-                              checked={selectedUserIds.includes(user.id)}
-                              onChange={() => toggleSelectUser(user.id)}
+                              checked={selectedUserIds.includes(user.id.toString())}
+                              onChange={() => toggleSelectUser(user.id.toString())}
                               disabled={deleting}
+                              aria-label={`Select user ${user.id}`}
                             />
                           </TableCell>
                           <TableCell className="py-4 px-6 text-[14px] font-[400] text-[#181818]">
@@ -301,10 +307,10 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
                             {user.email}
                           </TableCell>
                           <TableCell className="py-4 px-6 text-[14px] font-[400] text-[#181818]">
-                            {user.registration_date
-                              ? format(new Date(user.registration_date), "MM/dd/yyyy")
-                              : "---"}
-                          </TableCell>
+                                            {user.createdAt
+                                              ? format(new Date(user.createdAt), "MM/dd/yyyy")
+                                              : "---"}
+                                          </TableCell>
                           <TableCell className="py-4 px-6 text-[14px] font-[400] text-[#181818]">
                             {user.deleted_at
                               ? format(new Date(user.deleted_at), "MM/dd/yyyy")
@@ -315,6 +321,7 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
                           </TableCell>
                           <TableCell className="py-4 px-6 text-center">
                             <UserDropdown
+                              parentWidth={parentWidth}
                               onViewDetails={() => handleViewDetails(user)}
                               onDeactivate={() => handleDeactivateUser(user)}
                             />
@@ -335,7 +342,7 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
           isOpen={!!selectedUser}
           selectedUser={selectedUser}
           userDetails={userDetails}
-          userLoading={userLoading}
+          userLoading={loading}
           onClose={handleDialogClose}
         />
       )}
@@ -358,6 +365,7 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
 
       <div className="flex justify-end mt-[20px] space-x-4">
         <button
+          type="button"
           className={`text-[#023E8A] text-[14px] font-[400] py-2 px-3 border-[1px] rounded-[8px] ${
             previousPageUrl && !deleting
               ? "border-[#023E8A] hover:bg-blue-50"
@@ -369,6 +377,7 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
           Previous
         </button>
         <button
+          type="button"
           className={`text-[#023E8A] text-[14px] font-[400] py-2 px-3 border-[1px] rounded-[8px] ${
             nextPageUrl && !deleting
               ? "border-[#023E8A] hover:bg-blue-50"
