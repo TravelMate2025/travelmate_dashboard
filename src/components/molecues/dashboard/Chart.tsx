@@ -9,9 +9,11 @@ import {
   Line,
   Tooltip,
 } from "recharts";
-const Chart = ({ weeklyData }: { weeklyData: any[] }) => {
+import { WeeklyDataPoint } from "@/app/Dashboard/page";
+
+const Chart = ({ weeklyData }: { weeklyData: WeeklyDataPoint[] }) => {
   const router = useRouter();
-  let NGNNaira = new Intl.NumberFormat("en-US", {
+  const NGNNaira = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "NGN",
   });

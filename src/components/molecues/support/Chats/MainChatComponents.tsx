@@ -13,6 +13,7 @@ import { useAuthContext } from "@/context/AuthContext";
 import { useMyRoles } from "@/hooks/api/roles";
 import { FileText, ArrowUpRight, DownloadIcon, X } from "lucide-react";
 import { getCookies } from "@/context/Auth-Cookies";
+import { getSingleRouteParam } from "@shared/lib/routeParams";
 const Spinner = () => (
   <svg
     className="inline w-6 h-6 ml-2 animate-spin text-white"
@@ -35,7 +36,53 @@ const Spinner = () => (
   </svg>
 );
 
-const formatDate = (isoDate: any) => {
+type ChatActor = {
+  id?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+};
+
+type ChatMessage = {
+  id?: string;
+  clientMessageId?: number;
+  message?: string;
+  content?: string;
+  sender_id?: string;
+  sender_info?: ChatActor;
+  created_at?: string;
+  type?: string;
+  attachment_url?: string;
+  attachment_name?: string;
+  attachment_type?: string;
+  uploading?: boolean;
+};
+
+type ChatSession = {
+  id?: string;
+  created_at?: string;
+  status?: string;
+  user_info?: ChatActor;
+  claimed_by_info?: ChatActor | null;
+  assigned_admin_info?: ChatActor | null;
+  messages?: ChatMessage[];
+};
+
+type MainChatProps = {
+  sessionId?: string;
+  accessToken?: string;
+};
+
+type SessionProps = {
+  chat: ChatSession | null;
+  loadingChat: boolean;
+  isAdmin: boolean;
+  canViewMessage: boolean;
+  currentUser: string;
+  accessToken?: string;
+};
+
+const formatDate = (isoDate: string | number | Date | null | undefined) => {
   if (!isoDate) {
     return "Invalid date";
   }
@@ -49,14 +96,16 @@ const formatDate = (isoDate: any) => {
   return format(date, "EEEE dd/MM/yyyy | hh:mm a");
 };
 
-export const MainChatComponents = ({ sessionId, accessToken }: any) => {
+export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) => {
   const APP_STATE = useAuthContext();
   const currentUser = APP_STATE?.user?.user_id || "";
-  const { id } = useParams<{ id: string }>();
+  const authAccessToken = APP_STATE?.accessToken || accessToken;
+  const params = useParams();
+  const chatId = getSingleRouteParam(params, "id");
 
   const { chat, loadingChat } = useGetChat({
     ChatId: sessionId as string,
-    initialFetch: !!id,
+    initialFetch: !!chatId,
     successCallback: (message) => {
       console.log(message);
     },
@@ -66,7 +115,9 @@ export const MainChatComponents = ({ sessionId, accessToken }: any) => {
   });
   const { loading, data } = useMyRoles({ modalVisible: chat?.id });
   const canViewMessage =
-    data?.current_permission_group_slugs?.includes("support-tickets");
+    data?.current_permission_group_slugs?.includes("support-tickets") ||
+    data?.current_permission_group_slugs?.includes("customer-support") ||
+    data?.name === "Super Admin";
 
   const isInputDisabled = chat?.status === "CLOSED" || !canViewMessage;
   !(
@@ -151,7 +202,7 @@ export const MainChatComponents = ({ sessionId, accessToken }: any) => {
         isAdmin={isInputDisabled}
         canViewMessage={canViewMessage}
         currentUser={currentUser}
-        accessToken={accessToken}
+        accessToken={authAccessToken}
       />
     </div>
   );
@@ -164,7 +215,7 @@ export const Session = ({
   canViewMessage,
   currentUser,
   accessToken,
-}: any) => {
+}: SessionProps) => {
   const {
     messages: liveMessages,
     send,
@@ -175,7 +226,9 @@ export const Session = ({
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [uploadingMessages, setUploadingMessages] = useState<any[]>([]);
+  const [uploadingMessages, setUploadingMessages] = useState<ChatMessage[]>(
+    []
+  );
 
   const handleDownload = () => {
     if (!modalImage) return;
@@ -197,6 +250,53 @@ export const Session = ({
 
   const handleCloseModal = () => setModalImage(null);
   const handleImageClick = (url: string) => setModalImage(url);
+
+  const triggerBrowserDownload = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.style.display = "none";
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(link);
+  };
+
+  const handleAttachmentDownload = async (message: ChatMessage) => {
+    const fallbackUrl = message?.attachment_url;
+
+    try {
+      if (message?.id) {
+        const response = await ChatService.downloadChatAttachment({
+          id: message.id,
+        });
+
+        const contentDisposition =
+          response.headers?.["content-disposition"] || "";
+        const nameFromHeader = contentDisposition
+          .match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i)?.[1]
+          ?.replace(/\"/g, "");
+
+        const filename =
+          (nameFromHeader && decodeURIComponent(nameFromHeader)) ||
+          message?.attachment_name ||
+          message?.message ||
+          "attachment";
+
+        triggerBrowserDownload(response.data, filename);
+        return;
+      }
+
+      if (fallbackUrl) {
+        window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (error) {
+      if (fallbackUrl) {
+        window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+      }
+    }
+  };
 
   const handleAttachmentChange = (
     event: React.ChangeEvent<HTMLInputElement>
@@ -232,7 +332,9 @@ export const Session = ({
   };
 
   const systemErrorMessage = useMemo(() => {
-    const errorMsgObj = liveMessages.find((msg: any) => msg.type === "error");
+    const errorMsgObj = liveMessages.find(
+      (msg: ChatMessage) => msg.type === "error"
+    );
     return errorMsgObj ? errorMsgObj.message : null;
   }, [liveMessages]);
 
@@ -243,7 +345,7 @@ export const Session = ({
       prev.filter(
         (umsg) =>
           !liveMessages.some(
-            (msg: any) =>
+            (msg: ChatMessage) =>
               (msg.clientMessageId &&
                 msg.clientMessageId === umsg.clientMessageId) ||
               // fallback: match by file name, sender, and created_at (if backend doesn't echo clientMessageId)
@@ -256,10 +358,10 @@ export const Session = ({
   const allMessages = useMemo(() => {
     const history = chat?.messages || [];
     const live = liveMessages.filter(
-      (live: any) =>
+      (live: ChatMessage) =>
         live.type !== "session_info" &&
         live.type !== "error" &&
-        !history.some((msg: any) => msg.id === live.id)
+        !history.some((msg: ChatMessage) => msg.id === live.id)
     );
     return [...history, ...live, ...uploadingMessages];
   }, [chat?.messages, liveMessages, uploadingMessages]);
@@ -319,7 +421,7 @@ export const Session = ({
           <div className="text-center text-gray-500">Loading messages...</div>
         ) : (
           <div className="flex-1 overflow-auto p-4 space-y-4">
-            {allMessages.map((mes: any, index: any) => {
+            {allMessages.map((mes: ChatMessage, index: number) => {
               const isUser =
                 chat?.user_info?.id === mes.sender_info?.id ||
                 chat?.user_info?.id === mes.sender_id;
@@ -355,10 +457,9 @@ export const Session = ({
                             onClick={() => handleImageClick(mes.attachment_url)}
                           />
                         ) : (
-                          <a
-                            href={mes.attachment_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => handleAttachmentDownload(mes)}
                             className={`w-[250px] flex items-center justify-between gap-2 text-blue-500 h-[50px] bg-blue-100 hover:bg-blue-200 transition-all duration-300 font-semibold px-4 py-2 rounded-lg shadow-md ${
                               isUser ? "ml-auto" : "mr-auto"
                             }`}
@@ -366,7 +467,7 @@ export const Session = ({
                             <FileText className="w-5 h-5" />
                             <span>Download</span>
                             <DownloadIcon className="w-5 h-5" />
-                          </a>
+                          </button>
                         )}
                       </div>
                     )}
@@ -417,7 +518,7 @@ export const Session = ({
                     }}
                     disabled={isInputDisabled}
                   />
-                  <button type="button">
+                  <div>
                     <label htmlFor="attachment-input">
                       <img
                         src="/assets/icons/attach-ment.svg"
@@ -432,7 +533,7 @@ export const Session = ({
                       onChange={handleAttachmentChange}
                       accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
                     />
-                  </button>
+                  </div>
                 </div>
               </div>
               <button
@@ -458,12 +559,14 @@ export const Session = ({
               <button
                 className="text-white bg-black bg-opacity-50 rounded-full p-2"
                 onClick={handleCloseModal}
+                aria-label="Close image preview"
               >
                 <X className="w-6 h-6" />
               </button>
               <button
                 onClick={handleDownload}
                 className="text-white bg-black bg-opacity-50 rounded-full p-2"
+                aria-label="Download image"
               >
                 <DownloadIcon className="w-6 h-6" />
               </button>

@@ -1,29 +1,62 @@
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   useGetAllNotifications,
-  useMarkAsRead,
+  useMarkAllNotificationsRead,
   useWebSocketService,
 } from "@/hooks/api/notification";
+import type {
+  AppNotification,
+  NotificationWsMessage,
+} from "@/hooks/api/notification";
+
+type NotificationItem = AppNotification;
+
 export const NotificationModal = ({
   onClose,
   accessToken,
+  onMarkAllRead,
 }: {
   onClose: () => void;
   accessToken: string;
+  onMarkAllRead?: () => void;
 }) => {
   const router = useRouter();
+  const pathname = usePathname();
+  const hasMounted = useRef(false);
+  const previousPathnameRef = useRef<string | null>(pathname ?? null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const { notifications: apiData, loading, refetch } = useGetAllNotifications();
 
-  const { markAsRead, loading: marking } = useMarkAsRead();
+  const { markAllAsRead, loading: marking } = useMarkAllNotificationsRead();
 
-  // ✅ WebSocket live messages
+  //  WebSocket live messages
   const { messages: wsMessages } = useWebSocketService(accessToken);
 
-  // ✅ Local state for displaying only 3 notifications
-  const [notifications, setNotifications] = useState<any[]>([]);
+  // Local state for displaying only 3 notifications
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+  const normalizeWsNotification = (
+    notification: NotificationWsMessage
+  ): NotificationItem | null => {
+    if (typeof notification?.id === "undefined") {
+      return null;
+    }
+    return {
+      ...notification,
+      created_at: notification.created_at ?? new Date().toISOString(),
+      notification_details: {
+        title: notification.notification_details?.title ?? "Notification",
+        message: notification.notification_details?.message ?? "",
+      },
+    };
+  };
 
   // Load initial 3 notifications from API
   useEffect(() => {
@@ -36,48 +69,51 @@ export const NotificationModal = ({
   useEffect(() => {
     if (wsMessages.length > 0) {
       const latest = wsMessages[wsMessages.length - 1];
-      console.log("📩 New WS notification:", latest);
+      const normalizedLatest = normalizeWsNotification(latest);
+      if (!normalizedLatest) {
+        return;
+      }
 
       setNotifications((prev) => {
         // Prevent duplicates
-        if (prev.some((n) => n.id === latest.id)) return prev;
+        if (prev.some((n) => n.id === normalizedLatest.id)) return prev;
 
         // Prepend new one and keep max of 3
-        const updated = [latest, ...prev];
+        const updated = [normalizedLatest, ...prev];
         return updated.slice(0, 3);
       });
     }
   }, [wsMessages]);
 
-  // close modal on route change
+  // close modal on route change (App Router-safe)
   useEffect(() => {
-    const handleRouteChange = () => {
-      onClose();
-    };
-    router.events?.on("routeChangeStart", handleRouteChange);
-    return () => {
-      router.events?.off("routeChangeStart", handleRouteChange);
-    };
-  }, [router, onClose]);
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      previousPathnameRef.current = pathname ?? null;
+      return;
+    }
 
-  // ✅ Check if there’s at least one unread
+    const currentPathname = pathname ?? null;
+    const didPathChange = previousPathnameRef.current !== currentPathname;
+
+    if (didPathChange) {
+      previousPathnameRef.current = currentPathname;
+      onCloseRef.current();
+    }
+  }, [pathname]);
+
+  //  Check if there’s at least one unread
   const hasUnread = useMemo(
-    () => notifications.some((n: any) => !n.is_read),
+    () => notifications.some((n) => !n.is_read),
     [notifications]
   );
 
-  // ✅ Mark all as read
+  //  Mark all as read
   const handleMarkAllRead = () => {
-    const unreadIds = notifications
-      .filter((n: any) => !n.is_read)
-      .map((n: any) => n.id);
-    if (unreadIds.length > 0) {
-      markAsRead(unreadIds, () => {
-        setNotifications((prev) =>
-          prev.map((n) =>
-            unreadIds.includes(n.id) ? { ...n, is_read: true } : n
-          )
-        );
+    if (hasUnread) {
+      markAllAsRead(() => {
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+        onMarkAllRead?.();
         refetch();
       });
     }
@@ -130,7 +166,7 @@ export const NotificationModal = ({
               No notifications found.
             </p>
           ) : (
-            notifications.map((n: any) => (
+            notifications.map((n) => (
               <div
                 key={n.id}
                 className={`flex items-start justify-between w-full px-[32px] py-3 cursor-pointer ${
@@ -140,18 +176,18 @@ export const NotificationModal = ({
                 <div className="flex items-start space-x-4">
                   <div className="space-y-2 flex-1 w-full">
                     <p className="text-[18px] font-[500] text-[#181818]">
-                      {n.notification_details.title}
+                      {n.notification_details?.title ?? "Notification"}
                     </p>
                     <p className="text-[16px] text-[#4E4F52] font-[400]">
-                      {n.notification_details.message}
+                      {n.notification_details?.message ?? ""}
                     </p>
                     <div className="flex items-center space-x-[4px]">
                       <p className="text-[13px] font-[500] leading-[100%] text-[#181818]">
-                        {format(new Date(n.created_at), "d/M/yyyy")}
+                        {format(new Date(n.created_at ?? new Date().toISOString()), "d/M/yyyy")}
                       </p>
                       <span className="w-[6px] h-[6px] rounded-full bg-[#9B9EA4]" />
                       <p className="text-[13px] font-[500] leading-[100%] text-[#181818]">
-                        {formatDistanceToNow(new Date(n.created_at), {
+                        {formatDistanceToNow(new Date(n.created_at ?? new Date().toISOString()), {
                           addSuffix: true,
                         })
                           .replace("about ", "")

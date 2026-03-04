@@ -67,7 +67,7 @@ const Page = () => {
       await onDeleteFaq({
         id: selectedFaqId,
         successCallback: async () => {
-          setRefresh((prev: any) => !prev);
+          setRefresh((prev: boolean) => !prev);
           setShowModal(true);
         },
       });
@@ -181,6 +181,8 @@ const FaqTabContent: React.FC<{
                         <div className="flex items-center space-x-4">
                           <input
                             type="checkbox"
+                            aria-label={`Select FAQ ${faq.question}`}
+                            title={`Select FAQ ${faq.question}`}
                             checked={selectedFaqId === faq.id}
                             onChange={(e) =>
                               onSelectFaq(e.target.checked ? faq.id : null)

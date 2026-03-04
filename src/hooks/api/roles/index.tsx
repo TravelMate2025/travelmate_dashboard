@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import RolesService from "@/services/roles";
+import { useAuthContext } from "@/context/AuthContext";
 
 export function useGetAllEscalationLevel({
   initalFetch = true,
@@ -9,7 +10,7 @@ export function useGetAllEscalationLevel({
   refresh?: boolean;
 }) {
   const [Levelloading, setLoading] = useState(false);
-  const [Leveldata, setData] = useState<any | null>(null);
+  const [Leveldata, setData] = useState<unknown | null>(null);
 
   const onEscalationLevel = async () => {
     setLoading(true);
@@ -36,13 +37,15 @@ export function useMyRoles({
   modalVisible?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<any | null>(null);
+  const [data, setData] = useState<unknown | null>(null);
+  const { accessToken } = useAuthContext();
 
   const onGetMyRole = async () => {
     setLoading(true);
     try {
       const res = await RolesService.getMyRole();
-      setData(res.data.results[0]);
+      const results = res?.data?.results;
+      setData(Array.isArray(results) ? results[0] : results || null);
     } catch (error) {
       console.error("Error fetching escalation levels:", error);
     } finally {
@@ -51,8 +54,8 @@ export function useMyRoles({
   };
 
   useEffect(() => {
-    if (modalVisible) onGetMyRole();
-  }, [modalVisible]);
+    if (modalVisible && accessToken) onGetMyRole();
+  }, [modalVisible, accessToken]);
 
   return { loading, data };
 }

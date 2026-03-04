@@ -12,7 +12,7 @@ const Activity = ({
   loading: boolean;
 }) => {
   const router = useRouter();
-  let NGNNaira = new Intl.NumberFormat("en-US", {
+  const NGNNaira = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "NGN",
   });
@@ -47,7 +47,7 @@ const Activity = ({
               <div
                 key={i}
                 className="flex md:justify-center justify-between lg:gap-24 gap-16 w-full items-center cursor-pointer hover:bg-[#f1f1f1] rounded-xl py-2 lg:px-3 px-2"
-                onClick={() => router.push("/Dashboard/user/profile")}
+                onClick={() => router.push("/Dashboard/user")}
               >
                 <div className="flex items-center space-x-3 lg:w-[200px] w-full">
                   <img

@@ -23,7 +23,7 @@ export function useGetAllFaq({
       const res = await FaqService.getAllFaq();
       setData(res.data);
       if (successCallback) successCallback("FAQs fetched successfully.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (errorCallback) errorCallback({ message: "An error occur while fetching FAQs" });
     } finally {
       setLoading(false);
@@ -82,7 +82,7 @@ export const useAddFaq = (): UseAddFaqReturn => {
       }
 
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       showErrorToast({
         message: "unable to add FAQ at the moment!",
       });
@@ -112,7 +112,7 @@ export function useDeleteFaq() {
 
       showSuccessToast({ message, description });
       if (successCallback) successCallback();
-    } catch (error: any) {
+    } catch (error: unknown) {
       showErrorToast({
         message: "Unable to delete FAQ at the moment!",
       });

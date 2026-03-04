@@ -21,10 +21,18 @@ class Service {
     filters,
   }: {
     url?: string;
-    filters?: Record<string, any>;
+    filters?: Record<string, string | number | boolean | null | undefined>;
   }) {
     const endpoint = url || env.api.ticket;
-    const queryString = new URLSearchParams(filters).toString(); // Convert filters object to query string
+    const queryEntries = Object.entries(filters ?? {}).reduce<
+      Array<[string, string]>
+    >((acc, [key, value]) => {
+      if (value !== undefined && value !== null) {
+        acc.push([key, String(value)]);
+      }
+      return acc;
+    }, []);
+    const queryString = new URLSearchParams(queryEntries).toString();
     const fullUrl = queryString ? `${endpoint}?${queryString}` : endpoint;
     return instance.get(fullUrl);
   }
@@ -44,7 +52,7 @@ class Service {
   }
 
   getEscalationLevel() {
-    return instance.get(env.api.superadmin + "/roles/admin-list/");
+    return instance.get(env.api.superadminRoles);
   }
   createEscalationLevel({ payload }: { payload: TEscalationPayload }) {
     return instance.post(env.api.escalation + "/", payload);
@@ -69,7 +77,7 @@ class Service {
     payload,
   }: {
     TicketId: string;
-    payload: any;
+    payload: FormData;
   }) {
     return instance.post(env.api.ticket + TicketId + "/messages/", payload, {
       headers: { "Content-Type": "multipart/form-data" },

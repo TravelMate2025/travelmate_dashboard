@@ -1,33 +1,74 @@
 const api = () => {
-  const BASE_URL_LINK = "https://travelmate-backend-0suw.onrender.com";
+  const STAGING_BASE_URL = "https://travelmate-backend-knvd.onrender.com/api/";
+  const LIVE_BASE_URL = "https://travelmate-backend-1-1lgj.onrender.com/api/";
+
+  const environment =
+    process.env.NEXT_PUBLIC_ENVIRONMENT?.trim().toLowerCase() || "staging";
+
+  const baseFromEnv = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  const defaultBaseUrl = environment === "production" ? LIVE_BASE_URL : STAGING_BASE_URL;
+
+  const normalizedBaseUrl = (baseFromEnv || defaultBaseUrl).replace(/\/+$/, "");
+  const API_BASE = normalizedBaseUrl.endsWith("/api")
+    ? normalizedBaseUrl
+    : `${normalizedBaseUrl}/api`;
 
   return {
-    auth: BASE_URL_LINK + "/api/auth/",
-    user: BASE_URL_LINK + "/api/users",
-    bookings: BASE_URL_LINK + "/api/admin/bookings",
-    faq: BASE_URL_LINK + "/api/admin/faqs",
-    ticket: BASE_URL_LINK + "/api/admin/tickets/",
-    messae: BASE_URL_LINK + "/api/admin/tickets/",
-    escalation: BASE_URL_LINK + "/api/admin/escalation-levels",
-    admin: BASE_URL_LINK + "/api/admin",
-    chat: BASE_URL_LINK + "/api/admin/chats/",
-    users: BASE_URL_LINK + "/api/superuser/",
-    privacypolicy: BASE_URL_LINK + "/api/admin/privacy-policy",
-    termsofuse: BASE_URL_LINK + "/api/admin/terms-of-use",
-    aboutus: BASE_URL_LINK + "/api/admin/about-us",
-    partners: BASE_URL_LINK + "/api/admin/partners",
-    partnercategories: BASE_URL_LINK + "/api/admin/partner-categories",
-    dashboardactivities: BASE_URL_LINK + "/api/admin/dashboard/activities",
-    dashboardrevenue: BASE_URL_LINK + "/api/admin/dashboard/revenue/",
-    dashboardmessages: BASE_URL_LINK + "/api/admin/dashboard/messages",
-    superadmin: BASE_URL_LINK + "/api/superadmin/",
-    roles: BASE_URL_LINK + "/api/admin/me/",
-    usercount: BASE_URL_LINK + "/api/admin/dashboard/user-count/",
-    dashboardbookings: BASE_URL_LINK + "/api/admin/dashboard/stats/",
-    cms: BASE_URL_LINK + "/api/admin/commissions/",
-    upload: BASE_URL_LINK + "/api/upload/",
-    notification: BASE_URL_LINK + "/api/notifications/",
-    bookingHistory: BASE_URL_LINK + "/api/bookings/admin/booking",
+    auth: API_BASE + "/auth/",
+    authToken: API_BASE + "/auth-token/",
+    loginSuperuser: API_BASE + "/auth/admin/jwt/login-superuser/",
+    refreshSuperuser: API_BASE + "/auth/admin/jwt/refresh-superuser/",
+    jwtRefreshToken: API_BASE + "/auth/jwt/token/refresh/",
+    jwtVerifyToken: API_BASE + "/auth/jwt/token/verify/",
+    user: API_BASE + "/users",
+    usersLogout: API_BASE + "/users/logout/",
+    usersMetadatas: API_BASE + "/users/metadatas/",
+    bookings: API_BASE + "/admin/bookings",
+    faq: API_BASE + "/admin/faqs",
+    ticket: API_BASE + "/admin/tickets/",
+    messae: API_BASE + "/admin/tickets/",
+    escalation: API_BASE + "/admin/escalation-levels",
+    admin: API_BASE + "/admin",
+    chat: API_BASE + "/admin/chats/",
+    chatAdmins: API_BASE + "/chat/admins/",
+    chatMessages: API_BASE + "/chat/messages/",
+    users: API_BASE + "/superuser/",
+    privacypolicy: API_BASE + "/admin/privacy-policy/",
+    termsofuse: API_BASE + "/admin/terms-of-use/",
+    aboutus: API_BASE + "/admin/about-us/",
+    partners: API_BASE + "/admin/partners/",
+    partnercategories: API_BASE + "/admin/partner-categories/",
+    dashboardactivities: API_BASE + "/admin/dashboard/activities/",
+    dashboardoverview: API_BASE + "/admin/dashboard/overview/",
+    dashboardrevenue: API_BASE + "/admin/dashboard/revenue/",
+    dashboardmessages: API_BASE + "/admin/dashboard/messages/",
+    superadmin: API_BASE + "/superadmin/",
+    superadminPermissionsGroups: API_BASE + "/superadmin/permissions/groups/",
+    superadminRoles: API_BASE + "/superadmin/roles/",
+    roles: API_BASE + "/admin/me/",
+    myRoles: API_BASE + "/admin/me/roles/",
+    usercount: API_BASE + "/admin/dashboard/user-count/",
+    dashboardbookings: API_BASE + "/admin/dashboard/stats/",
+    reportBookingsBreakdown: API_BASE + "/admin/reports/bookings/breakdown/",
+    reportBookingsCombined: API_BASE + "/admin/reports/bookings/combined/",
+    reportExport: API_BASE + "/admin/reports/export/",
+    reportSummary: API_BASE + "/admin/reports/summary/",
+    cms: API_BASE + "/admin/commissions/",
+    upload: API_BASE + "/upload/",
+    notification: API_BASE + "/notifications/",
+    notificationBulkDelete: API_BASE + "/notifications/bulk-delete/",
+    notificationBulkMarkRead: API_BASE + "/notifications/bulk-mark-read/",
+    notificationMarkAllRead: API_BASE + "/notifications/mark_all_read/",
+    bookingAdminById: API_BASE + "/bookings/admin/booking/",
+    bookingAdminList: API_BASE + "/bookings/admin/list/",
+    bookingAdminMyBookings: API_BASE + "/bookings/admin/my-bookings/",
+    bookingAdminProcessCancellation: API_BASE + "/bookings/admin/",
+    bookingAdminRequestCancellation: API_BASE + "/bookings/admin/request-cancellation/",
+    bookingMyList: API_BASE + "/bookings/my/",
+    bookingMyById: API_BASE + "/bookings/my/",
+    bookingMyAdvancedSearch: API_BASE + "/bookings/my/advanced-search/",
+    bookingMySearchByReference: API_BASE + "/bookings/my/search/",
+    bookingMySummary: API_BASE + "/bookings/my/summary/",
   };
 };
 

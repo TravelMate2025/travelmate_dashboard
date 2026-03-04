@@ -1,7 +1,25 @@
 import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
 import { parseISO, format, formatDate } from "date-fns";
-const CarDetails = ({ data }: any) => {
+
+type CarBookingData = {
+  booking_reference?: string;
+  date_booked?: string;
+  payment_status?: string;
+  booking_status?: string;
+  pickup_location_label?: string;
+  pickup_date?: string;
+  pickup_time?: string;
+  dropoff_location_label?: string;
+  passenger_name?: string;
+  dob?: string;
+  email?: string;
+  contact_phone?: string;
+  transfer_type?: string;
+  total_amount?: number;
+};
+
+const CarDetails = ({ data }: { data: CarBookingData }) => {
   return (
     <div className="space-y-[24px]">
       <BookingDetails data={data} />
@@ -10,7 +28,7 @@ const CarDetails = ({ data }: any) => {
   );
 };
 
-const BookingDetails = ({ data }: any) => {
+const BookingDetails = ({ data }: { data: CarBookingData }) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-GB");
@@ -75,7 +93,7 @@ const BookingDetails = ({ data }: any) => {
   );
 };
 
-export const GridDetails = ({ data }: any) => {
+export const GridDetails = ({ data }: { data: CarBookingData }) => {
   const formatDate2 = (dateString: string) => {
     if (!dateString) return "";
 
@@ -171,7 +189,7 @@ export const GridDetails = ({ data }: any) => {
   );
 };
 
-export const Transaction = ({ value }: any) => {
+export const Transaction = ({ value }: { value: number | string }) => {
   return (
     <div className="bg-[#fff] p-[24px] rounded-[12px]">
       <h1 className="text-[20px] font-[600] text-[#181818] mb-[16px]">

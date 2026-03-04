@@ -18,11 +18,11 @@ class Service {
     return instance.get(env.api.users + UserId + "/");
   }
 
-  deactivateUser({ userId, data }: { userId?: string; data: any }) {
+  deactivateUser({ userId, data }: { userId?: string | number; data: TDeactivatePayload }) {
     return instance.patch(env.api.users + userId + "/deactivate/", data);
   }
 
-  reactivateUser({ userId, data }: { userId?: string; data: any }) {
+  reactivateUser({ userId, data }: { userId?: string | number; data: TDeactivatePayload }) {
     return instance.patch(env.api.users + userId + "/activate/", data);
   }
 

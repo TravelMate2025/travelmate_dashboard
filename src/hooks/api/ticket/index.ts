@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import TicketService from "@/services/ticket";
 import axios from "axios";
+import env from "@/config/env";
 import instance from "@/hooks/initializers/useAxiosDefaults";
 
 export interface User {
@@ -22,7 +23,7 @@ export interface Ticket {
   created_at: string;
   updated_at: string;
   user: User;
-  messages: any[];
+  messages: unknown[];
   escalated: boolean;
   escalation_level: string | null;
   escalation_reason: string | null;
@@ -36,15 +37,16 @@ interface Level {
   email: string;
 }
 
+type TicketFilters = Record<string, string | number | boolean | null | undefined>;
+
 export const useGetAllTickets = () => {
-  const BASE_URL =
-    "https://travelmate-backend-0suw.onrender.com/api/admin/tickets/";
+  const BASE_URL = env.api.ticket;
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [nextPageUrl, setNextPageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFiltersState] = useState<Record<string, any>>({});
+  const [filters, setFiltersState] = useState<TicketFilters>({});
   const hasFetchedInitial = useRef(false);
   const isFetching = useRef(false); // Prevent redundant fetches
 
@@ -91,7 +93,7 @@ export const useGetAllTickets = () => {
   );
 
   // Set filters with deep comparison to prevent redundant updates
-  const setFilters = (newFilters: Record<string, any>) => {
+  const setFilters = (newFilters: TicketFilters) => {
     setFiltersState((prevFilters) => {
       const prevString = JSON.stringify(prevFilters);
       const newString = JSON.stringify(newFilters);
@@ -141,7 +143,7 @@ export function useGetTicket({
   errorCallback?: (props: { message?: string; description?: string }) => void;
 }) {
   const [loadingTicket, setLoading] = useState(false);
-  const [ticket, setData] = useState<any>(null);
+  const [ticket, setData] = useState<Ticket | null>(null);
 
   const fetchTicket = async () => {
     if (!TicketId) return;
@@ -150,11 +152,11 @@ export function useGetTicket({
       const res = await TicketService.getTicket({ TicketId });
       setData(res.data);
       if (successCallback) successCallback("Ticket fetched successfully.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (errorCallback)
         errorCallback({
           message: "An error occurred while fetching the ticket",
-          description: error?.message || "Unknown error",
+          description: error instanceof Error ? error.message : "Unknown error",
         });
     } finally {
       setLoading(false);
@@ -176,7 +178,7 @@ export function useGetAllEscalationLevel({
   refresh?: boolean;
 }) {
   const [Levelloading, setLoading] = useState(false);
-  const [Leveldata, setData] = useState<any | null>(null);
+  const [Leveldata, setData] = useState<unknown | null>(null);
 
   const onEscalationLevel = async () => {
     setLoading(true);
@@ -205,7 +207,7 @@ export function useGetAllEscalationReasons({
   refresh?: boolean;
 }) {
   const [Reasonsloading, setLoading] = useState(false);
-  const [Reasonsdata, setData] = useState<any | null>(null);
+  const [Reasonsdata, setData] = useState<unknown | null>(null);
 
   const onEscalationReason = async () => {
     setLoading(true);
@@ -261,9 +263,12 @@ export const useEscalateTicket = () => {
       }
 
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage =
-        error.response?.data?.message ||
+        axios.isAxiosError(error)
+          ? error.response?.data?.message ||
+            "Unable to escalate ticket at the moment!"
+          :
         "Unable to escalate ticket at the moment!";
       showErrorToast({ message: errorMessage });
     } finally {
@@ -303,9 +308,12 @@ export const useCreateEscalationLevel = () => {
 
       successCallback?.();
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage =
-        error.response?.data?.message ||
+        axios.isAxiosError(error)
+          ? error.response?.data?.message ||
+            "Unable to add escalation level at the moment.!"
+          :
         "Unable to add escalation level at the moment.!";
       showErrorToast({ message: errorMessage });
     } finally {
@@ -349,9 +357,12 @@ export const useRespondToTicket = () => {
       }
 
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage =
-        error.response?.data?.message ||
+        axios.isAxiosError(error)
+          ? error.response?.data?.message ||
+            "Unable to respond to ticket at the moment!"
+          :
         "Unable to respond to ticket at the moment!";
       showErrorToast({ message: errorMessage });
     } finally {
@@ -374,7 +385,7 @@ export function useGetAllTicketStats({
   errorCallback?: (props: { message?: string; description?: string }) => void;
 }) {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<any>([]);
+  const [data, setData] = useState<unknown>([]);
   const [days, setDays] = useState<number>(defaultDays);
 
   const fetchTicketsStats = async () => {
@@ -383,11 +394,11 @@ export function useGetAllTicketStats({
       const response = await TicketService.getTicketsStats({ days });
       setData(response.data);
       successCallback?.("Tickets fetched successfully.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching tickets:", error);
       errorCallback?.({
         message: "An error occurred while fetching tickets",
-        description: error?.message || "Unknown error",
+        description: error instanceof Error ? error.message : "Unknown error",
       });
     } finally {
       setLoading(false);
@@ -442,9 +453,12 @@ export function useClaimTicket() {
       }
 
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage =
-        error.response?.data?.message ||
+        axios.isAxiosError(error)
+          ? error.response?.data?.message ||
+            "Unable to respond to claim at the moment!"
+          :
         "Unable to respond to claim at the moment!";
       showErrorToast({ message: errorMessage });
     } finally {
@@ -481,9 +495,12 @@ export const useResolveTicket = () => {
       }
 
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage =
-        error.response?.data?.message ||
+        axios.isAxiosError(error)
+          ? error.response?.data?.message ||
+            "Unable to respond to ticket at the moment!"
+          :
         "Unable to respond to ticket at the moment!";
       showErrorToast({ message: errorMessage });
     } finally {
@@ -495,14 +512,13 @@ export const useResolveTicket = () => {
 };
 
 export const useGetAllEscalatedTickets = () => {
-  const BASE_URL =
-    "https://travelmate-backend-0suw.onrender.com/api/admin/tickets/escalated/";
+  const BASE_URL = `${env.api.ticket}escalated/`;
 
-  const [tickets, setTickets] = useState<any>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [nextPageUrl, setNextPageUrl] = useState<string | null>(null); // Pagination disabled
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFiltersState] = useState<Record<string, any>>({});
+  const [filters, setFiltersState] = useState<TicketFilters>({});
   const hasFetchedInitial = useRef(false);
   const isFetching = useRef(false); // Prevent redundant fetches
 
@@ -523,7 +539,7 @@ export const useGetAllEscalatedTickets = () => {
         setError(null);
 
         const endpoint = url || buildUrl();
-        const response = await axios.get(endpoint);
+        const response = await instance.get(endpoint);
 
         const data: Ticket[] = response.data.results; // Adjusted to match direct array structure
 
@@ -541,7 +557,7 @@ export const useGetAllEscalatedTickets = () => {
   );
 
   // Set filters with deep comparison to prevent redundant updates
-  const setFilters = (newFilters: Record<string, any>) => {
+  const setFilters = (newFilters: TicketFilters) => {
     setFiltersState((prevFilters) => {
       const prevString = JSON.stringify(prevFilters);
       const newString = JSON.stringify(newFilters);

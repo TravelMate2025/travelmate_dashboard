@@ -16,6 +16,47 @@ import { useAuthContext } from "@/context/AuthContext";
 import { useMyRoles } from "@/hooks/api/roles";
 import { AlertTriangle } from "lucide-react";
 import { FilterDropdown } from "@/components/reuseables/FilterDropdown";
+
+type TicketActor = {
+  id?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+};
+
+type TicketClaimHistoryItem = {
+  claimed_admin?: TicketActor;
+  timestamp?: string;
+};
+
+type TicketDetails = {
+  id: string;
+  ticket_id?: string;
+  category?: string;
+  status?: string;
+  title?: string;
+  description?: string;
+  created_at?: string;
+  escalated?: boolean;
+  escalated_at?: string;
+  escalation_reason?: string;
+  escalation_role?: {
+    name?: string;
+  };
+  escalated_by?: TicketActor;
+  claimed_admin?: TicketActor | null;
+  user?: TicketActor;
+  claim_history?: {
+    results?: TicketClaimHistoryItem[];
+  };
+};
+
+type TicketDetailsDialogProps = {
+  selectedTicket: TicketDetails | null;
+  ticketDetails: TicketDetails | null;
+  ticketLoading: boolean;
+  onClose: () => void;
+};
 export const TableDropdown = ({
   onViewDetails,
   onViewMessage,
@@ -74,7 +115,7 @@ export const TicketDetailsDialog = ({
   ticketDetails,
   ticketLoading,
   onClose,
-}: any) => {
+}: TicketDetailsDialogProps) => {
   const name = `${ticketDetails?.user?.first_name || "---"} ${
     ticketDetails?.user?.last_name || "---"
   }`;
@@ -146,8 +187,8 @@ export const TicketDetailsDialog = ({
                     <Loading />
                   ) : (
                     <div className="sace-y-2">
-                      {ticketDetails?.claim_history?.results.map(
-                        (text: any, i: any) => (
+                      {ticketDetails?.claim_history?.results?.map(
+                        (text: TicketClaimHistoryItem, i: number) => (
                           <p
                             className="text-[14px] font-[600] text-[#343537]"
                             key={i}
@@ -197,6 +238,8 @@ export const TicketDetailsDialog = ({
         <button
           className="absolute top-[16px] right-[16px] text-gray-500 cursor-pointer"
           onClick={onClose}
+          aria-label="Close dialog"
+          title="Close dialog"
         >
           <img src="/assets/icons/modalClose.svg" alt="" className="w-[20px]" />
         </button>
@@ -212,7 +255,7 @@ export const ViewingChatModal = ({
   onClose,
 }: {
   selectedTicket: boolean;
-  ticketDetails: any | null;
+  ticketDetails: TicketDetails | null;
   ticketLoading: boolean;
   onClose: () => void;
 }) => {
@@ -275,7 +318,7 @@ export const ViewingChatModal = ({
   ]);
 
   const handleClaimTicket = useCallback(
-    (ticketDetails: any) => {
+    (ticketDetails: TicketDetails) => {
       if (!ticketDetails?.id) return;
 
       if (!canViewMessage) {
@@ -312,7 +355,6 @@ export const ViewingChatModal = ({
         selectedTicket ? "visible opacity-100" : "invisible opacity-0"
       }`}
       onClick={onClose}
-      aria-hidden={!selectedTicket}
     >
       <div
         className={`relative bg-white w-[90%] max-w-[720px] p-6 rounded-2xl shadow-lg border border-gray-300 transform transition-transform duration-300 ${
@@ -371,6 +413,7 @@ export const ViewingChatModal = ({
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 focus:outline-none"
               onClick={onClose}
               aria-label="Close Modal"
+              title="Close Modal"
             >
               <img src="/assets/icons/modalClose.svg" alt="Close Modal" />
             </button>
@@ -385,7 +428,11 @@ const ClaimedTicketSection = ({
   ticketDetails,
   claiming,
   handleClaimTicket,
-}: any) => {
+}: {
+  ticketDetails: TicketDetails;
+  claiming: boolean;
+  handleClaimTicket: (ticketDetails: TicketDetails) => void;
+}) => {
   const router = useRouter();
   return (
     <>
@@ -449,9 +496,9 @@ const UnclaimedTicketSection = ({
   handleEscalateTicket,
   claiming,
 }: {
-  ticketDetails: any;
+  ticketDetails: TicketDetails;
   formattedDate: string;
-  handleClaimTicket: any;
+  handleClaimTicket: (ticketDetails: TicketDetails) => void;
   handleEscalateTicket: () => void;
   claiming: boolean;
 }) => {
@@ -548,7 +595,19 @@ export const Filter = ({
   selectedEndDate,
   setSelectedEndDate,
   activeTab,
-}: any) => {
+}: {
+  searchTerm: string;
+  setSearchTerm: (value: string) => void;
+  datePickerOpen: boolean;
+  setDatePickerOpen: (value: boolean) => void;
+  selectedDate: string;
+  setSelectedDate: (value: string) => void;
+  selectedStartDate: string;
+  setSelectedStartDate: (value: string) => void;
+  selectedEndDate: string;
+  setSelectedEndDate: (value: string) => void;
+  activeTab: string;
+}) => {
   const [inputValue, setInputValue] = useState("");
 
   useEffect(() => {
@@ -678,7 +737,7 @@ export const ConfirmResolution = ({
   onClose,
   setShowModal,
 }: {
-  selectedTicket: any;
+  selectedTicket: TicketDetails | null;
   onClose: () => void;
   setShowModal: (value: boolean) => void;
 }) => {
@@ -754,13 +813,6 @@ export const ConfirmResolution = ({
   );
 };
 
-interface TicketDetails {
-  id: string;
-  escalation_role?: {
-    name: string;
-  };
-}
-
 interface EscalatedTicketChatModalProps {
   selectedTicket: boolean;
   ticketDetails: TicketDetails | null;
@@ -773,7 +825,12 @@ const NotAuthorizedModal = ({
   title,
   subtible,
   show = true,
-}: any) => {
+}: {
+  ticketDetails: TicketDetails;
+  title?: string;
+  subtible?: string;
+  show?: boolean;
+}) => {
   const router = useRouter();
   return (
     <div className="text-center p-6 flex flex-col space-y-4 items-center justify-center min-h-[400px]">
@@ -830,7 +887,6 @@ export const EscalatedTicketChatModal: React.FC<
         selectedTicket ? "visible opacity-100" : "invisible opacity-0"
       }`}
       onClick={onClose}
-      aria-hidden={!selectedTicket}
     >
       <div
         className={`relative bg-white w-[90%] max-w-[720px] min-h-[400px] p-6 rounded-2xl shadow-lg border border-gray-300 transform transition-transform duration-300 ${
@@ -883,6 +939,7 @@ export const EscalatedTicketChatModal: React.FC<
         className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 focus:outline-none"
         onClick={onClose}
         aria-label="Close Modal"
+        title="Close Modal"
       >
         <img src="/assets/icons/modalClose.svg" alt="Close Modal" />
       </button>
@@ -895,7 +952,12 @@ export const EscalatedTicketDetailsDialog = ({
   ticketDetails,
   ticketLoading,
   onClose,
-}: any) => {
+}: {
+  selectedTicket: boolean;
+  ticketDetails: TicketDetails | null;
+  ticketLoading: boolean;
+  onClose: () => void;
+}) => {
   const name = `${ticketDetails?.user?.first_name || "---"} ${
     ticketDetails?.user?.last_name || "---"
   }`;
@@ -954,7 +1016,7 @@ export const EscalatedTicketDetailsDialog = ({
                   ) : (
                     <div className="space-y-2">
                       {ticketDetails.claim_history.results.map(
-                        (claim: any, i: number) => (
+                        (claim: TicketClaimHistoryItem, i: number) => (
                           <p
                             className="text-[14px] font-[400] text-[#343537]"
                             key={i}
@@ -1053,6 +1115,8 @@ export const EscalatedTicketDetailsDialog = ({
         <button
           className="absolute top-[16px] right-[16px] text-gray-500 cursor-pointer"
           onClick={onClose}
+          aria-label="Close dialog"
+          title="Close dialog"
         >
           <img src="/assets/icons/modalClose.svg" alt="" className="w-[20px]" />
         </button>

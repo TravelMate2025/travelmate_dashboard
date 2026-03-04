@@ -3,7 +3,7 @@ import env from "@/config/env";
 import instance from "@/hooks/initializers/useAxiosDefaults";
 
 export const exportStats = () => 
-  instance.get(`${env.api.admin}/reports/export/`, {
+  instance.get(env.api.reportExport, {
     responseType: "blob",
   });
 

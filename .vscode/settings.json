@@ -1,3 +1,39 @@
 {
-    "nuxt.isNuxtApp": false
+    "nuxt.isNuxtApp": false,
+    "files.exclude": {
+        "**/node_modules": true,
+        "**/.next": true
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/.next": true
+    },
+    "files.watcherExclude": {
+        "**/node_modules/**": true,
+        "**/.next/**": true
+    },
+    "problems.exclude": {
+        "**/node_modules/**": true,
+        "**/.next/**": true,
+        "**/dist/**": true,
+        "**/build/**": true
+    },
+    "eslint.workingDirectories": [
+        {
+            "mode": "auto"
+        }
+    ],
+    "eslint.options": {
+        "ignorePatterns": [
+            "**/node_modules/**",
+            "**/.next/**",
+            "dist/**",
+            "build/**"
+        ]
+    },
+    "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+    "json.validate.enable": false,
+    "sonarlint.analyzerProperties": {
+        "sonar.exclusions": "**/node_modules/**,**/.next/**,**/dist/**,**/build/**"
+    }
 }

@@ -14,6 +14,48 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu"; // Adjust import paths
 
+type ChatActor = {
+  id?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+};
+
+type ChatClaimHistory = {
+  claimed_admin_info: ChatActor;
+  timestamp?: string;
+};
+
+type ChatDetails = {
+  id?: string;
+  status?: string;
+  created_at?: string;
+  closed_at?: string | null;
+  closure_type?: string;
+  title?: string;
+  user_info?: ChatActor;
+  claim_history?: ChatClaimHistory[];
+  claimed_admin?: ChatActor | null;
+  claimed_by_info?: ChatActor | null;
+  assigned_admin?: ChatActor | null;
+  assigned_admin_info?: ChatActor | null;
+};
+
+type ChatDetailsDialogProps = {
+  selectedTicket: ChatDetails | null;
+  chatDetails: ChatDetails | null;
+  chatLoading: boolean;
+  onClose: () => void;
+};
+
+type ClaimedChatSectionProps = {
+  selectedTicket?: ChatDetails | null;
+  chatDetails: ChatDetails | null;
+  handleClaimTicket?: () => void;
+  onClose: () => void;
+  chatLoading: boolean;
+};
+
 export const ChatTableDropdown = ({
   parentWidth,
   onViewDetails,
@@ -29,10 +71,7 @@ export const ChatTableDropdown = ({
   ];
 
   return (
-    <div
-      className="relative overflow-visible"
-      style={{ maxWidth: parentWidth }}
-    >
+    <div className="relative overflow-visible">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <div className="cursor-pointer select-none px-2 py-1 text-lg">⋮</div>
@@ -42,10 +81,6 @@ export const ChatTableDropdown = ({
           side="bottom"
           align="end"
           className="z-50 max-w-[180px] shadow-lg border border-gray-200 rounded-md bg-white"
-          style={{
-            // Ensure dropdown stays within parent width
-            maxWidth: parentWidth - 16,
-          }}
         >
           {options.map((option, index) => (
             <DropdownMenuItem
@@ -80,7 +115,7 @@ export const ChatDetailsDialog = ({
   chatDetails,
   chatLoading,
   onClose,
-}: any) => {
+}: ChatDetailsDialogProps) => {
   const name = `${chatDetails?.user_info.first_name || "---"} ${
     chatDetails?.user_info.last_name || "---"
   }`;
@@ -169,7 +204,8 @@ export const ChatDetailsDialog = ({
                     <Loading />
                   ) : (
                     <div className="sace-y-2">
-                      {chatDetails?.claim_history?.map((text: any, i: any) => (
+                      {chatDetails?.claim_history?.map(
+                        (text: ChatClaimHistory, i: number) => (
                         <p
                           key={i}
                           className="text-[14px] font-[400] text-[#343537]"
@@ -180,7 +216,8 @@ export const ChatDetailsDialog = ({
                             text.claimed_admin_info.last_name || "---"
                           } - ${formatCreatedAt(text?.timestamp, 2)}  `}{" "}
                         </p>
-                      ))}
+                        )
+                      )}
                     </div>
                   )}
                 </div>
@@ -206,6 +243,8 @@ export const ChatDetailsDialog = ({
         <button
           className="absolute top-[16px] right-[16px] text-gray-500 cursor-pointer"
           onClick={onClose}
+          aria-label="Close dialog"
+          title="Close dialog"
         >
           <img src="/assets/icons/modalClose.svg" alt="" className="w-[20px]" />
         </button>
@@ -219,7 +258,7 @@ export const ClaimedChatSection = ({
   handleClaimTicket: externalHandleClaimTicket,
   onClose,
   chatLoading,
-}: any) => {
+}: ClaimedChatSectionProps) => {
   const APP_STATE = useAuthContext();
   const router = useRouter();
   const { onClaiming, claiming } = useClaimChat();
@@ -309,7 +348,6 @@ export const ClaimedChatSection = ({
         chatDetails ? "visible opacity-100" : "invisible opacity-0"
       }`}
       onClick={onClose}
-      aria-hidden={!chatDetails}
     >
       <div
         className={`relative bg-white w-[90%] max-w-[720px] p-6 rounded-2xl shadow-lg border border-gray-300 transform transition-transform duration-500 min-h-[400px] ${
@@ -382,7 +420,7 @@ export const ClaimedChatSection = ({
   );
 };
 
-const NotAuthorizedModal = ({ ticketDetails }: any) => {
+const NotAuthorizedModal = ({ ticketDetails }: { ticketDetails: ChatDetails }) => {
   const router = useRouter();
   return (
     <div className="text-center p-6 flex flex-col space-y-4 items-center justify-center min-h-[400px]">

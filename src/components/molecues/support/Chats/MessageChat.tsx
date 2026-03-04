@@ -17,7 +17,35 @@ import {
   ClaimedChatSection,
 } from "./ChatReuseables";
 
-export const MessageTabContent: React.FC<any> = ({
+type MessageTabContentProps = {
+  selectedOption?: string;
+  searchTerm?: string;
+  selectedEndDate?: string;
+  selectedStartDate?: string;
+  date?: string;
+};
+
+type ChatItem = {
+  id: string;
+  title?: string;
+  created_at: string;
+  status?: string;
+  user_info: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
+};
+
+type ChatFilters = {
+  status?: string;
+  search?: string;
+  created_after?: string;
+  created_before?: string;
+  date?: string;
+};
+
+export const MessageTabContent: React.FC<MessageTabContentProps> = ({
   selectedOption,
   searchTerm,
   selectedEndDate,
@@ -25,7 +53,7 @@ export const MessageTabContent: React.FC<any> = ({
   date,
 }) => {
   const router = useRouter();
-  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<ChatItem | null>(null);
   const [ticketId, setTicketId] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<"details" | "claim" | null>(
     null
@@ -53,9 +81,7 @@ export const MessageTabContent: React.FC<any> = ({
     setFilters,
   } = useGetAllChat();
 
-  const [chats, setChats] = useState<any[]>([]); // Maintain local chat state
-
-  console.log({ selectedEndDate, selectedStartDate });
+  const [chats, setChats] = useState<ChatItem[]>([]);
 
   const { chat: chatDetails, loadingChat } = useGetChat({
     ChatId: ticketId as string,
@@ -72,7 +98,7 @@ export const MessageTabContent: React.FC<any> = ({
   };
 
   useEffect(() => {
-    const filters: any = {};
+    const filters: ChatFilters = {};
     filters.status = statusFilter === "all" ? "" : statusFilter;
 
     if (searchTerm) {
@@ -91,7 +117,7 @@ export const MessageTabContent: React.FC<any> = ({
       filters.date = date as string;
     }
 
-    // Check if any filter prop has changed from previous values
+    // Check if filter props have changed from previous values
     if (
       searchTerm !== prevSearchTerm ||
       selectedEndDate !== prevSelectedEndDate ||
@@ -127,13 +153,13 @@ export const MessageTabContent: React.FC<any> = ({
     }
   }, [fetchedChats]);
 
-  const handleViewDetails = (chat: any) => {
+  const handleViewDetails = (chat: ChatItem) => {
     setSelectedTicket(chat);
     setTicketId(chat.id);
     setActiveModal("details");
   };
 
-  const handleOpenClaimModal = (chat: any) => {
+  const handleOpenClaimModal = (chat: ChatItem) => {
     setSelectedTicket(chat);
     setTicketId(chat.id);
     setActiveModal("claim");
@@ -152,7 +178,7 @@ export const MessageTabContent: React.FC<any> = ({
     triggerFullReload();
 
     // Set filters to trigger data refetch
-    const filters: any = {};
+    const filters: ChatFilters = {};
     filters.status = value === "all" ? "" : value;
 
     if (searchTerm) {

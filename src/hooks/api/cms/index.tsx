@@ -8,7 +8,7 @@ export function useGetAllServices({
   initalFetch?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<any | null>(null);
+  const [data, setData] = useState<unknown | null>(null);
 
   const onCMSdata = async () => {
     setLoading(true);
@@ -36,7 +36,7 @@ export function useGetAllServices({
 
 export function useEditServices() {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<any | null>(null);
+  const [data, setData] = useState<unknown | null>(null);
 
   const onCMSdata = async ({
     id,
@@ -45,7 +45,7 @@ export function useEditServices() {
     errorCallback,
   }: {
     id: string;
-    payload: any;
+    payload: Record<string, unknown>;
     successCallback?: () => void;
     errorCallback?: () => void;
   }) => {

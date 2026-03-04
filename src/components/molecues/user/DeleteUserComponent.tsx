@@ -35,12 +35,35 @@ const DetailRow = ({
   </div>
 );
 
+type UserDetails = {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  date_created?: string;
+  deleted_at?: string;
+  gender?: string;
+  date_of_birth?: string;
+  mobile_number?: string;
+  address?: string;
+  deactivation_reason?: {
+    reason?: string;
+  };
+};
+
+type UserDetailsDialogProps = {
+  selectedUser: { id: string } | null;
+  userDetails: UserDetails | null;
+  userLoading: boolean;
+  onClose: () => void;
+};
+
 export const UserDetailsDialog = ({
   selectedUser,
   userDetails,
   userLoading,
   onClose,
-}: any) => {
+}: UserDetailsDialogProps) => {
   console.log(userDetails);
   return (
     <Dialog open={Boolean(selectedUser)} onOpenChange={onClose}>

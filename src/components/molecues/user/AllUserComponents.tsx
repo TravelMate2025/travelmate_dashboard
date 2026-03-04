@@ -35,12 +35,32 @@ const DetailRow = ({
   </div>
 );
 
+type UserRecord = {
+  id?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  date_created?: string;
+  gender?: string | null;
+  date_of_birth?: string | null;
+  mobile_number?: string | null;
+  address?: string | null;
+  is_active?: boolean;
+};
+
+type UserDetailsDialogProps = {
+  selectedUser: UserRecord | null;
+  userDetails: UserRecord | null;
+  userLoading: boolean;
+  onClose: () => void;
+};
+
 export const UserDetailsDialog = ({
   selectedUser,
   userDetails,
   userLoading,
   onClose,
-}: any) => {
+}: UserDetailsDialogProps) => {
   return (
     <Dialog open={Boolean(selectedUser)} onOpenChange={onClose}>
       <DialogContent className="lg:min-w-[800px] rounded-[16px] p-0 space-y-0 ">
@@ -112,7 +132,7 @@ export const UserDeactivationDialog = ({
   onCancel,
   refetch,
 }: {
-  deactivatingUser: any;
+  deactivatingUser: UserRecord | null;
   isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -260,7 +280,7 @@ export const UserDeactivationDialog = ({
 };
 
 type MiniDropdownOption = {
-  id: String;
+  id: string;
   label: string;
 };
 
@@ -382,7 +402,7 @@ export const UserActivationDialog = ({
   onCancel,
   refetch,
 }: {
-  reactivatingUser: any;
+  reactivatingUser: UserRecord | null;
   isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -507,7 +527,7 @@ export const UserActivationDialog = ({
   );
 };
 
-export const NotAuthorizedModal = ({ string }: any) => {
+export const NotAuthorizedModal = ({ string }: { string: string }) => {
   return (
     <div className="text-center p-6 flex flex-col space-y-2 items-center justify-center min-h-[400px]">
       <AlertTriangle className="w-20 h-20 mx-auto text-red-500" />

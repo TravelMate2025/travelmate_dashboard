@@ -19,10 +19,30 @@ interface FilterProps {
   currency: string;
 }
 
+interface CarPassenger {
+  first_name?: string;
+  last_name?: string;
+}
+
+interface CarBooking {
+  id?: string | number;
+  booking_reference?: string;
+  passenger_name?: string;
+  pickup_location_label?: string;
+  dropoff_location_label?: string;
+  transfer_type?: string;
+  total_amount?: string | number;
+  payment_status?: string;
+  booking_status?: string;
+  created_at?: string;
+  date_booked?: string;
+  [key: string]: unknown;
+}
+
 interface CarBookingsProps {
   title: string;
   filterProps: FilterProps;
-  bookings: any[];
+  bookings: CarBooking[];
   loading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
@@ -91,7 +111,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
   };
 
   // Helper: get passenger name
-  const getPassengerName = (passenger: any) => {
+  const getPassengerName = (passenger?: CarPassenger | null) => {
     if (!passenger) return "N/A";
     return `${passenger.first_name} ${passenger.last_name}`;
   };
@@ -215,7 +235,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                         </div>
                       </TableCell>
                       <TableCell className="py-3 px-4 cursor-pointer">
-                        <BookingTableDropdown booking_refrence = {item.booking_reference} />
+                        <BookingTableDropdown bookingId={item.id} />
                       </TableCell>
                     </TableRow>
                   ))}

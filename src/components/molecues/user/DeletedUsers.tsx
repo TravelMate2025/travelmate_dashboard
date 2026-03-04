@@ -89,7 +89,24 @@ const BulkDeleteConfirmationDialog = ({
   );
 };
 
-export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
+type DeletedUsersTableProps = {
+  searchTerm: string;
+  selectedOption: string;
+};
+
+type DeletedUserItem = {
+  id: string;
+  name?: string;
+  email?: string;
+  registration_date?: string;
+  deleted_at?: string;
+  reason?: string;
+};
+
+export const DeletedUsersTable = ({
+  searchTerm,
+  selectedOption,
+}: DeletedUsersTableProps) => {
   const {
     users,
     loadNext,
@@ -102,9 +119,9 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
     previousPageUrl,
   } = useGetDeletedUsers();
 
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState<DeletedUserItem | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [deactivatingUser, setDeactivatingUser] = useState(null);
+  const [deactivatingUser, setDeactivatingUser] = useState<DeletedUserItem | null>(null);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
@@ -158,12 +175,12 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
     setIsBulkDeleteDialogOpen(false);
   };
 
-  const handleViewDetails = (user: any) => {
+  const handleViewDetails = (user: DeletedUserItem) => {
     setSelectedUser(user);
     setUserId(user.id);
   };
 
-  const handleDeactivateUser = (user: any) => {
+  const handleDeactivateUser = (user: DeletedUserItem) => {
     setDeactivatingUser(user);
     setIsDeactivateDialogOpen(true);
   };
@@ -244,6 +261,8 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
                           <input
                             type="checkbox"
                             className="w-5 h-5 rounded border-gray-300 text-red-500 focus:ring-red-400"
+                            title="Select all users"
+                            aria-label="Select all users"
                             onChange={(e) => handleSelectAll(e.target.checked)}
                             checked={
                               users.length > 0 &&
@@ -286,6 +305,8 @@ export const DeletedUsersTable = ({ searchTerm, selectedOption }: any) => {
                             <input
                               type="checkbox"
                               className="w-5 h-5 rounded border-gray-300 text-red-500 focus:ring-red-400"
+                              title={`Select ${user.name || user.email}`}
+                              aria-label={`Select ${user.name || user.email}`}
                               checked={selectedUserIds.includes(user.id)}
                               onChange={() => toggleSelectUser(user.id)}
                               disabled={deleting}

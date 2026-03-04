@@ -2,15 +2,23 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import useWebSocket from "react-use-websocket";
 import ChatService from "@/services/chat";
+import env from "@/config/env";
 import axios from "axios";
 import instance from "@/hooks/initializers/useAxiosDefaults";
+
+const toWsBase = (apiUrl: string) => {
+  const normalized = apiUrl.replace(/\/+$/, "");
+  const parsedUrl = new URL(normalized);
+  const protocol = parsedUrl.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${parsedUrl.host}`;
+};
 
 const getFromLocalStorage = ({
   key,
   cb = () => null,
 }: {
   key: string;
-  cb?: (value: any) => void;
+  cb?: (value: unknown) => void;
 }): void => {
   try {
     const value = localStorage?.getItem(key);
@@ -26,18 +34,24 @@ const getFromLocalStorage = ({
 type Chat = {
   id: string;
   status: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
+type ChatMessage = {
+  id?: string | number;
+  [key: string]: unknown;
+};
+
+type ChatFilters = Record<string, string | number | boolean | null | undefined>;
+
 export function useGetAllChat() {
-  const BASE_URL =
-    "https://travelmate-backend-0suw.onrender.com/api/admin/chats/";
+  const BASE_URL = env.api.chat;
 
   const [chats, setChats] = useState<Chat[]>([]);
   const [nextPageUrl, setNextPageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFiltersState] = useState<Record<string, any>>({});
+  const [filters, setFiltersState] = useState<ChatFilters>({});
   const hasFetchedInitial = useRef(false);
   const isFetching = useRef(false); // Prevent redundant fetches
 
@@ -86,7 +100,7 @@ export function useGetAllChat() {
   );
 
   // Set filters with deep comparison to prevent redundant updates
-  const setFilters = (newFilters: Record<string, any>) => {
+  const setFilters = (newFilters: ChatFilters) => {
     setFiltersState((prevFilters) => {
       const prevString = JSON.stringify(prevFilters);
       const newString = JSON.stringify(newFilters);
@@ -136,7 +150,7 @@ export function useGetChat({
   errorCallback?: (props: { message?: string; description?: string }) => void;
 }) {
   const [loadingChat, setLoading] = useState(false);
-  const [chat, setChat] = useState<any | null>(null);
+  const [chat, setChat] = useState<Chat | null>(null);
 
   const fetchChat = async () => {
     if (!ChatId) return;
@@ -146,11 +160,11 @@ export function useGetChat({
       const res = await ChatService.getChat({ id: ChatId });
       setChat(res.data);
       if (successCallback) successCallback("Chat fetched successfully.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (errorCallback) {
         errorCallback({
           message: "An error occurred while fetching the chat.",
-          description: error?.message || "Unknown error.",
+          description: error instanceof Error ? error.message : "Unknown error.",
         });
       }
     } finally {
@@ -167,17 +181,17 @@ export function useGetChat({
 
 export const useGetChatMessages = () => {
   const [loadingMessage, setLoading] = useState(false);
-  const [messages, setData] = useState<any>({});
+  const [messages, setData] = useState<unknown>({});
 
   const onFetchMessages = async ({ id }: { id: number }) => {
     try {
       setLoading(true);
       const res = await ChatService.getChatMessages({ id });
       setData(res.data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       showErrorToast({
         message: "An error occurred while fetching messages",
-        description: error?.message || "Unknown error",
+        description: error instanceof Error ? error.message : "Unknown error",
       });
     } finally {
       setLoading(false);
@@ -187,15 +201,22 @@ export const useGetChatMessages = () => {
   return { loadingMessage, messages, onFetchMessages };
 };
 
-export const useWebSocketService = ({ sessionId, accessToken }: any) => {
-  const [messages, setMessages] = useState<any[]>([]);
+export const useWebSocketService = ({
+  sessionId,
+  accessToken,
+}: {
+  sessionId?: string;
+  accessToken?: string | null;
+}) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   // const [accessToken, setAccessToken] = useState<string | null>(null);
   const [socketUrl, setSocketUrl] = useState<string | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null); // WebSocket instance
 
   useEffect(() => {
     if (accessToken && sessionId) {
-      const url = `wss://travelmate-backend-0suw.onrender.com/ws/chat/${sessionId}/?token=${accessToken}`;
+      const wsBase = toWsBase(env.api.chat);
+      const url = `${wsBase}/ws/chat/${sessionId}/?token=${accessToken}`;
       setSocketUrl(url);
     }
 
@@ -237,7 +258,7 @@ export const useWebSocketService = ({ sessionId, accessToken }: any) => {
   }, [socketUrl]);
   // console.log(messages);
 
-  const send = (message: any) => {
+  const send = (message: Record<string, unknown>) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(message));
     } else {
@@ -272,9 +293,12 @@ export function useClaimChat() {
       }
 
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage =
-        error.response?.data?.message ||
+        axios.isAxiosError(error)
+          ? error.response?.data?.message ||
+            "Unable to respond to claim at the moment!"
+          :
         "Unable to respond to claim at the moment!";
       showErrorToast({ message: errorMessage });
     } finally {

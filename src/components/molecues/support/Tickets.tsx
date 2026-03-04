@@ -17,9 +17,32 @@ import { useGetAllTickets, useGetTicket } from "@/hooks/api/ticket";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export const TicketTabContent: React.FC<any> = ({ searchTerm, date }) => {
+type TicketTabContentProps = {
+  searchTerm: string;
+  date?: string;
+};
+
+type TicketItem = {
+  id: string;
+  title: string;
+  ticket_id: string;
+  category: string;
+  created_at: string;
+  status: string;
+  escalated?: boolean;
+  user: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
+};
+
+export const TicketTabContent: React.FC<TicketTabContentProps> = ({
+  searchTerm,
+  date,
+}) => {
   const router = useRouter();
-  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedTicket, setSelectedTicket] = useState<TicketItem | null>(null);
   const [ticketId, setTicketId] = useState<string | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
@@ -40,7 +63,7 @@ export const TicketTabContent: React.FC<any> = ({ searchTerm, date }) => {
     setFilters,
   } = useGetAllTickets();
 
-  const [tickets, setTickets] = useState<any[]>([]); // Maintain local ticket state
+  const [tickets, setTickets] = useState<TicketItem[]>([]);
 
   const { ticket: ticketDetails, loadingTicket } = useGetTicket({
     TicketId: ticketId as string,
@@ -61,7 +84,7 @@ export const TicketTabContent: React.FC<any> = ({ searchTerm, date }) => {
   };
 
   useEffect(() => {
-    const filters: any = {};
+    const filters: Record<string, string> = {};
     filters.status = statusFilter === "all" ? "" : statusFilter;
     if (searchTerm) {
       filters.search = searchTerm;
@@ -95,7 +118,7 @@ export const TicketTabContent: React.FC<any> = ({ searchTerm, date }) => {
     triggerFullReload();
 
     // Set filters to trigger data refetch
-    const filters: any = {};
+    const filters: Record<string, string> = {};
     filters.status = value === "all" ? "" : value;
     if (searchTerm) {
       filters.search = searchTerm;
@@ -106,7 +129,7 @@ export const TicketTabContent: React.FC<any> = ({ searchTerm, date }) => {
     setFilters(filters);
   };
 
-  const handleViewDetails = (ticket: any) => {
+  const handleViewDetails = (ticket: TicketItem) => {
     setSelectedTicket(ticket);
     setTicketId(ticket.id);
     setIsDetailsDialogOpen(true);
@@ -118,7 +141,7 @@ export const TicketTabContent: React.FC<any> = ({ searchTerm, date }) => {
     setTicketId(null);
   };
 
-  const handleViewMessage = (ticket: any) => {
+  const handleViewMessage = (ticket: TicketItem) => {
     setSelectedTicket(ticket);
     setTicketId(ticket.id);
     setIsChatModalOpen(true);

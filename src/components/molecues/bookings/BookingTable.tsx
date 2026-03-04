@@ -20,11 +20,28 @@ interface FilterProps {
   currency: string;
 }
 
+interface BookingItem {
+  id?: string | number;
+  reference?: string;
+  booking_reference?: string;
+  booking_status?: string;
+  payment_status?: string;
+  hotel_name?: string;
+  total_amount?: string | number;
+  check_in?: string;
+  check_out?: string;
+  rooms?: Array<{ room_type?: string }>;
+  customer_details?: {
+    name?: string;
+    surname?: string;
+  };
+}
+
 // Define the interface for component props
 interface BookingTableProps {
   title: string;
   filterProps: FilterProps;
-  bookings: any[] | null | undefined; // can be null or undefined
+  bookings: BookingItem[] | null | undefined;
   loading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
@@ -40,7 +57,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
 }) => {
   
   const [activeSubTab, setActiveSubTab] = useState<string>("ongoing");
-  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [filteredData, setFilteredData] = useState<BookingItem[]>([]);
 
   const styling =
     "h-full data-[state=active]:text-[#181818] data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:rounded-none data-[state=active]:border-b-[3px] data-[state=active]:border-b-[#181818] data-[state=active]:mb-0 flex items-center justify-center cursor-pointer bg-transparent shadow-none rounded-none text-[18px] text-[#4E4F52] font-[400] ";
@@ -238,7 +255,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
                         </div>
                       </TableCell>
                       <TableCell className="py-3 px-4 cursor-pointer">
-                        <BookingTableDropdown />
+                        <BookingTableDropdown bookingId={item.id} />
                       </TableCell>
                     </TableRow>
                   ))}

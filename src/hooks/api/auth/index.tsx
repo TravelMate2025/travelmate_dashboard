@@ -2,8 +2,25 @@ import { useState } from "react";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import { useUpdateAuthContext } from "@/context/AuthContext";
 import env from "@/config/env";
-import { AxiosError } from "axios";
+import axios, { AxiosError } from "axios";
 import { AuthInterface } from "@/services/auth/types";
+import instance from "@/hooks/initializers/useAxiosDefaults";
+
+const getAuthErrorPayload = (error: unknown) => {
+  if (axios.isAxiosError(error)) {
+    return (error.response?.data as
+      | {
+          message?: string;
+          Message?: string;
+          detail?: string;
+          description?: string;
+          email?: string | { Message?: string }[];
+          token?: string | string[];
+        }
+      | undefined) ?? {};
+  }
+  return {};
+};
 
 export const useLoginUser = ({ Service }: { Service: AuthInterface }) => {
   const [loading, setLoading] = useState(false);
@@ -43,6 +60,8 @@ export const useLoginUser = ({ Service }: { Service: AuthInterface }) => {
 
 
       updateAppState({
+        accessToken: res.data.access,
+        refreshToken: res.data.refresh,
         user, // tokens will be read later from cookies
       });
 
@@ -53,15 +72,24 @@ export const useLoginUser = ({ Service }: { Service: AuthInterface }) => {
 
       successCallback?.();
       setRedirecting(true);
-    } catch (error: Error | AxiosError | any) {
-      if (error.response?.status === 400) {
+    } catch (error: unknown) {
+      const payload = getAuthErrorPayload(error);
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      const backendMessage =
+        payload.message ||
+        payload.Message ||
+        payload.detail ||
+        (error instanceof Error ? error.message : undefined) ||
+        "An error occurred!";
+
+      if (status === 400) {
         showErrorToast({
-          message: error.response?.data?.Message || "Invalid credentials!",
+          message: backendMessage || "Invalid credentials!",
         });
       } else {
         showErrorToast({
-          message: error?.response?.data?.Message || "An error occurred!",
-          description: error?.response?.data?.description || "",
+          message: backendMessage,
+          description: payload.description || "",
         });
       }
     } finally {
@@ -92,10 +120,13 @@ export function useForgotPassword({ Service }: { Service: AuthInterface }) {
         description: res.data.description || "",
       });
       successCallback?.(res?.data?.message || "Email sent successfully.");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const payload = getAuthErrorPayload(error);
       showErrorToast({
         message:
-          error.response?.data?.email?.[0]?.Message || "An error occured",
+          (Array.isArray(payload.email)
+            ? payload.email?.[0]?.Message
+            : undefined) || "An error occured",
       });
     } finally {
       setLoading(false);
@@ -110,12 +141,16 @@ export function useLogout() {
 
   const onLogout = async () => {
     try {
+      await instance.post(env.api.usersLogout).catch(() => null);
+
       await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include",
       });
 
       const INITIAL_APP_STATE = {
+        accessToken: undefined,
+        refreshToken: undefined,
         user: undefined,
       };
 
@@ -152,9 +187,10 @@ export function useVerifyOtp({ Service }: { Service: AuthInterface }) {
         description: res.data.description || "",
       });
       successCallback?.(res?.data?.message || "Token verified successfully");
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const payload = getAuthErrorPayload(error);
       showErrorToast({
-        message: error.response?.data?.token?.[0] || "Invalid credentials!",
+        message: (Array.isArray(payload.token) ? payload.token?.[0] : undefined) || "Invalid credentials!",
       });
     } finally {
       setLoading(false);
@@ -189,10 +225,11 @@ export function useNewPassword({ Service }: { Service: AuthInterface }) {
         description: response.data.description || "",
       });
       successCallback?.(response.data.message);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const payload = getAuthErrorPayload(error);
       errorCallback?.({
-        message: error?.response?.data?.email || "An error occurred!",
-        description: error?.response?.data?.description || "",
+        message: (typeof payload.email === "string" ? payload.email : undefined) || "An error occurred!",
+        description: payload.description || "",
       });
     } finally {
       setLoading(false);
@@ -223,9 +260,12 @@ export function useResendOTP({ Service }: { Service: AuthInterface }) {
           "Password reset token has been sent to your email",
       });
       successCallback?.(res?.data?.message || "Token verified successfully");
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.token || "An error occurred!";
-      const errorDescription = error?.response?.data?.description;
+    } catch (error: unknown) {
+      const payload = getAuthErrorPayload(error);
+      const errorMessage =
+        (typeof payload.token === "string" ? payload.token : undefined) ||
+        "An error occurred!";
+      const errorDescription = payload.description;
 
       // Show error toast
       showErrorToast({

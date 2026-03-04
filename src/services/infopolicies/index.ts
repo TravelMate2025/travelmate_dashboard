@@ -23,34 +23,34 @@ export const fetchAllContents = async () => {
 
 // About APIs
 export const addAbout = (content: string) =>
-    instance.post(`${env.api.aboutus}/`, { content });
+    instance.post(env.api.aboutus, { content });
 
 export const updateAbout = (id: number, content: string, lastUpdated: string) =>
-    instance.patch(`${env.api.aboutus}/${id}/`, {
+    instance.patch(`${env.api.aboutus}${id}/`, {
         content,
         last_updated: lastUpdated,
     });
 
 // Privacy APIs
 export const addPrivacy = (content: string) =>
-    instance.post(`${env.api.privacypolicy}/`, { content });
+    instance.post(env.api.privacypolicy, { content });
 
 export const updatePrivacy = (
     id: number,
     content: string,
     lastUpdated: string
 ) =>
-    instance.patch(`${env.api.privacypolicy}/${id}/`, {
+    instance.patch(`${env.api.privacypolicy}${id}/`, {
         content,
         last_updated: lastUpdated,
     });
 
 // Terms APIs
 export const addTerms = (content: string) =>
-    instance.post(`${env.api.termsofuse}/`, { content });
+    instance.post(env.api.termsofuse, { content });
 
 export const updateTerms = (id: number, content: string, lastUpdated: string) =>
-    instance.patch(`${env.api.termsofuse}/${id}/`, {
+    instance.patch(`${env.api.termsofuse}${id}/`, {
         content,
         last_updated: lastUpdated,
     });
@@ -61,7 +61,7 @@ export const fetchPartnersCategories = () =>
 
 
 export const deletePartner = (id: number) =>
-    instance.delete(`${env.api.partners}/${id}/`);
+    instance.delete(`${env.api.partners}${id}/`);
 
 // History API
 export const fetchHistory = () =>

@@ -21,11 +21,36 @@ interface FilterProps {
   currency: string;
 }
 
+interface FlightDetail {
+  departure_airport?: string;
+  arrival_airport?: string;
+  departure_datetime?: string;
+  cabin_class?: string;
+}
+
+interface FlightPassenger {
+  first_name?: string;
+  last_name?: string;
+}
+
+interface FlightBooking {
+  id?: string | number;
+  booking_reference?: string;
+  passenger_count?: number;
+  date_booked?: string;
+  flight_details?: FlightDetail[];
+  flight_booking_type?: string;
+  total_amount?: string | number;
+  payment_status?: string;
+  booking_status?: string;
+  [key: string]: unknown;
+}
+
 // Define the interface for component props
 interface FlightBookingsProps {
   title: string;
   filterProps: FilterProps;
-  bookings: any[];
+  bookings: FlightBooking[];
   loading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
@@ -97,7 +122,7 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
   };
 
   // Helper function to get route summary
-  const getRouteSummary = (flightDetails: any[]) => {
+  const getRouteSummary = (flightDetails: FlightDetail[]) => {
     if (!flightDetails || flightDetails.length === 0) return "N/A";
     const firstFlight = flightDetails[0];
     const lastFlight = flightDetails[flightDetails.length - 1];
@@ -105,14 +130,14 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
   };
 
   // Helper function to get passenger name
-  const getPassengerName = (passengers: any[]) => {
+  const getPassengerName = (passengers: FlightPassenger[]) => {
     if (!passengers || passengers.length === 0) return "N/A";
     const primaryPassenger = passengers[0];
     return `${primaryPassenger.first_name} ${primaryPassenger.last_name}`;
   };
 
   // Helper function to get departure date
-  const getClass = (flightDetails: any[]) => {
+  const getClass = (flightDetails: FlightDetail[]) => {
     if (!flightDetails || flightDetails.length === 0) return "N/A";
     return formatDate(flightDetails[0].departure_datetime);
   };
@@ -224,9 +249,7 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
                         </div>
                       </TableCell>
                       <TableCell className="py-3 px-4 cursor-pointer">
-                        <BookingTableDropdown
-                          booking_refrence={item.booking_reference}
-                        />
+                        <BookingTableDropdown bookingId={item.id} />
                       </TableCell>
                     </TableRow>
                   ))}

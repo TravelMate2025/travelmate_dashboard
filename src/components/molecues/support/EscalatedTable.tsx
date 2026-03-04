@@ -21,9 +21,46 @@ import {
   EscalatedTicketDetailsDialog,
 } from "./Reuseables";
 
-export const EscaleteTable: React.FC = ({ searchTerm, date }: any) => {
+type EscalatedTableProps = {
+  searchTerm?: string;
+  date?: string;
+};
+
+type EscalatedTicket = {
+  id: string;
+  title?: string;
+  ticket_id?: string;
+  category?: string;
+  status?: string;
+  user?: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+  };
+  escalated_by?: {
+    first_name?: string;
+    email?: string;
+  };
+  escalated_at?: string;
+  escalation_role?: {
+    name?: string;
+  };
+};
+
+type EscalatedTicketFilters = {
+  status?: string;
+  search?: string;
+  date?: string;
+};
+
+export const EscaleteTable: React.FC<EscalatedTableProps> = ({
+  searchTerm,
+  date,
+}) => {
   const router = useRouter();
-  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedTicket, setSelectedTicket] = useState<EscalatedTicket | null>(
+    null
+  );
   const [ticketId, setTicketId] = useState<string | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isChatModalOpen, setIsChatModalOpen] = useState(false);
@@ -42,14 +79,14 @@ export const EscaleteTable: React.FC = ({ searchTerm, date }: any) => {
     },
   });
 
-  const handleViewDetails = (ticket: any) => {
+  const handleViewDetails = (ticket: EscalatedTicket) => {
     setIsDetailsDialogOpen(true);
     setIsChatModalOpen(false); // Ensure chat modal is closed
     setSelectedTicket(ticket);
     setTicketId(ticket.id);
   };
 
-  const handleViewMessage = (ticket: any) => {
+  const handleViewMessage = (ticket: EscalatedTicket) => {
     setIsChatModalOpen(true);
     setIsDetailsDialogOpen(false); // Ensure details dialog is closed
     setSelectedTicket(ticket);
@@ -69,7 +106,7 @@ export const EscaleteTable: React.FC = ({ searchTerm, date }: any) => {
   };
 
   useEffect(() => {
-    const filters: any = {};
+    const filters: EscalatedTicketFilters = {};
     filters.status = statusFilter === "all" ? "" : statusFilter;
     if (searchTerm) {
       filters.search = searchTerm;
@@ -156,7 +193,7 @@ export const EscaleteTable: React.FC = ({ searchTerm, date }: any) => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {tickets.map((ticket: any, index: any) => (
+                      {tickets.map((ticket: EscalatedTicket, index: number) => (
                         <TableRow
                           key={`${ticket.id}-${index}`}
                           className="items-center cursor-pointer border-none"
