@@ -5,7 +5,6 @@ import { Switch } from "@/components/ui/switch";
 import Button from "@/components/reuseables/Button";
 import Link from "next/link";
 import { useField } from "formik";
-import { FieldMetaProps } from "formik/dist/types";
 import { Formik, Form } from "formik";
 import {
   SignInFormValues,
@@ -70,7 +69,7 @@ const LoginComponent = () => {
           validationSchema={authSchema.signIn}
           onSubmit={handleSubmit}
         >
-          {({ isValid }) => (
+          {({ isValid }: { isValid: boolean }) => (
             <div className="bg-[#fff] p-[40px] space-y-10 rounded-[20px]">
               <div className="flex flex-col items-center gap-4">
                 <img
@@ -227,13 +226,17 @@ export const InputReuseables = ({
 interface ErrorProps {
   error?: string;
   touched: boolean;
-  value: any;
+  value: unknown;
   initialError?: string;
   initialTouched: boolean;
   initialValue?: string;
 }
 
-const FieldError = ({ meta }: { meta: FieldMetaProps<ErrorProps> }) => {
+const FieldError = ({
+  meta,
+}: {
+  meta: Pick<ErrorProps, "touched" | "error">;
+}) => {
   if (meta.touched && meta.error) {
     return (
       <div className="mt-1 font-gordita text-xs leading-5 font-normal text-[#FF0000]">

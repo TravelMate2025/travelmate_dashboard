@@ -14,8 +14,8 @@ const Stats = () => {
   const { loading, data, updateDays } = useGetAllTicketStats({
     initialFetch: true,
     defaultDays: days,
-    successCallback: (message: any) => console.log(message),
-    errorCallback: (err: any) => console.error(err),
+    successCallback: (message: unknown) => console.log(message),
+    errorCallback: (err: unknown) => console.error(err),
   });
 
   useEffect(() => {
@@ -36,22 +36,16 @@ const Stats = () => {
               icon="/assets/icons/airplane_ticket.svg"
               label="Open Tickets"
               value={data?.open_tickets?.count ?? "N/A"}
-              borderColor="#023E8A"
-              bgColor="#CCD8E8"
             />
             <StatCard
               icon="/assets/icons/access_time.svg"
               label="Average Response Time"
               value={data?.average_response_time?.human_readable ?? "N/A"}
-              borderColor="#2D9C5E"
-              bgColor="#D5EBDF"
             />
             <StatCard
               icon="/assets/icons/card-escalate.svg"
               label="Escalated Issues"
               value={data?.escalated_issues?.count ?? "N/A"}
-              borderColor="#D72638"
-              bgColor="#FAE0E6"
             />
           </div>
         )}
@@ -121,19 +115,12 @@ const StatCard = ({
   icon,
   label,
   value,
-  borderColor,
-  bgColor,
 }: {
   icon: string;
   label: string;
   value: string;
-  borderColor: string;
-  bgColor: string;
 }) => (
-  <div
-    className={`w-full lg:w-[246px] border-[1px] p-[20px] space-y-[12px] rounded-[10px]`}
-    style={{ borderColor, backgroundColor: bgColor }}
-  >
+  <div className="w-full lg:w-[246px] border-[1px] p-[20px] space-y-[12px] rounded-[10px] border-[#9B9EA4] bg-[#F5F5F5]">
     <div className="space-x-3 flex items-center justify-center">
       <img src={icon} alt="" />
       <p className="text-[14px] font-[500px] leading-[100%] text-[#181818]">

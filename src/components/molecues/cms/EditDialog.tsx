@@ -13,8 +13,13 @@ import { Formik, Form, Field } from "formik";
 import { AlertTriangle } from "lucide-react";
 import * as Yup from "yup";
 
+type EditDialogProps = {
+  serviceId: string;
+  refresh?: () => void;
+  canEdit: boolean;
+};
 
-const EditDialog = ({ serviceId, refresh, canEdit }: any) => {
+const EditDialog = ({ serviceId, refresh, canEdit }: EditDialogProps) => {
   const { onCMSdata, loading } = useEditServices();
   const [showSuccessModal, setShowSuccessModal] = useState(false); // Separate state for success modal
 
@@ -141,7 +146,7 @@ const EditDialog = ({ serviceId, refresh, canEdit }: any) => {
 
 
 
-const NotAuthorizedModal = ({}: any) => {
+const NotAuthorizedModal = () => {
   return (
     <div className="text-center p-6 flex flex-col space-y-4 items-center justify-center min-h-[250px]">
       <AlertTriangle className="w-20 h-20 mx-auto text-red-500" />

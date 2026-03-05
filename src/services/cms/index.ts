@@ -6,7 +6,7 @@ class Service {
   getServices() {
     return instance.get(env.api.cms);
   }
-  updateService({ id, payload }: { id: string; payload: any }) {
+  updateService({ id, payload }: { id: string; payload: Record<string, unknown> }) {
     return instance.patch(env.api.cms + id + "/", payload);
   }
 }

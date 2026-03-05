@@ -355,6 +355,9 @@ const ManageSuperAdmin = () => {
                         })
                       }
                       name="name"
+                      aria-label="Super admin name"
+                      title="Super admin name"
+                      placeholder="Enter full name"
                       className="border border-black rounded-md p-2 w-full"
                     />
                   </div>
@@ -372,6 +375,9 @@ const ManageSuperAdmin = () => {
                           email: e.target.value,
                         })
                       }
+                      aria-label="Super admin email"
+                      title="Super admin email"
+                      placeholder="Enter email address"
                       className="border border-black rounded-md p-2 w-full"
                     />
                   </div>
@@ -383,27 +389,31 @@ const ManageSuperAdmin = () => {
                       <input
                         type="radio"
                         name="transfer"
-                        id=""
+                        id="transfer-change-role"
                         value="change_role"
+                        aria-label="Change my role"
+                        title="Change my role"
                         onChange={(e) => {
                           setChangeRoleInvite(true);
                           setActionInviteOption(e.target.value);
                         }}
                       />
-                      <label htmlFor="change-role">Change my role</label>
+                      <label htmlFor="transfer-change-role">Change my role</label>
                     </div>
                     <div className="flex items-center gap-4">
                       <input
                         type="radio"
                         name="transfer"
-                        id=""
+                        id="transfer-remove-access"
                         value="remove_access"
+                        aria-label="Remove my access completely"
+                        title="Remove my access completely"
                         onChange={(e) => {
                           setChangeRoleInvite(false);
                           setActionInviteOption(e.target.value);
                         }}
                       />
-                      <label htmlFor="remove-access">
+                      <label htmlFor="transfer-remove-access">
                         Remove my access completely
                       </label>
                     </div>

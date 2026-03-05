@@ -11,8 +11,8 @@ const usePersistAppContext = ({
   appState,
   setAppState = () => null,
 }: {
-  appState?: any;
-  setAppState?: any;
+  appState?: unknown;
+  setAppState?: (value: unknown) => void;
 }) => {
   useEffect(() => {
     getFromLocalStorage({ cb: setAppState, key: PERSIST_AUTH_KEY });

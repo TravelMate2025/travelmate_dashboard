@@ -15,15 +15,21 @@ import {
 } from "@/components/ui/dialog";
 import { removeUsersFromRole } from "@/services/admin";
 
+interface RoleUser {
+  name?: string;
+  email: string;
+  [key: string]: unknown;
+}
+
 interface Role {
   id: string;
   name: string;
   description: string;
-  assigned_users: any[];
+  assigned_users: RoleUser[];
   current_permission_group_slugs: string[];
   is_superuser: boolean;
   created_by: string;
-  invited_users: any[];
+  invited_users: RoleUser[];
 }
 interface RoleAssignmentProps {
   roles: Role[]; // Array of roles to display
@@ -85,10 +91,18 @@ const RoleAssignment: FC<RoleAssignmentProps> = ({
       setAdminDetails(updatedRoles);
       setShowConfirmRemoveModal(false);
       setShowSuccessRemoveModal(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.log(error);
+      const errorMessage =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: unknown }).response === "object"
+          ? (error as { response?: { data?: { message?: string } } }).response
+              ?.data?.message
+          : undefined;
       showErrorToast({
-        message: error?.response?.data?.message || "Failed to remove user.",
+        message: errorMessage || "Failed to remove user.",
       });
     } finally {
       setSelectedRoleId(null);

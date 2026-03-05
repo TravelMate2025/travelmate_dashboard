@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from "react";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import UserService from "@/services/user";
-import axios from "axios";
 import env from "@/config/env";
 import instance from "@/hooks/initializers/useAxiosDefaults";
 
@@ -19,7 +18,7 @@ export function useGetUser({
 }) {
   console.log("fetching...", UserId);
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<any | null>(null);
+  const [data, setData] = useState<unknown | null>(null);
 
   const fetchUser = async () => {
     if (!UserId) return;
@@ -29,11 +28,11 @@ export function useGetUser({
       setData(res.data);
       if (successCallback)
         successCallback("User Profile fetched successfully.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (errorCallback)
         errorCallback({
           message: "An error occurred while fetching the ticket",
-          description: error?.message || "Unknown error",
+          description: error instanceof Error ? error.message : "Unknown error",
         });
     } finally {
       setLoading(false);
@@ -69,7 +68,7 @@ interface UsersResponse {
 }
 
 export const useGetUsers = () => {
-  const BASE_URL = "https://travelmate-backend-0suw.onrender.com/api/superuser";
+  const BASE_URL = env.api.users;
 
   const [users, setUsers] = useState<User[]>([]);
   const [nextPageUrl, setNextPageUrl] = useState<string | null>(null);
@@ -159,8 +158,7 @@ export const useGetUsers = () => {
 
 
 export const useGetDeletedUsers = () => {
-  const BASE_URL =
-    "https://travelmate-backend-0suw.onrender.com/api/superuser/soft-deleted-users/";
+  const BASE_URL = `${env.api.users}soft-deleted-users/`;
 
   const [users, setUsers] = useState<User[]>([]);
   const [nextPageUrl, setNextPageUrl] = useState<string | null>(null);
@@ -248,7 +246,7 @@ export const useDeactivateUser = () => {
     successCallback,
   }: {
     payload: { email: string; reason?: string; additional_note?: string };
-    userId: any;
+    userId: string | number;
     successCallback?: () => void;
   }) => {
     setLoading(true);
@@ -275,7 +273,7 @@ export const useDeactivateUser = () => {
       }
 
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       showErrorToast({
         message: "unable to deactivate user at the moment",
       });
@@ -297,7 +295,7 @@ export const useReactivateUser = () => {
     successCallback,
   }: {
     payload: { email: string; reason?: string; additional_note?: string };
-    userId: any;
+    userId: string | number;
     successCallback?: () => void;
   }) => {
     setLoading(true);
@@ -324,7 +322,7 @@ export const useReactivateUser = () => {
       }
 
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       showErrorToast({
         message: "unable to deactivate user at the moment",
       });
@@ -369,7 +367,7 @@ export const useExportCSV = () => {
         message: "CSV Export Successful",
         description: "The user data has been exported to CSV format.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error exporting CSV:", error);
 
       showErrorToast({
@@ -394,7 +392,7 @@ export const useDeleteUser = () => {
     userId,
     successCallback,
   }: {
-    userId: any;
+    userId: string | number;
     successCallback?: () => void;
   }) => {
     setLoading(true);
@@ -416,7 +414,7 @@ export const useDeleteUser = () => {
       }
 
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       showErrorToast({
         message: "unable to deactivate user at the moment",
       });
@@ -458,7 +456,7 @@ export const useBulkDeleteUser = () => {
       }
 
       setIsSuccess(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
       showErrorToast({
         message: "Unable to delete users at the moment",
       });

@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useGetBooking } from "@/hooks/api/bookings";
+import { useGetBooking, useRequestBookingCancellation } from "@/hooks/api/bookings";
 
 import StayDetails from "@/components/molecues/bookings/data/stays/StaysDetails";
 import CarDetails from "@/components/molecues/bookings/data/cars/CarDetails";
@@ -10,6 +10,8 @@ import FlightDetails from "@/components/molecues/bookings/data/flight/FlightDeta
 export default function BookingDetailsPage() {
   const { id }: { id: string } = useParams();
   const router = useRouter();
+  const { requestCancellation, loading: requestingCancellation } =
+    useRequestBookingCancellation();
 
   const { booking, loadingBooking } = useGetBooking({
     bookingRef: id,
@@ -24,6 +26,29 @@ export default function BookingDetailsPage() {
   };
 
   const currentType = booking?.booking_type?.toLowerCase() ?? "";
+  const resolvedBookingType =
+    currentType === "flights" ||
+    currentType === "stays" ||
+    currentType === "transfers"
+      ? currentType
+      : undefined;
+
+  const handleRequestCancellation = async () => {
+    if (!id) return;
+
+    await requestCancellation({
+      bookingId: id,
+      bookingType: resolvedBookingType,
+      reason: "Cancellation requested by admin",
+      successCallback: ({ cancellationRequestId }) => {
+        router.push(
+          cancellationRequestId
+            ? `/Dashboard/bookings/${id}/process-cancel?cancellationId=${encodeURIComponent(cancellationRequestId)}`
+            : `/Dashboard/bookings/${id}/process-cancel`
+        );
+      },
+    });
+  };
 
   if (loadingBooking || !booking) {
     return (
@@ -138,9 +163,10 @@ export default function BookingDetailsPage() {
 
         <button
           className="rounded-[8px] p-[12px] bg-[#D72638] text-[#fff] text-[14px] font-[400] cursor-pointer"
-          onClick={() => console.log("Cancel booking clicked")}
+          onClick={handleRequestCancellation}
+          disabled={requestingCancellation}
         >
-          Cancel Booking
+          {requestingCancellation ? "Requesting..." : "Cancel Booking"}
         </button>
       </div>
 

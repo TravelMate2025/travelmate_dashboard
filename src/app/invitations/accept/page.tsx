@@ -44,6 +44,20 @@ const LoginComponent = () => {
   const [loading, setLoading] = useState(false);
   const [successCreate, setSuccessCreate] = useState(false)
 
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "response" in error &&
+      typeof (error as { response?: unknown }).response === "object"
+    ) {
+      const response = (error as { response?: { data?: { message?: string } } })
+        .response;
+      return response?.data?.message || fallback;
+    }
+    return fallback;
+  };
+
   useEffect(() => {
     if (!token) {
       showErrorToast({ message: "Missing invitation token" });
@@ -59,8 +73,10 @@ const LoginComponent = () => {
           );
           setEmail(response.data.email);
           setIsValidToken(true);
-        } catch (error: any) {
-          showErrorToast({ message: error?.response?.data?.message });
+        } catch (error: unknown) {
+          showErrorToast({
+            message: getErrorMessage(error, "Invalid or expired invitation token"),
+          });
           setIsValidToken(false);
         } finally {
           setLoading(false);
@@ -85,11 +101,11 @@ const LoginComponent = () => {
       setSuccessCreate(true)
       showSuccessToast({message: "Password created successfully! You are now redirected to the Login page."})
       setTimeout(() => router.push("/auth/login"), 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       showErrorToast({
-        message: error?.response?.data?.message || "Something went wrong",
+        message: getErrorMessage(error, "Something went wrong"),
       });
-      console.log(error?.response?.data?.message);
+      console.log(getErrorMessage(error, "Something went wrong"));
     } finally {
       setLoading(false);
     }
@@ -299,7 +315,7 @@ const ValidationItem = ({
   </div>
 );
 
-const FieldError = ({ meta }: { meta: FieldMetaProps<any> }) => {
+const FieldError = ({ meta }: { meta: FieldMetaProps<string> }) => {
   if (meta.touched && meta.error) {
     return (
       <div className="mt-1 text-xs leading-5 font-normal text-[#FF0000]">

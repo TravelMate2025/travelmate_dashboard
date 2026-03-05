@@ -6,7 +6,7 @@ export interface SignInFormValues {
   rememberMe?: boolean;
 }
 
-export const authInitialValues: Record<string, any> = {
+export const authInitialValues: Record<string, unknown> = {
   signIn: {
     email: "",
     password: "",

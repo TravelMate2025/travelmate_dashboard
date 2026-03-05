@@ -1,19 +1,25 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { LogOut, ChevronDown, X } from "lucide-react";
-import { navItems } from "@/components/data";
+import { usePathname, useRouter } from "next/navigation";
+import { LogOut, X } from "lucide-react";
+import { navItems } from "@shared/config/navigation";
 import { useMyRoles } from "@/hooks/api/roles";
 import { NotificationModal } from "@/components/reuseables/Notification";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuTrigger,
   DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLogout } from "@/hooks/api/auth";
+import { useAuthContext } from "@/context/AuthContext";
+import {
+  useGetAllNotifications,
+  useWebSocketService,
+} from "@/hooks/api/notification";
+import type { AppNotification } from "@/hooks/api/notification";
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
@@ -101,6 +107,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <button
                 onClick={() => setMobileSidebarOpen(false)}
                 className="p-2 rounded-full hover:bg-gray-200"
+                aria-label="Close menu"
               >
                 <X className="h-6 w-6 text-gray-700" />
               </button>
@@ -189,10 +196,64 @@ interface NavbarProps {
 }
 
 const Navbar = ({ pageName, onMenuClick }: NavbarProps) => {
+  const router = useRouter();
+  const { onLogout } = useLogout();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const { loading, data } = useMyRoles({ modalVisible: true });
+  const APP_STATE = useAuthContext();
+  const contextUser = APP_STATE?.user as Record<string, unknown> | undefined;
+  const roleData = data as { name?: string } | undefined;
+  const displayName =
+    (typeof contextUser?.name === "string" && contextUser.name) ||
+    roleData?.name ||
+    "User";
+  const accessToken = APP_STATE?.accessToken || "";
+  const { notifications: apiNotifications, refetch } = useGetAllNotifications();
+  const { messages: wsMessages } = useWebSocketService(accessToken || null);
+  const [navbarNotifications, setNavbarNotifications] = useState<
+    AppNotification[]
+  >([]);
+
+  useEffect(() => {
+    if (Array.isArray(apiNotifications)) {
+      setNavbarNotifications(apiNotifications);
+    }
+  }, [apiNotifications]);
+
+  useEffect(() => {
+    if (!wsMessages?.length) return;
+
+    const latest = wsMessages[wsMessages.length - 1];
+    if (!latest?.id) return;
+
+    setNavbarNotifications((prev) => {
+      if (prev.some((notification) => notification?.id === latest.id)) {
+        return prev;
+      }
+      return [latest, ...prev];
+    });
+  }, [wsMessages]);
+
+  const unreadCount = useMemo(
+    () =>
+      navbarNotifications.filter((notification) => !notification?.is_read)
+        .length,
+    [navbarNotifications]
+  );
+
+  const badgeLabel = unreadCount > 99 ? "99+" : String(unreadCount);
 
   const toggleModal = () => setIsModalVisible((prev) => !prev);
+  const handleMarkAllReadInNavbar = () => {
+    setNavbarNotifications((prev) =>
+      prev.map((notification) => ({ ...notification, is_read: true }))
+    );
+  };
+
+  const handleCloseNotificationModal = () => {
+    setIsModalVisible(false);
+    refetch();
+  };
 
   return (
     <div className="p-4 md:p-6 relative">
@@ -208,22 +269,17 @@ const Navbar = ({ pageName, onMenuClick }: NavbarProps) => {
               className="w-[56px] h-[56px] rounded-full flex items-center justify-center bg-[#fff] cursor-pointer"
               onClick={toggleModal}
             >
-              <div className="bg-[#D72638] absolute rounded-full w-[20px] h-[20px] flex items-center justify-center text-white text-xs font-bold top-0 right-0">
-                3
-              </div>
+              {unreadCount > 0 && (
+                <div className="bg-[#D72638] absolute rounded-full min-w-[20px] h-[20px] px-1 flex items-center justify-center text-white text-xs font-bold top-0 right-0">
+                  {badgeLabel}
+                </div>
+              )}
               <img
                 src="/assets/icons/notifications.svg"
                 alt="Notifications"
                 className=""
               />
             </div>
-
-            {/* Notification Modal */}
-            {isModalVisible && (
-              <div className="absolute right-0">
-                <NotificationModal onClose={() => setIsModalVisible(false)} />
-              </div>
-            )}
           </div>
 
           {/* User Info */}
@@ -235,22 +291,43 @@ const Navbar = ({ pageName, onMenuClick }: NavbarProps) => {
                   <div className="w-[100px] h-[20px] rounded-[8px] bg-gray-300 animate-pulse"></div>
                 </div>
               ) : (
-                <button className="flex items-center gap-2 rounded-full w-[auto] outline-none focus:outline-none ">
-                  <div>
-                    <Image
-                      src="/assets/images/nav-user.svg"
-                      alt="User avatar"
-                      width={40}
-                      height={40}
-                      className="object-cover rounded-full"
-                    />
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <span className="font-medium text-[16px] text-[#181818] leading-[100%]">
-                      {data?.name}
-                    </span>
-                  </div>
-                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 rounded-full w-[auto] outline-none focus:outline-none "
+                    >
+                      <div>
+                        <Image
+                          src="/assets/images/nav-user.svg"
+                          alt="User avatar"
+                          width={40}
+                          height={40}
+                          className="object-cover rounded-full"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <span className="font-medium text-[16px] text-[#181818] leading-[100%]">
+                          {displayName}
+                        </span>
+                      </div>
+                    </button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem
+                      onSelect={() => router.push("/Dashboard/user")}
+                    >
+                      View Users
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={onLogout}
+                      className="text-[#D72638]"
+                    >
+                      Log Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           </div>
@@ -260,23 +337,26 @@ const Navbar = ({ pageName, onMenuClick }: NavbarProps) => {
               className="w-[56px] h-[56px] rounded-full flex items-center justify-center bg-[#fff] cursor-pointer"
               onClick={toggleModal}
             >
-              <div className="bg-[#D72638] absolute rounded-full w-[20px] h-[20px] flex items-center justify-center text-white text-xs font-bold top-0 right-0">
-                3
-              </div>
+              {unreadCount > 0 && (
+                <div className="bg-[#D72638] absolute rounded-full min-w-[20px] h-[20px] px-1 flex items-center justify-center text-white text-xs font-bold top-0 right-0">
+                  {badgeLabel}
+                </div>
+              )}
               <img
                 src="/assets/icons/notifications.svg"
                 alt="Notifications"
                 className=""
               />
             </div>
-
-            {/* Notification Modal */}
-            {isModalVisible && (
-              <div className="absolute right-0">
-                <NotificationModal onClose={() => setIsModalVisible(false)} />
-              </div>
-            )}
           </div>
+
+          {isModalVisible && (
+            <NotificationModal
+              onClose={handleCloseNotificationModal}
+              accessToken={accessToken}
+              onMarkAllRead={handleMarkAllReadInNavbar}
+            />
+          )}
 
           {/* Menu Button */}
           <div className="flex space-x-3 items-center md:hidden">

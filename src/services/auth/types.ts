@@ -34,13 +34,13 @@ export type TNewPassword = {
 };
 
 export interface AuthInterface {
-  login: ({ payload }: TLoginService) => Promise<AxiosResponse<any, any>>;
+  login: ({ payload }: TLoginService) => Promise<AxiosResponse<unknown, unknown>>;
   resetPassword: ({
     payload,
-  }: TResetPassword) => Promise<AxiosResponse<any, any>>;
-  newPassword: ({ payload }: TNewPassword) => Promise<AxiosResponse<any, any>>;
-  verifyToken: ({ payload }: TVerifyOTP) => Promise<AxiosResponse<any, any>>;
+  }: TResetPassword) => Promise<AxiosResponse<unknown, unknown>>;
+  newPassword: ({ payload }: TNewPassword) => Promise<AxiosResponse<unknown, unknown>>;
+  verifyToken: ({ payload }: TVerifyOTP) => Promise<AxiosResponse<unknown, unknown>>;
   resendResetToken: ({
     payload,
-  }: TResendResetToken) => Promise<AxiosResponse<any, any>>;
+  }: TResendResetToken) => Promise<AxiosResponse<unknown, unknown>>;
 }

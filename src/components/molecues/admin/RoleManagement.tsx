@@ -21,11 +21,11 @@ interface Role {
   id: string;
   name: string;
   description: string;
-  assigned_users: any[]; // Array of assigned users
-  current_permission_group_slugs: any[];
+  assigned_users: { id?: number; name?: string; email?: string }[];
+  current_permission_group_slugs: string[];
   is_superuser: boolean;
   created_by: string;
-  invited_users: any[];
+  invited_users: { id?: number; name?: string; email?: string }[];
 }
 
 interface RoleManagementProps {

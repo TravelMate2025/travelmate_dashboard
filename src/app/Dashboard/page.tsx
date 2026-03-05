@@ -7,10 +7,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
-import axios from "axios";
-import env from "@/config/env";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { showErrorToast } from "@/utils/toasters";
 import { useAuthContext } from "@/context/AuthContext";
 import Activity from "@/components/molecues/dashboard/RecentAct";
 import Chat from "@/components/molecues/dashboard/Messages";
@@ -20,6 +17,7 @@ import Statistics from "@/components/molecues/dashboard/MetricCards";
 
 const page = () => {
   const APP_STATE = useAuthContext();
+  const accessToken = APP_STATE?.accessToken;
   const isSuperadmin = APP_STATE?.user?.isSuperuser;
   const [activity, setActivity] = useState<ActivityProps[]>([]);
   const [messages, setMessages] = useState<MessageProps[]>([]);
@@ -65,51 +63,11 @@ const page = () => {
     return weeklyData;
   }, []);
 
-  const generateQueryParams = useCallback(() => {
-    const now = new Date();
-    const breakdownBaseUrl = `${env.api.admin}/reports/bookings/breakdown/?group_by=day`;
-    const combinedBaseUrl = `${env.api.admin}/reports/bookings/combined/?group_by=day`;
-    const summaryBaseUrl = `${env.api.admin}/reports/summary/?`;
-    let params = { breakdown: "", combined: "", summary: "" };
-
-    switch (selectedOption) {
-      case "This Week":
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay());
-        const startDateStr = startOfWeek.toISOString().split("T")[0];
-        const endDateStr = now.toISOString().split("T")[0];
-
-        params.breakdown = `${breakdownBaseUrl}&start=${startDateStr}&end=${endDateStr}&period=week`;
-        params.summary = `${summaryBaseUrl}&start=${startDateStr}&end=${endDateStr}&period=week`;
-        params.combined = `${combinedBaseUrl}&start=${startDateStr}&end=${endDateStr}&period=week`;
-        break;
-
-      case "This Month":
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const monthStartStr = startOfMonth.toISOString().split("T")[0];
-        const monthEndStr = now.toISOString().split("T")[0];
-
-        params.breakdown = `${breakdownBaseUrl}&start=${monthStartStr}&end=${monthEndStr}&period=month`;
-        params.summary = `${summaryBaseUrl}&start=${monthStartStr}&end=${monthEndStr}&period=month`;
-        params.combined = `${combinedBaseUrl}&start=${monthStartStr}&end=${monthEndStr}&period=month`;
-        break;
-
-      case "This Year":
-        params.breakdown = `${breakdownBaseUrl}&period=year`;
-        params.summary = `${summaryBaseUrl}&period=year`;
-        params.combined = `${combinedBaseUrl}&period=year`;
-        break;
-
-      default:
-        params.breakdown = `${breakdownBaseUrl}&months=6`;
-        params.summary = `${summaryBaseUrl}&months=6`;
-        params.combined = `${combinedBaseUrl}&months=6`;
-        break;
-    }
-    return params;
-  }, [selectedOption]); 
-
    useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
     fetchDashboardData(
       {
         setBookings,
@@ -120,9 +78,9 @@ const page = () => {
         setUsers,
         setAllBookings,
       },
-      { isSuperadmin, generateQueryParams }
+      { isSuperadmin }
     );
-  }, [isSuperadmin, selectedOption, generateQueryParams]);
+  }, [accessToken, isSuperadmin]);
 
   const filteredData = useMemo(() => {
     const now = new Date();
@@ -234,22 +192,15 @@ const page = () => {
 export const StatCard = ({
   title,
   value,
-  color,
   icon,
-  smColor,
 }: {
   title: string;
   value: string;
-  color: string;
   icon: string;
-  smColor: string;
 }) => {
   return (
     <>
-      <div
-        className="lg:p-[20px] hidden lg:block lg:rounded-[20px] lg:space-y-[12px] lg:w-[168px] cursor-pointer bg-transparent lg:bg-none"
-        style={{ backgroundColor: color }}
-      >
+      <div className="lg:p-[20px] hidden lg:block lg:rounded-[20px] lg:space-y-[12px] lg:w-[168px] cursor-pointer bg-[#023E8A]">
         <div
           className={
             "w-10 h-10 rounded-[8px] flex justify-center items-center bg-[#fff] "
@@ -268,10 +219,7 @@ export const StatCard = ({
       </div>
 
       <div className=" space-x-2 lg:hidden flex items-center ">
-        <div
-          className="w-10 h-10 rounded-full flex justify-center items-center"
-          style={{ backgroundColor: smColor }}
-        >
+        <div className="w-10 h-10 rounded-full flex justify-center items-center bg-[#D5EBDF]">
           <img src={icon} alt="Icon" className="" />{" "}
         </div>
         <div className="space-y-2">
@@ -298,7 +246,7 @@ const DataGrid = ({
   loading: boolean;
   messages: MessageProps[];
   bookings: Bookings;
-  weeklyData: any;
+  weeklyData: WeeklyDataPoint[];
 }) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -408,4 +356,12 @@ export type BookingsProps = {
   status: string;
   total_amount: number | null;
   user: string;
+};
+
+export type WeeklyDataPoint = {
+  day: string;
+  flight: number;
+  hotel: number;
+  car: number;
+  total_amount: number;
 };

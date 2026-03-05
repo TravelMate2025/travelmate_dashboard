@@ -1,97 +1,68 @@
-🚀 TravelMate Git Workflow
+# TravelMate Dashboard
 
-🔧 1. Initial Setup
-Create the development branch from main:
+Enterprise-grade Next.js admin dashboard for TravelMate operations.
 
-git checkout -b development
-git push -u origin development
+## Enterprise Architecture (Incremental)
 
+The codebase is migrating from layer-first folders to a feature-first/layered architecture:
 
-👨‍💻2. Daily Development Workflow
-🔁 All day-to-day commits go to development.
-📦 Create feature branches from development:
+- `src/app` — routes, layouts, providers (composition only)
+- `src/features` — product features (UI + feature logic)
+- `src/entities` — reusable domain models and contracts
+- `src/widgets` — composed sections across features/entities
+- `src/shared` — stable cross-cutting utilities/config/types/ui primitives
 
-git checkout development
-git pull origin development        # Always pull the latest
-git checkout -b feature/something  # Create a new feature branch
+### Current foundation added
 
+- App provider composition: `src/app/providers`
+- Feature slice started: `src/features/support/faq/delete-faq`
+- Shared public API: `src/shared`
+- Layer aliases: `@app/*`, `@features/*`, `@shared/*`, `@entities/*`, `@widgets/*`
 
-🛠 Work on your feature:
+### Rules and boundaries
 
-# Make changes...
-git add .
-git commit -m "Add feature X"
+- Shared layer cannot depend on app/features/widgets (enforced in ESLint for `src/shared/**`).
+- New architecture layers (`app/providers`, `features`, `shared`, `entities`, `widgets`) use stricter lint rules.
+- Legacy modules remain compatible during migration.
 
-
-🔄 3. Sync Your Feature with Latest Development
-Before you open a pull request:
-
-
-git checkout development
-git pull origin development        # Get the latest development changes
-
-git checkout feature/something
-git merge development              # OR: git rebase development
-# Resolve any merge conflicts
-git push                           # Push updated feature branch
-
-
-✅ Now your feature branch is up to date with development.
-
-🚀 4. Push and Open a Pull Request
-
-git push -u origin feature/something
-
-Go to GitHub
-Create a PR into development
-Team leads can assign a different target branch if needed
-Merge only after review and tests pass
-
-
-✅ 5. Releasing to Production
-When you're ready to release:
-
-
-git checkout main
-git pull origin main              # Ensure it's up to date
-git merge development
-git push origin main
-
-
-
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
-## Getting Started
-
-First, run the development server:
+## Run
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API Base URL
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Live: `https://travelmate-backend-1-1lgj.onrender.com/api/`
+- Staging: `https://travelmate-backend-knvd.onrender.com/api/`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Configuration behavior:
 
-## Learn More
+- `NEXT_PUBLIC_API_BASE_URL` (optional) overrides default base URL.
+- If omitted, app defaults by environment:
+  - `NEXT_PUBLIC_ENVIRONMENT=production` → Live
+  - otherwise → Staging
 
-To learn more about Next.js, take a look at the following resources:
+Example `.env.local`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+NEXT_PUBLIC_ENVIRONMENT=staging
+NEXT_PUBLIC_API_BASE_URL=https://travelmate-backend-knvd.onrender.com/api/
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Tip: copy from `.env.example` to avoid config drift across environments.
 
-## Deploy on Vercel
+## Quality
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run lint
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Migration strategy
+
+1. Pick one flow and move to `src/features/<domain>/<feature>`.
+2. Keep page route thin: compose from feature exports.
+3. Move local types/components into feature folder.
+4. Replace deep relative imports with aliases.
+5. Repeat by domain (Support → Bookings → Notifications → Users → CMS).

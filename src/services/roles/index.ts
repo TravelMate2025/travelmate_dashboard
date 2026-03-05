@@ -4,10 +4,10 @@ import instance from "@/hooks/initializers/useAxiosDefaults";
 
 class Service {
   getRoles() {
-    return instance.get(env.api.superadmin + "roles/admin-list/");
+    return instance.get(env.api.superadminRoles);
   }
   getMyRole() {
-    return instance.get(env.api.roles + "roles/");
+    return instance.get(env.api.myRoles);
   }
 }
 

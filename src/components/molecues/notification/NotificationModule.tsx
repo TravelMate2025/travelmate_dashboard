@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   useGetAllNotifications,
   useMarkAsRead,
+  useMarkAllNotificationsRead,
   useDeleteNotification,
   useWebSocketService,
 } from "@/hooks/api/notification";
@@ -17,10 +18,19 @@ type NotificationTableProps = {
   accessToken: string;
 };
 
+type NotificationItem = {
+  id: string;
+  is_read: boolean;
+  created_at: string;
+  notification_details: {
+    title: string;
+    message: string;
+  };
+};
+
 export const NotificationModule = ({
   accessToken,
 }: NotificationModuleProps) => {
-  console.log(accessToken);
   const router = useRouter();
   return (
     <div className="">
@@ -30,7 +40,7 @@ export const NotificationModule = ({
             src="/assets/icons/arrow-back.svg"
             alt=""
             className="cursor-pointer"
-            onClick={() => router.back()}
+            onClick={() => router.push("/Dashboard")}
           />
         </div>
         <NotificationTable accessToken={accessToken} />
@@ -63,13 +73,14 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
   } = useGetAllNotifications();
 
   const { markAsRead, loading: marking } = useMarkAsRead();
+  const { markAllAsRead, loading: markingAll } = useMarkAllNotificationsRead();
   const { deleteNotification, loading: deleting } = useDeleteNotification();
 
   // ✅ WebSocket hook
   const { messages: wsMessages } = useWebSocketService(accessToken);
 
   // ✅ Local state for displaying notifications
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   // Load API data into local state once
   useEffect(() => {
@@ -93,6 +104,14 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
     }
   }, [wsMessages]);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearchTerm(searchInput.trim());
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [searchInput, setSearchTerm]);
+
   const toggleDropdown = () => setFilterDropdown((prev) => !prev);
 
   const handleSelect = (id: string) => {
@@ -105,7 +124,7 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
     if (selectedNotifications.length === notifications.length) {
       setSelectedNotifications([]);
     } else {
-      setSelectedNotifications(notifications.map((n: any) => String(n.id)));
+      setSelectedNotifications(notifications.map((n) => String(n.id)));
     }
   };
 
@@ -131,8 +150,20 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
   };
 
   const hasUnreadSelected = notifications.some(
-    (n: any) => selectedNotifications.includes(String(n.id)) && !n.is_read
+    (n) => selectedNotifications.includes(String(n.id)) && !n.is_read
   );
+
+  const hasUnread = notifications.some((n) => !n.is_read);
+
+  const handleMarkAllRead = () => {
+    if (!hasUnread) return;
+
+    markAllAsRead(() => {
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setSelectedNotifications([]);
+      refetch();
+    });
+  };
 
   const handleBulkDelete = async () => {
     await deleteNotification(selectedNotifications, () => {
@@ -152,6 +183,7 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
             <input
               type="checkbox"
               className="form-checkbox h-5 w-5"
+              aria-label="Select all notifications"
               checked={
                 selectedNotifications.length === notifications.length &&
                 notifications.length > 0
@@ -159,12 +191,29 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
               onChange={handleSelectAll}
             />
             <button
-              onClick={() => refetch()}
+              onClick={() => {
+                setSelectedStatus("all");
+                setSelectedNotifications([]);
+                setSearchInput("");
+                setSearchTerm("");
+                setIsRead(null);
+                setStartDate(null);
+                setEndDate(null);
+                refetch();
+              }}
               className="flex items-center space-x-2 p-[10px] border border-[#EBECED] rounded-[28px] text-sm font-medium text-[#181818] cursor-pointer"
             >
               <img src="/assets/icons/Refresh.svg" alt="" />
               <span>Refresh</span>
             </button>
+            {hasUnread && (
+              <button
+                onClick={handleMarkAllRead}
+                className="flex items-center space-x-2 p-[10px] border border-[#EBECED] rounded-[28px] text-sm font-medium text-[#181818] cursor-pointer"
+              >
+                <span>{markingAll ? "Marking..." : "Mark all as read"}</span>
+              </button>
+            )}
           </div>
 
           {/* Filters */}
@@ -175,12 +224,13 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
               <input
                 type="text"
                 placeholder="Search Notifications"
+                title="Search Notifications"
                 value={searchInput}
                 className="text-sm w-full outline-none"
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    setSearchTerm(searchInput.trim()); // ✅ search only on Enter
+                    setSearchTerm(searchInput.trim());
                   }
                 }}
               />
@@ -273,7 +323,7 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
         <div>
           {loading ? (
             <Skeleton />
-          ) : data.length === 0 ? (
+          ) : notifications.length === 0 ? (
             // ✅ Empty state
             <div className="flex flex-col items-center justify-center py-16 text-gray-400">
               <img
@@ -284,7 +334,7 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
               <p className="text-sm font-medium">No notifications found</p>
             </div>
           ) : (
-            notifications.map((n: any) => (
+            notifications.map((n) => (
               <div
                 key={n.id}
                 className={`flex items-start justify-between w-full px-[32px] py-3 cursor-pointer ${
@@ -295,6 +345,7 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
                   <input
                     type="checkbox"
                     className="form-checkbox h-5 w-5"
+                    aria-label={`Select notification ${n.id}`}
                     checked={selectedNotifications.includes(String(n.id))}
                     onChange={() => handleSelect(String(n.id))}
                   />

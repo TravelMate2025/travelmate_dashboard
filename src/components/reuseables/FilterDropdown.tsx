@@ -5,12 +5,28 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-export const FilterDropdown = ({ selectedOption, setSelectedOption, options }: any) => {
+
+interface FilterOption {
+  label: string;
+  value: string;
+}
+
+interface FilterDropdownProps {
+  selectedOption: string;
+  setSelectedOption: (value: string) => void;
+  options: FilterOption[];
+}
+
+export const FilterDropdown = ({
+  selectedOption,
+  setSelectedOption,
+  options,
+}: FilterDropdownProps) => {
   
 
   const [label, setLabel] = useState("");
 
-  const handleSelect = (option: any) => {
+  const handleSelect = (option: FilterOption) => {
     setSelectedOption(option.value);
     setLabel(option.label);
   };
@@ -34,7 +50,7 @@ export const FilterDropdown = ({ selectedOption, setSelectedOption, options }: a
           className="w-full mt-1 border border-gray-300 rounded-lg bg-white shadow-lg space-y-2"
           align="start"
         >
-          {options.map((option: any) => (
+          {options.map((option) => (
             <DropdownMenuItem
               key={option.label}
               onClick={() => handleSelect(option)} // Set selected option

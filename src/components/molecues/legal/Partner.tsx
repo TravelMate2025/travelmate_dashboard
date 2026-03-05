@@ -95,8 +95,8 @@ const Partner = ({
       formData.append("category", newPartner.category.toString());
       formData.append("is_active", newPartner.is_active ? "true" : "false");
 
-      if ((newPartner.logo as any) instanceof File) {
-        formData.append("logo", newPartner.logo as any);
+      if (newPartner.logo instanceof File) {
+        formData.append("logo", newPartner.logo);
       }
 
       const response = await axios.post(
@@ -115,10 +115,15 @@ const Partner = ({
       }
       setShowAddPartnersModal(false);
       await getHistory?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage =
+        typeof error === "object" && error !== null && "message" in error
+          ? String((error as { message?: string }).message)
+          : "Unknown error";
       console.log(
         "Create partner error:",
-        error?.response?.data || error.message
+        error,
+        errorMessage
       );
     } finally {
       setLoadingSave(false);
@@ -135,8 +140,8 @@ const Partner = ({
       formData.append("category", updated.category.toString());
       formData.append("is_active", updated.is_active ? "true" : "false");
 
-      if ((updated.logo as any) instanceof File) {
-        formData.append("logo", updated.logo as any);
+      if (updated.logo instanceof File) {
+        formData.append("logo", updated.logo);
       }
 
       const response = await axios.patch(

@@ -1,27 +1,61 @@
-import axios from "axios";
-import { getCookies } from "@/context/Auth-Cookies";
+import axios, { InternalAxiosRequestConfig } from "axios";
+import env from "@/config/env";
+
+type PersistedAuthState = {
+  accessToken?: string;
+  refreshToken?: string;
+  [key: string]: unknown;
+};
+
+const AUTH_EXCLUDED_PATHS = [
+  "/auth-token/",
+  "/auth/jwt/token/refresh/",
+  "/auth/jwt/token/verify/",
+  "/users/logout/",
+  "/auth/login",
+  "/auth/logout",
+];
+
+const readPersistedAuth = (): PersistedAuthState | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(env.auth.PERSIST_AUTH_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writePersistedAuth = (value: PersistedAuthState) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(env.auth.PERSIST_AUTH_KEY, JSON.stringify(value));
+  } catch {}
+};
+
+const isAuthExcludedRoute = (url: string = "") =>
+  AUTH_EXCLUDED_PATHS.some((path) => url.includes(path));
 
 const instance = axios.create({
   withCredentials: true,
 });
 
-instance.interceptors.request.use(
-  async (config) => {
-    try {
-      const { accessToken } = await getCookies();
-      if (accessToken) {
-        config.headers.Authorization = `Bearer ${accessToken}`;
-      } else {
-        delete config.headers.Authorization;
-      }
-    } catch (error) {
-      console.error("Error in request interceptor:", error);
-    }
-    console.log("Request Config:", config);
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const persistedAuth = readPersistedAuth();
+  const accessToken = persistedAuth?.accessToken;
+
+  if (accessToken && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  return config;
+});
 
 instance.interceptors.response.use(
   (response) => response,
@@ -35,33 +69,60 @@ instance.interceptors.response.use(
     ) {
       originalRequest._retry = true; // Mark request for retry
 
-      try {
-        // Retrieve refresh token from cookies
-        const refreshToken = Cookies.get("refreshToken");
-        if (!refreshToken) throw new Error("No refresh token available");
+      const requestUrl = originalRequest?.url || "";
+      const isAuthRoute = isAuthExcludedRoute(requestUrl);
 
-        // Request a new access token
-        const refreshResponse = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/auth/refresh`,
-          { refreshToken },
-          { withCredentials: true }
-        );
+      if (!isAuthRoute) {
+        const persistedAuth = readPersistedAuth();
+        const refreshToken = persistedAuth?.refreshToken;
 
-        const { accessToken, refreshToken: newRefreshToken } =
-          refreshResponse.data.data;
+        if (refreshToken) {
+          try {
+            const refreshResponse = await axios.post(
+              env.api.jwtRefreshToken,
+              { refresh: refreshToken },
+              { withCredentials: true }
+            );
 
-        // // Update cookies with new tokens
-        // Cookies.set("accessToken", accessToken, { path: "/" });
-        // Cookies.set("refreshToken", newRefreshToken, { path: "/" });
+            const refreshedAccessToken = refreshResponse?.data?.access;
 
-        // Update the Authorization header and retry the original request
-        originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
-        return instance(originalRequest);
-      } catch (refreshError) {
-        // Optionally: Redirect to login or handle logout
-        console.error("Token refresh failed. Redirecting to login...");
+            if (refreshedAccessToken) {
+              const nextAuthState = {
+                ...(persistedAuth || {}),
+                accessToken: refreshedAccessToken,
+              };
+
+              writePersistedAuth(nextAuthState);
+
+              if (typeof window !== "undefined") {
+                fetch("/api/auth/set-cookies", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    accessToken: refreshedAccessToken,
+                    refreshToken,
+                  }),
+                }).catch(() => null);
+              }
+
+              originalRequest.headers = {
+                ...(originalRequest.headers || {}),
+                Authorization: `Bearer ${refreshedAccessToken}`,
+              };
+
+              instance.defaults.headers.common.Authorization =
+                `Bearer ${refreshedAccessToken}`;
+
+              return instance(originalRequest);
+            }
+          } catch {}
+        }
+      }
+
+      if (typeof window !== "undefined") {
         window.location.href = "/auth/login";
-        return Promise.reject(refreshError);
       }
     }
 

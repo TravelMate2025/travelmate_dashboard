@@ -21,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning>
         <NextTopLoader color="#151357" height={5} />
         <AuthContextWrapper>
           <div className="">{children}</div>

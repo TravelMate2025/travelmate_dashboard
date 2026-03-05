@@ -12,6 +12,10 @@ type TAddFaq = {
 };
 
 class Service {
+  getChatAdmins(url?: string) {
+    return instance.get(url || env.api.chatAdmins);
+  }
+
   getAllChats(url?: string) {
     const endpoint = url || env.api.chat;
     return instance.get(endpoint);
@@ -25,7 +29,21 @@ class Service {
     return instance.get(env.api.chat + "/" + id);
   }
 
-  claimChat({ id }: { id: any }) {
+  sendChatMessage(payload: FormData) {
+    return instance.post(env.api.chatMessages, payload, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+  }
+
+  downloadChatAttachment({ id }: { id: string | number }) {
+    return instance.get(`${env.api.chatMessages}${id}/download_attachment/`, {
+      responseType: "blob",
+    });
+  }
+
+  claimChat({ id }: { id: string | number }) {
     return instance.post(env.api.chat + id + "/claim/");
   }
 

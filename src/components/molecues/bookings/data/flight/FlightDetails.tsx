@@ -4,7 +4,78 @@ import { GridValues, FlexValues, Policy, LocationTag } from "../../reuseables";
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-const FlightDetails = ({ data }: any) => {
+type FlightDuration = {
+  day?: number;
+  hr?: number;
+  min?: number;
+};
+
+type FlightSegment = {
+  id?: string;
+  sequence?: number;
+  airline_code?: string;
+  flight_number?: string;
+  cabin_class?: string;
+  departure_datetime?: string;
+  arrival_datetime?: string;
+  aircraft_code?: string;
+  duration?: FlightDuration;
+  included_checked_bags?: number;
+  from?: { airport?: string; label?: string };
+  to?: { airport?: string; label?: string };
+  layover_to_next?: { duration?: FlightDuration };
+  change_of_aircraft?: boolean;
+  aircraft_change_to?: {
+    airline_code?: string;
+    flight_number?: string;
+    aircraft_code?: string;
+  };
+};
+
+type FlightLeg = {
+  leg?: "DEPARTURE" | "RETURN" | string;
+  segments?: FlightSegment[];
+  summary?: {
+    departure_datetime?: string;
+    arrival_datetime?: string;
+    from?: { airport?: string; label?: string };
+    to?: { airport?: string; label?: string };
+    cabin_class?: string;
+    total_duration?: FlightDuration;
+    baggage_summary?: { included_checked_bags?: number };
+    stops_count?: number;
+  };
+};
+
+type FlightPassenger = {
+  id?: string;
+  title?: string;
+  first_name?: string;
+  last_name?: string;
+  dob?: string;
+  gender?: string;
+  passport_number?: string;
+  nationality?: string;
+  email?: string;
+  phone_number?: string;
+};
+
+type FlightBookingData = {
+  booking_reference?: string;
+  date_booked?: string;
+  payment_status?: string;
+  booking_status?: string;
+  passenger_count?: number;
+  passengers?: FlightPassenger[];
+  pickup_location?: string;
+  payment_method?: string;
+  transaction_id?: string;
+  total_amount?: number;
+  tax?: number;
+  flight_itinerary?: FlightLeg[];
+};
+
+const FlightDetails = ({ data }: { data: FlightBookingData }) => {
   return (
     <div className="space-y-[24px]">
       <BookingDetails data={data} />
@@ -18,7 +89,7 @@ const formatDate = (dateString: string) => {
   return date.toLocaleDateString("en-GB");
 };
 
-const BookingDetails = ({ data }: any) => {
+const BookingDetails = ({ data }: { data: FlightBookingData }) => {
   const getStatusStyling = (status: string) => {
     switch (status?.toLowerCase()) {
       case "completed":
@@ -76,7 +147,7 @@ const BookingDetails = ({ data }: any) => {
   );
 };
 
-export const GridDetails = ({ data }: any) => {
+export const GridDetails = ({ data }: { data: FlightBookingData }) => {
   const List = [
     "Full refund if cancelled 4+ hours before scheduled pickup time. Processing fee of ₦3500 applies.",
     "25% cancellation fee applies when cancelled between 2-4 hours before pickup.",
@@ -134,13 +205,13 @@ export const GridDetails = ({ data }: any) => {
 
   const isRoundTrip =
     Array.isArray(data?.flight_itinerary) &&
-    data.flight_itinerary.some((l: any) => l.leg === "RETURN");
+    data.flight_itinerary.some((l: FlightLeg) => l.leg === "RETURN");
 
-  const SubStops = ({ leg }: { leg: any }) => {
+  const SubStops = ({ leg }: { leg: FlightLeg }) => {
     const segments = Array.isArray(leg?.segments) ? leg.segments : [];
     return (
       <div className="space-y-[12px]">
-        {segments.map((seg: any, idx: number) => {
+        {segments.map((seg: FlightSegment, idx: number) => {
           const layover = seg.layover_to_next;
           return (
             <div key={idx} className="bg-[#FAFAFA] rounded-[12px] p-[12px] space-y-3">
@@ -210,13 +281,16 @@ export const GridDetails = ({ data }: any) => {
             {data.passenger_count === 1 ? "Passenger" : "Passengers"})
           </h1>
           {/* Passenger Details */}
-          {data.passengers?.map((passenger: any, index: number) => {
+          {data.passengers?.map((passenger: FlightPassenger, index: number) => {
             const isOpen =
               openPassengerIndex === index || data.passengers.length === 1;
+            const passengerKey =
+              passenger.id ||
+              `${passenger.first_name || "unknown"}-${passenger.last_name || "passenger"}-${index}`;
 
             return (
-              <div className="">
-                <div key={passenger.id} className="space-y-[22px]">
+              <div key={passengerKey} className="">
+                <div className="space-y-[22px]">
                   <div
                     className="flex justify-between items-center cursor-pointer"
                     onClick={() => togglePassenger(index)}
@@ -324,7 +398,7 @@ export const GridDetails = ({ data }: any) => {
             {Array.isArray(data.flight_itinerary) ? (
               (() => {
                 const depLeg = data.flight_itinerary.find(
-                  (l: any) => l.leg === "DEPARTURE"
+                  (l: FlightLeg) => l.leg === "DEPARTURE"
                 );
                 if (!depLeg) return <LocationTag />;
                 const summary = depLeg.summary || {};
@@ -358,7 +432,7 @@ export const GridDetails = ({ data }: any) => {
               {(() => {
                 const depLeg =
                   Array.isArray(data.flight_itinerary) &&
-                  data.flight_itinerary.find((l: any) => l.leg === "DEPARTURE");
+                  data.flight_itinerary.find((l: FlightLeg) => l.leg === "DEPARTURE");
                 const summary = depLeg?.summary;
                 const firstSeg = depLeg?.segments?.[0];
                 return (
@@ -449,7 +523,7 @@ export const GridDetails = ({ data }: any) => {
               {Array.isArray(data.flight_itinerary) ? (
                 (() => {
                   const retLeg = data.flight_itinerary.find(
-                    (l: any) => l.leg === "RETURN"
+                    (l: FlightLeg) => l.leg === "RETURN"
                   );
                   if (!retLeg) return <LocationTag />;
                   const summary = retLeg.summary || {};
@@ -483,7 +557,7 @@ export const GridDetails = ({ data }: any) => {
                 {(() => {
                   const retLeg =
                     Array.isArray(data.flight_itinerary) &&
-                    data.flight_itinerary.find((l: any) => l.leg === "RETURN");
+                    data.flight_itinerary.find((l: FlightLeg) => l.leg === "RETURN");
                   const summary = retLeg?.summary;
                   const firstSeg = retLeg?.segments?.[0];
                   return (
@@ -569,10 +643,10 @@ export const GridDetails = ({ data }: any) => {
   );
 };
 
-export const Transaction = ({ data }: any) => {
+export const Transaction = ({ data }: { data: FlightBookingData }) => {
   const isRoundTrip =
     Array.isArray(data?.flight_itinerary) &&
-    data.flight_itinerary.some((l: any) => l.leg === "RETURN");
+    data.flight_itinerary.some((l: FlightLeg) => l.leg === "RETURN");
   return (
     <div className="bg-[#fff] p-[24px] rounded-[12px]">
       <h1 className="text-[20px] font-[600] text-[#181818] mb-[16px]">

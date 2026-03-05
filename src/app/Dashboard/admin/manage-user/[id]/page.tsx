@@ -107,7 +107,7 @@ const ManageUsers = () => {
       .map((user) => user.email.trim());
     try {
       setIsLoadAdd(true);
-      await assignUserToRole(roleId, emailsToAdd.join(","));
+      await assignUserToRole(roleId, { email: emailsToAdd.join(",") });
       setShowConfirmModal(false);
       setShowSuccessModal(true);
       setSelectedUserIds([]);
@@ -132,7 +132,7 @@ const ManageUsers = () => {
       );
     try {
       setIsLoadRemove(true);
-      await removeUsersFromRole(roleId, emailsToRemove)
+      await removeUsersFromRole(roleId, { email: emailsToRemove.join(",") });
       setShowConfirmRemoveModal(false);
       setShowSuccessRemoveModal(true);
       setSelectedUserIdRemove([]);
@@ -262,7 +262,8 @@ const ManageUsers = () => {
                                       <input
                                         type="checkbox"
                                         name={`add-${user.id}`}
-                                        id={`add-${user.id}`}
+                                        aria-label={`Add user ${user.email}`}
+                                        title={`Add user ${user.email}`}
                                         checked={selectedUserIds.includes(
                                           user.id
                                         )}
@@ -344,6 +345,8 @@ const ManageUsers = () => {
                         type="checkbox"
                         name={`remove-${user.id}`}
                         id={`remove-${user.id}`}
+                        aria-label={`Remove user ${user.email}`}
+                        title={`Remove user ${user.email}`}
                         checked={selectedUserIdRemove?.includes(user.id)}
                         onChange={() => handleSelectRemove(user.id)}
                       />

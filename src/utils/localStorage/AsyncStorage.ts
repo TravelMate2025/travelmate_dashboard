@@ -3,7 +3,7 @@ const storage = typeof window !== "undefined" ? window.localStorage : null;
 
 interface SaveToLocalStorageProps {
   key: string;
-  value: any;
+  value: unknown;
 }
 
 export const saveToLocalStorage = ({
@@ -18,7 +18,7 @@ export const saveToLocalStorage = ({
 
 interface GetFromLocalStorageProps {
   key: string;
-  cb?: (value: any) => void;
+  cb?: (value: unknown) => void;
 }
 
 export const getFromLocalStorage = ({

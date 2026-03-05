@@ -1,14 +1,53 @@
 "use client";
 import React, { useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-// import { GridValues, FlexValues, Policy, Transaction}  from "../page";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { GridValues, FlexValues, Policy } from "@/components/molecues/bookings/reuseables";
 import { Switch } from "@/components/ui/switch";
-import { FlexValues, GridValues, Policy } from "@/components/molecues/bookings/reuseables";
+import { useGetBooking, useProcessBookingCancellation } from "@/hooks/api/bookings";
+import { getSingleRouteParam } from "@shared/lib/routeParams";
+
+const formatDisplayDate = (value?: string) => {
+  if (!value) return "--";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+
+  return date.toLocaleDateString("en-GB");
+};
+
+interface CancellationResult {
+  cancellation_reason?: string;
+  cancellation_note?: string;
+  cancellation_policy?: string[];
+}
+
+interface CancellationBooking {
+  id?: string | number;
+  cancellation_id?: string | number;
+  cancellation_status?: string;
+  booking_status?: string;
+  cancellation_reason?: string;
+  cancellation_note?: string;
+  cancellation_requested_at?: string;
+  updated_at?: string;
+  created_at?: string;
+  result?: CancellationResult;
+}
+
+interface CancelDetailsProps {
+  booking?: CancellationBooking | null;
+  loadingBooking?: boolean;
+}
 
 const page = () => {
   const params = useParams();
-  const id = params?.id;
+  const bookingId = getSingleRouteParam(params, "id");
   const router = useRouter();
+
+  const { booking, loadingBooking } = useGetBooking({
+    bookingRef: bookingId,
+    initalFetch: Boolean(bookingId),
+  });
 
   // if (!booking) {
   //   return (
@@ -32,12 +71,33 @@ const page = () => {
         </h1>
       </div>
 
-      <CancelDetails />
+      <CancelDetails booking={booking} loadingBooking={loadingBooking} />
     </div>
   );
 };
 
-const CancelDetails = () => {
+const CancelDetails = ({ booking, loadingBooking }: CancelDetailsProps) => {
+  const cancellationStatus =
+    booking?.cancellation_status || booking?.booking_status || "pending";
+
+  const statusStyle =
+    cancellationStatus?.toLowerCase() === "approved"
+      ? "border-[#2EA043] text-[#2EA043] bg-[#2EA0431A]"
+      : cancellationStatus?.toLowerCase() === "rejected"
+      ? "border-[#D72638] text-[#D72638] bg-[#D726381A]"
+      : "border-[#EFB608] text-[#EFB608] bg-[#EFB6081A]";
+
+  const reason =
+    booking?.cancellation_reason || booking?.result?.cancellation_reason || "--";
+  const additionalDetails =
+    booking?.cancellation_note || booking?.result?.cancellation_note || "--";
+
+  const policyList = booking?.result?.cancellation_policy || [
+    "Cancellation charges may apply based on fare rules.",
+    "Refund timelines depend on provider and payment method.",
+    "Processed cancellations are final once confirmed.",
+  ];
+
   return (
     <div className="space-y-[24px]">
       <div className="bg-[#fff] p-[24px] space-y-[20px] rounded-[12px] w-full ">
@@ -46,25 +106,60 @@ const CancelDetails = () => {
         </h1>
 
         <div className="flex justify-between items-center">
-          <GridValues title="Cancellation ID" value="CAN-001" />
-          <GridValues title="Date Requested" value="25/05/2025" />
+          <GridValues
+            title="Cancellation ID"
+            value={
+              loadingBooking
+                ? "Loading..."
+                : booking?.cancellation_id || `CAN-${booking?.id || "--"}`
+            }
+          />
+          <GridValues
+            title="Date Requested"
+            value={
+              loadingBooking
+                ? "Loading..."
+                : formatDisplayDate(
+                    booking?.cancellation_requested_at ||
+                      booking?.updated_at ||
+                      booking?.created_at
+                  )
+            }
+          />
 
           <div className="flex flex-col items-start space-y-3">
             <h1 className="text-[16px] font-[500] text-[#4E4F52] whitespace-nowrap">
               Cancellation Status
             </h1>
-            <div className="border-[1px] border-[#EFB608] rounded-[12px] text-[#EFB608] text-[14px] font-[400] bg-[#EFB6081A] px-[20px] py-[10px] whitespace-nowrap flex-shrink-0">
-              Paid
+            <div
+              className={`border-[1px] rounded-[12px] text-[14px] font-[400] px-[20px] py-[10px] whitespace-nowrap flex-shrink-0 capitalize ${statusStyle}`}
+            >
+              {loadingBooking ? "Loading..." : cancellationStatus}
             </div>
           </div>
         </div>
       </div>
-      <CancellationGrid />
+      <CancellationGrid
+        booking={booking}
+        reason={reason}
+        additionalDetails={additionalDetails}
+        policyList={policyList}
+      />
     </div>
   );
 };
 
-const CancellationGrid = () => {
+const CancellationGrid = ({
+  booking,
+  reason,
+  additionalDetails,
+  policyList,
+}: {
+  booking?: CancellationBooking | null;
+  reason: string;
+  additionalDetails: string;
+  policyList: string[];
+}) => {
   return (
     <div className="grid grid-cols-2 gap-[24px]">
       <div className="space-y-6">
@@ -74,15 +169,12 @@ const CancellationGrid = () => {
               Cancellation Request Details
             </h1>
             <div className="space-y-4">
-              <GridValues title="Primary Reason" value="I changed my mind" />
-              <GridValues
-                title="Additional Details"
-                value="I changed my mind so that is why i had to cancel"
-              />
+              <GridValues title="Primary Reason" value={reason} />
+              <GridValues title="Additional Details" value={additionalDetails} />
             </div>
           </div>
         </div>
-        <Policy />
+        <Policy List={policyList} />
         <div className="bg-[#fff] space-y-[22px] p-[24px] rounded-[12px]">
           <div className="space-y-4">
             <h1 className="text-[20px] font-[600] text-[#181818]">
@@ -95,12 +187,34 @@ const CancellationGrid = () => {
           </div>
         </div>
       </div>
-      <Form />
+      <Form booking={booking} />
     </div>
   );
 };
 
-const Form = () => {
+const Form = ({ booking }: { booking?: CancellationBooking | null }) => {
+  const searchParams = useSearchParams();
+  const [overridePolicy, setOverridePolicy] = useState(false);
+  const [adminNote, setAdminNote] = useState("");
+  const { processCancellation, loading } = useProcessBookingCancellation();
+  const cancellationIdFromQuery = searchParams.get("cancellationId")?.trim();
+  const cancellationIdFromBooking = booking?.cancellation_id
+    ? String(booking.cancellation_id)
+    : "";
+  const cancellationId = cancellationIdFromQuery || cancellationIdFromBooking;
+
+  const handleProcessCancellation = async () => {
+    if (!cancellationId) return;
+
+    await processCancellation({
+      id: cancellationId,
+      payload: {
+        note: adminNote,
+        override_policy: overridePolicy,
+      },
+    });
+  };
+
   return (
     <div className="bg-[#fff] space-y-[22px] p-[24px] rounded-[12px]">
       <div className="space-y-4">
@@ -123,7 +237,11 @@ const Form = () => {
             </p>
           </div>
 
-          <Switch id="airplane-mode" />
+          <Switch
+            id="airplane-mode"
+            checked={overridePolicy}
+            onCheckedChange={(checked) => setOverridePolicy(Boolean(checked))}
+          />
         </div>
       </div>
       <div className="space-y-[20px] rounded-[12px] w-full ">
@@ -135,13 +253,22 @@ const Form = () => {
           <textarea
             name=""
             id=""
+            value={adminNote}
+            onChange={(e) => setAdminNote(e.target.value)}
             className="w-full border-[1px] rounded-[8px] border-[#818489] px-[12px] pt-[16px] text-[16px] placeholder:text-[16px] font-[400] placeholder:font-[400]  placeholder:text-[#818489] text-[#181818] "
             placeholder="Add notes about this cancellation..."
             cols={7}
             rows={8}
           ></textarea>
 
-          <div className="w-full bg-[#023E8A] p-[16px] rounded-[8px] text-[#ffff] text-[20px] font-[500] text-center ">Process Cancellation and refund</div>
+          <button
+            type="button"
+            onClick={handleProcessCancellation}
+            disabled={loading || !cancellationId}
+            className="w-full bg-[#023E8A] p-[16px] rounded-[8px] text-[#ffff] text-[20px] font-[500] text-center disabled:bg-gray-400"
+          >
+            {loading ? "Processing..." : "Process Cancellation and refund"}
+          </button>
         </div>
       </div>
     </div>

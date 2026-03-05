@@ -12,7 +12,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 
-export const GridValues = ({ title, value }: any) => {
+interface GridValuesProps {
+  title: string;
+  value: React.ReactNode;
+}
+
+interface FlexValuesProps {
+  title: string;
+  value: React.ReactNode;
+  red?: boolean;
+}
+
+interface PolicyProps {
+  List: string[];
+}
+
+export const GridValues = ({ title, value }: GridValuesProps) => {
   return (
     <div className="space-y-2">
       <h1 className="text-[16px] font-[500] text-[#4E4F52]">{title}</h1>
@@ -21,7 +36,7 @@ export const GridValues = ({ title, value }: any) => {
   );
 };
 
-export const FlexValues = ({ title, value, red }: any) => {
+export const FlexValues = ({ title, value, red }: FlexValuesProps) => {
   return (
     <div className="flex justify-between">
       <h1 className="text-[16px] font-[500] text-[#4E4F52]">{title}</h1>
@@ -38,7 +53,7 @@ export const FlexValues = ({ title, value, red }: any) => {
   );
 };
 
-export const Policy = ({ List }: any) => {
+export const Policy = ({ List }: PolicyProps) => {
   return (
     <div className="bg-[#fff] p-[24px] rounded-[12px]">
       <h1 className="text-[20px] font-[600] text-[#181818] mb-[16px]">
@@ -46,7 +61,7 @@ export const Policy = ({ List }: any) => {
       </h1>
 
       <ul className="space-y-[12px] list-disc pl-3 list-disc:bg-[#181818] ">
-        {List.map((item: any, index: any) => (
+        {List.map((item, index) => (
           <li key={index} className="text-[16px] font-[400] text-[#4E4F52]">
             {item}
           </li>
@@ -57,24 +72,30 @@ export const Policy = ({ List }: any) => {
 };
 
 export const BookingTableDropdown = ({
-  booking_refrence,
+  bookingId,
 }: {
-  booking_refrence: string;
+  bookingId?: string | number;
 }) => {
   const router = useRouter();
-
-  console.log(booking_refrence); // ✅ Now logs the actual booking reference string
+  const resolvedBookingId =
+    bookingId !== undefined && bookingId !== null ? String(bookingId) : "";
 
   const handleViewDetails = () => {
-    router.push(`/Dashboard/bookings/${booking_refrence}`);
+    if (!resolvedBookingId) return;
+    router.push(`/Dashboard/bookings/${resolvedBookingId}`);
+  };
+
+  const handleCancelBooking = () => {
+    if (!resolvedBookingId) return;
+    router.push(`/Dashboard/bookings/${resolvedBookingId}/process-cancel`);
   };
 
   const options = [
-    { id: 1, label: "View Details", linkTo: `/bookings/${booking_refrence}` },
+    { id: 1, label: "View Details", disabled: !resolvedBookingId },
     {
       id: 2,
       label: "Cancel Booking",
-      linkTo: `/bookings/${booking_refrence}/process-cancel`,
+      disabled: !resolvedBookingId,
     },
   ];
 
@@ -93,7 +114,8 @@ export const BookingTableDropdown = ({
           {options.map((option) => (
             <DropdownMenuItem
               key={option.id}
-              onClick={option.id === 1 ? handleViewDetails : undefined}
+              onClick={option.id === 1 ? handleViewDetails : handleCancelBooking}
+              disabled={option.disabled}
               className={`cursor-pointer select-none ${
                 option.label === "Cancel Booking"
                   ? "text-red-500 hover:text-red-600"

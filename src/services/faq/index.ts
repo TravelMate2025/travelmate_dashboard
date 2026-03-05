@@ -21,7 +21,7 @@ class Service {
   }
 
   deleteFaq({ id }: { id: number }) {
-    return instance.delete(env.api.faq + "/" + id);
+    return instance.delete(env.api.faq + "/" + id + "/");
   }
 }
 const FaqService = new Service();

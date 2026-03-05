@@ -20,12 +20,29 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
+
+type UsersTableProps = {
+  searchTerm: string;
+  selectedOption: string;
+  selectedEndDate?: string;
+  selectedStartDate?: string;
+};
+
+type UserListItem = {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  date_created: string;
+  is_active: boolean;
+};
+
 export const UsersTable = ({
   searchTerm,
   selectedOption,
   selectedEndDate,
   selectedStartDate,
-}: any) => {
+}: UsersTableProps) => {
   const router = useRouter();
   console.log({ selectedEndDate, selectedStartDate });
 
@@ -64,11 +81,11 @@ export const UsersTable = ({
     setDateJoinedBefore,
   ]);
 
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [deactivatingUser, setDeactivatingUser] = useState(null);
+  const [deactivatingUser, setDeactivatingUser] = useState<UserListItem | null>(null);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
-  const [reactivatingUser, setReactivatingUser] = useState(null);
+  const [reactivatingUser, setReactivatingUser] = useState<UserListItem | null>(null);
   const [isReactivateDialogOpen, setIsReactivateDialogOpen] = useState(false);
 
   const { data: userDetails, loading: userLoading } = useGetUser({
@@ -82,17 +99,17 @@ export const UsersTable = ({
     },
   });
 
-  const handleViewDetails = (user: any) => {
+  const handleViewDetails = (user: UserListItem) => {
     setSelectedUser(user);
     setUserId(user.id);
   };
 
-  const handleDeactivateUser = (user: any) => {
+  const handleDeactivateUser = (user: UserListItem) => {
     setDeactivatingUser(user);
     setIsDeactivateDialogOpen(true);
   };
 
-  const handleReactivateUser = (user: any) => {
+  const handleReactivateUser = (user: UserListItem) => {
     setReactivatingUser(user);
     setIsReactivateDialogOpen(true);
   };

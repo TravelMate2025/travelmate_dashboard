@@ -16,10 +16,10 @@ const Statistics = ({
   revenue: RevenueProps | null;
   users: UsersProps;
   selectedOption: string;
-  setSelectedOption: any;
+  setSelectedOption: (value: string) => void;
   isSuperadmin?: boolean;
 }) => {
-  let NGNNaira = new Intl.NumberFormat("en-NG", {
+  const NGNNaira = new Intl.NumberFormat("en-NG", {
     style: "currency",
     currency: "NGN",
     minimumFractionDigits: 2,
