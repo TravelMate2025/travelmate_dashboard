@@ -91,6 +91,7 @@ const ContentTab = () => {
 
   type TabKey = keyof typeof editStates; // "about_us" | "privacy_policy" | "terms_of_use" | "partners"
   const [activeTab, setActiveTab] = useState<TabKey>("about_us");
+  const isTabKey = (value: string): value is TabKey => value in editStates;
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingUpdate, setIsLoadingUpdate] = useState<boolean>(false);
@@ -397,7 +398,9 @@ const ContentTab = () => {
         <Tabs
           className="w-full space-y-8"
           value={activeTab}
-          onValueChange={(value: string) => setActiveTab(value)}
+          onValueChange={(value: string) => {
+            if (isTabKey(value)) setActiveTab(value);
+          }}
         >
           <TabsList className="w-full bg-transparent border-[#CDCED1] border-b-[1px] pb-[6px] rounded-none">
             <TabsTrigger

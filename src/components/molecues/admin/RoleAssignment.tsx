@@ -16,8 +16,9 @@ import {
 import { removeUsersFromRole } from "@/services/admin";
 
 interface RoleUser {
+  id?: number;
   name?: string;
-  email: string;
+  email?: string;
   [key: string]: unknown;
 }
 

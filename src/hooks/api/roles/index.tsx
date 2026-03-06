@@ -2,6 +2,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import RolesService from "@/services/roles";
 import { useAuthContext } from "@/context/AuthContext";
 
+type MyRoleData = {
+  id?: string | number;
+  name?: string;
+  is_superuser?: boolean;
+  [key: string]: unknown;
+};
+
 export function useGetAllEscalationLevel({
   initalFetch = true,
   refresh = false,
@@ -37,7 +44,7 @@ export function useMyRoles({
   modalVisible?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<unknown | null>(null);
+  const [data, setData] = useState<MyRoleData | null>(null);
   const { accessToken } = useAuthContext();
 
   const onGetMyRole = async () => {

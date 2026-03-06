@@ -208,7 +208,7 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
         <div className="flex space-x-6">
           <button
             className={`rounded-[8px] font-medium p-4 cursor-pointer ${
-              isInputDisabled
+              isReadOnly
                 ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                 : "bg-[#023E8A] text-white"
             }`}
