@@ -20,6 +20,9 @@ import Loading from "../../loading";
 import { showErrorToast } from "@/utils/toasters";
 import { assignUserToRole, fetchRoles, removeUsersFromRole } from "@/services/admin";
 
+const normalizeRoleName = (value?: string | null) =>
+  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+
 type AssignedUser = {
   id: number;
   email: string;
@@ -92,7 +95,8 @@ const ManageUsers = () => {
   const usersAssignedToOtherRoles = roles
     .filter(
       (role) =>
-        String(role.id) !== String(roleId) && role.name !== "Super Admin"
+        String(role.id) !== String(roleId) &&
+        normalizeRoleName(role.name) !== "super admin"
     )
     .flatMap((role) =>
       role.assigned_users.map((user) => ({

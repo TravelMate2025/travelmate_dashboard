@@ -57,6 +57,53 @@ type TicketDetailsDialogProps = {
   ticketLoading: boolean;
   onClose: () => void;
 };
+
+const normalizeRoleName = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const normalizePermissionSlug = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
+
+const canAccessSupportTickets = ({
+  roleName,
+  permissionSlugs,
+}: {
+  roleName?: string | null;
+  permissionSlugs?: string[];
+}) => {
+  const role = normalizeRoleName(roleName);
+  const normalizedSlugs = new Set(
+    (permissionSlugs || []).map((slug) => normalizePermissionSlug(slug))
+  );
+
+  const allowedRoles = new Set([
+    "super admin",
+    "customer support",
+    "customer success",
+    "user manager",
+  ]);
+
+  const allowedSlugs = [
+    "support-tickets",
+    "customer-support",
+    "customer-success",
+    "user-manager",
+    "live-chat",
+    "chat",
+  ];
+
+  return (
+    allowedRoles.has(role) ||
+    allowedSlugs.some((slug) => normalizedSlugs.has(slug))
+  );
+};
+
 export const TableDropdown = ({
   onViewDetails,
   onViewMessage,
@@ -268,8 +315,11 @@ export const ViewingChatModal = ({
   const [showNotAuthorized, setShowNotAuthorized] = useState(false); // New state
 
   const { loading, data } = useMyRoles({ modalVisible: selectedTicket });
-  const canViewMessage =
-    data?.current_permission_group_slugs?.includes("support-tickets");
+  const currentRoleName = normalizeRoleName(data?.name);
+  const canViewMessage = canAccessSupportTickets({
+    roleName: currentRoleName,
+    permissionSlugs: data?.current_permission_group_slugs,
+  });
 
   const formattedDate = useMemo(
     () => (ticketDetails ? formatCreatedAt(ticketDetails.created_at, 2) : ""),
@@ -282,7 +332,7 @@ export const ViewingChatModal = ({
 
     if (
       ticketDetails.escalated === true &&
-      ticketDetails.escalation_role.name !== data?.name
+      normalizeRoleName(ticketDetails.escalation_role?.name) !== currentRoleName
     ) {
       return true;
     }
@@ -303,7 +353,8 @@ export const ViewingChatModal = ({
         ticketDetails?.claimed_admin?.id === currentUser ||
         ticketDetails?.status === "resolved" ||
         (ticketDetails?.escalated === true &&
-          ticketDetails?.escalation_role.name === data?.name)
+          normalizeRoleName(ticketDetails?.escalation_role?.name) ===
+            currentRoleName)
       ) {
         handleNavigateToResponse();
       }
@@ -313,7 +364,7 @@ export const ViewingChatModal = ({
     ticketDetails,
     currentUser,
     handleNavigateToResponse,
-    data?.name,
+    currentRoleName,
     notAuthorized,
   ]);
 
@@ -866,8 +917,9 @@ export const EscalatedTicketChatModal: React.FC<
 > = ({ selectedTicket, ticketDetails, ticketLoading, onClose }) => {
   const router = useRouter();
   const { loading, data } = useMyRoles({ modalVisible: selectedTicket });
-
-  const canViewMessage = data?.name === ticketDetails?.escalation_role?.name;
+  const currentRoleName = normalizeRoleName(data?.name);
+  const escalationRoleName = normalizeRoleName(ticketDetails?.escalation_role?.name);
+  const canViewMessage = currentRoleName === escalationRoleName;
 
   const handleNavigateToResponse = useCallback(() => {
     if (ticketDetails?.id) {

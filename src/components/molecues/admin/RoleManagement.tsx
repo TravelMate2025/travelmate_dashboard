@@ -43,6 +43,12 @@ interface RoleManagementProps {
   isDeleteLoading: boolean;
 }
 
+const normalizeRoleName = (value?: string | null) =>
+  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+const isSuperAdminRole = (role?: Pick<Role, "name" | "is_superuser"> | null) =>
+  Boolean(role?.is_superuser) || normalizeRoleName(role?.name) === "super admin";
+
 const RoleManagement: FC<RoleManagementProps> = ({
   roles,
   onCreateRoleOpen,
@@ -67,7 +73,7 @@ const RoleManagement: FC<RoleManagementProps> = ({
   const ManageUsers = (roleId: string) => {
     const role = roles.find((r) => r.id === roleId);
     if (!role) return;
-    const isSuperAdmin = role.name === "Super Admin" || role.is_superuser;
+    const isSuperAdmin = isSuperAdminRole(role);
     router.push(
       isSuperAdmin
         ? `/Dashboard/admin/manage-super-admin/${roleId}/`
@@ -199,7 +205,7 @@ const RoleManagement: FC<RoleManagementProps> = ({
                             Manage User
                           </p>
                           {/* Delete Roles Button  */}
-                          {role.name !== "Super Admin" && (
+                          {!isSuperAdminRole(role) && (
                             <p
                               className=" cursor-pointer text-xs md:text-base"
                               onClick={() => {

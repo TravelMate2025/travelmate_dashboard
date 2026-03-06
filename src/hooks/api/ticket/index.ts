@@ -54,7 +54,11 @@ export const useGetAllTickets = () => {
     const params = new URLSearchParams();
 
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
+      if (
+        value !== undefined &&
+        value !== null &&
+        !(typeof value === "string" && value.trim() === "")
+      ) {
         params.append(key, String(value));
       }
     });
@@ -512,7 +516,7 @@ export const useResolveTicket = () => {
 };
 
 export const useGetAllEscalatedTickets = () => {
-  const BASE_URL = `${env.api.ticket}escalated/`;
+  const BASE_URL = env.api.ticket;
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [nextPageUrl, setNextPageUrl] = useState<string | null>(null); // Pagination disabled
@@ -524,7 +528,20 @@ export const useGetAllEscalatedTickets = () => {
 
   // Build URL with filters
   const buildUrl = useCallback(() => {
-    const params = new URLSearchParams(filters);
+    const params = new URLSearchParams();
+
+    params.set("escalated", "true");
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (
+        value !== undefined &&
+        value !== null &&
+        !(typeof value === "string" && value.trim() === "")
+      ) {
+        params.set(key, String(value));
+      }
+    });
+
     return `${BASE_URL}${params.toString() ? `?${params.toString()}` : ""}`;
   }, [filters]);
 

@@ -18,6 +18,23 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
+const normalizePermissionSlug = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
+
+const hasPermission = (slugs: unknown, target: string) => {
+  if (!Array.isArray(slugs)) return false;
+
+  const normalizedTarget = normalizePermissionSlug(target);
+  const normalizedSet = new Set(
+    slugs.map((slug) => normalizePermissionSlug(String(slug)))
+  );
+
+  return normalizedSet.has(normalizedTarget);
+};
+
 const DetailRow = ({
   label,
   value,
@@ -145,8 +162,10 @@ export const UserDeactivationDialog = ({
   const [additionalNote, setAdditionalNote] = useState<string>("");
 
   const { loading, data } = useMyRoles({ modalVisible: isOpen });
-  const canViewMessage =
-    data?.current_permission_group_slugs?.includes("user-management");
+  const canViewMessage = hasPermission(
+    data?.current_permission_group_slugs,
+    "user-management"
+  );
 
   const handleDeactivate = () => {
     if (!reason || !additionalNote) {
@@ -413,8 +432,10 @@ export const UserActivationDialog = ({
   const [showModal, setShowModal] = useState(false);
   const { loading, data } = useMyRoles({ modalVisible: isOpen });
   const { reactivating, onReactivateUser } = useReactivateUser();
-  const canViewMessage =
-    data?.current_permission_group_slugs?.includes("user-management");
+  const canViewMessage = hasPermission(
+    data?.current_permission_group_slugs,
+    "user-management"
+  );
 
   const handleReactivate = () => {
     onReactivateUser({

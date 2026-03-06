@@ -56,6 +56,9 @@ type Permissions = {
   name: string;
 };
 
+const normalizeRoleName = (value?: string | null) =>
+  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+
 const AdminRolesPage: React.FC = () => {
   const router = useRouter();
 
@@ -109,7 +112,9 @@ const AdminRolesPage: React.FC = () => {
     role: "",
   });
 
-  const admins = adminDetails.filter((admin) => admin.name !== "Super Admin");
+  const admins = adminDetails.filter(
+    (admin) => normalizeRoleName(admin.name) !== "super admin"
+  );
 
   // FETCH PERMISSIONS TO CREATE NEW ROLE
   const fetchPermissions = async () => {

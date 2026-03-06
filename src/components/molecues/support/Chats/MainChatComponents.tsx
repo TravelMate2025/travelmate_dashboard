@@ -76,7 +76,7 @@ type MainChatProps = {
 type SessionProps = {
   chat: ChatSession | null;
   loadingChat: boolean;
-  isAdmin: boolean;
+  isReadOnly: boolean;
   canViewMessage: boolean;
   currentUser: string;
   accessToken?: string;
@@ -96,16 +96,63 @@ const formatDate = (isoDate: string | number | Date | null | undefined) => {
   return format(date, "EEEE dd/MM/yyyy | hh:mm a");
 };
 
+const normalizeRoleName = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+const normalizePermissionSlug = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
+
+const hasSupportChatAccess = ({
+  roleName,
+  permissionSlugs,
+}: {
+  roleName?: string | null;
+  permissionSlugs?: string[];
+}) => {
+  const role = normalizeRoleName(roleName);
+  const normalizedSlugs = new Set(
+    (permissionSlugs || []).map((slug) => normalizePermissionSlug(slug))
+  );
+
+  const allowedRoles = new Set([
+    "super admin",
+    "customer support",
+    "customer success",
+    "user manager",
+  ]);
+
+  const allowedPermissionSlugs = [
+    "support-tickets",
+    "customer-support",
+    "customer-success",
+    "user-manager",
+    "live-chat",
+    "chat",
+  ];
+
+  return (
+    allowedRoles.has(role) ||
+    allowedPermissionSlugs.some((slug) => normalizedSlugs.has(slug))
+  );
+};
+
 export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) => {
   const APP_STATE = useAuthContext();
   const currentUser = APP_STATE?.user?.user_id || "";
   const authAccessToken = APP_STATE?.accessToken || accessToken;
   const params = useParams();
   const chatId = getSingleRouteParam(params, "id");
+  const resolvedSessionId = sessionId || chatId;
 
   const { chat, loadingChat } = useGetChat({
-    ChatId: sessionId as string,
-    initialFetch: !!chatId,
+    ChatId: resolvedSessionId as string,
+    initialFetch: Boolean(resolvedSessionId),
     successCallback: (message) => {
       console.log(message);
     },
@@ -114,20 +161,25 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
     },
   });
   const { loading, data } = useMyRoles({ modalVisible: chat?.id });
-  const canViewMessage =
-    data?.current_permission_group_slugs?.includes("support-tickets") ||
-    data?.current_permission_group_slugs?.includes("customer-support") ||
-    data?.name === "Super Admin";
+  const permissionSlugs = Array.isArray(data?.current_permission_group_slugs)
+    ? data.current_permission_group_slugs
+    : [];
+  const canViewMessage = hasSupportChatAccess({
+    roleName: data?.name,
+    permissionSlugs,
+  });
 
-  const isInputDisabled = chat?.status === "CLOSED" || !canViewMessage;
-  !(
-    chat?.assigned_admin_info === null ||
-    chat?.claimed_by_info?.id === currentUser ||
-    chat?.assigned_admin_info?.id === currentUser
-  );
+  const isReadOnly = chat?.status === "CLOSED" || !canViewMessage;
 
   const router = useRouter();
   const [closing, setClosing] = useState(false);
+  const formattedCreatedAt = formatDate(chat?.created_at);
+  const customerName =
+    `${chat?.user_info?.first_name || ""} ${chat?.user_info?.last_name || ""}`
+      .trim() || "Unknown customer";
+  const chatDisplayId = chat?.id ? `Chat--${chat.id}` : "Chat ID unavailable";
+  const chatDisplayStatus =
+    String(chat?.status || "").trim() || "Unknown";
 
   // Close chat handler
   const handleCloseChat = async () => {
@@ -161,7 +213,7 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
                 : "bg-[#023E8A] text-white"
             }`}
             onClick={handleCloseChat}
-            disabled={closing || isInputDisabled || !canViewMessage}
+            disabled={closing || isReadOnly}
           >
             {closing ? "Closing..." : "Close chat"}
           </button>
@@ -173,24 +225,24 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
       ) : (
         <div className="space-y-4">
           <p className="font-medium text-[16px] text-[#181818]">
-            {formatDate(chat?.created_at)}
+            {formattedCreatedAt}
           </p>
           <div className="flex space-x-3 items-center">
             <p className="lg:text-[16px] text-[12px]  font-semibold text-[#4E4F52]">
               Customer:{" "}
               <span className="font-medium">
-                {chat?.user_info.first_name} {chat?.user_info.last_name}
+                {customerName}
               </span>
             </p>
             <div className="w-2 h-2 bg-[#9B9EA4] rounded-full"></div>
             <p className="lg:text-[16px] text-[12px]  font-semibold text-[#4E4F52]">
               Chat ID:{" "}
-              <span className="font-medium">{"Chat--" + chat?.id}</span>
+              <span className="font-medium">{chatDisplayId}</span>
             </p>
             <div className="w-2 h-2 bg-[#9B9EA4] rounded-full"></div>
             <p className="lg:text-[16px] text-[12px] font-semibold text-[#4E4F52] capitalize">
               Chat Status:{" "}
-              <span className="font-medium capitalize ">{chat?.status}</span>
+              <span className="font-medium capitalize ">{chatDisplayStatus}</span>
             </p>
           </div>
         </div>
@@ -199,7 +251,7 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
       <Session
         chat={chat}
         loadingChat={loadingChat}
-        isAdmin={isInputDisabled}
+          isReadOnly={isReadOnly}
         canViewMessage={canViewMessage}
         currentUser={currentUser}
         accessToken={authAccessToken}
@@ -211,7 +263,7 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
 export const Session = ({
   chat,
   loadingChat,
-  isAdmin,
+  isReadOnly,
   canViewMessage,
   currentUser,
   accessToken,
@@ -386,7 +438,7 @@ export const Session = ({
   }, [allMessages, systemErrorMessage]);
 
   const isInputDisabled =
-    chat?.status === "CLOSED" || systemErrorMessage !== null || isAdmin;
+    chat?.status === "CLOSED" || systemErrorMessage !== null || isReadOnly;
 
   return (
     <>

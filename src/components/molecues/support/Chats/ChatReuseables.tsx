@@ -264,8 +264,37 @@ export const ClaimedChatSection = ({
   const { onClaiming, claiming } = useClaimChat();
   const currentUser = APP_STATE?.user?.user_id || "";
   const { loading, data } = useMyRoles({ modalVisible: !!chatDetails });
+  const normalizeRoleName = (value?: string | null) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+
+  const normalizePermissionSlug = (value?: string | null) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_]+/g, "-");
+
+  const permissionSlugs = Array.isArray(data?.current_permission_group_slugs)
+    ? data.current_permission_group_slugs
+    : [];
+  const normalizedSlugs = new Set(
+    permissionSlugs.map((slug) => normalizePermissionSlug(slug))
+  );
+  const normalizedRoleName = normalizeRoleName(data?.name);
   const canViewMessage =
-    data?.current_permission_group_slugs?.includes("support-tickets");
+    [
+      "support-tickets",
+      "customer-support",
+      "customer-success",
+      "user-manager",
+      "live-chat",
+      "chat",
+    ].some((slug) => normalizedSlugs.has(slug)) ||
+    ["super admin", "customer support", "customer success", "user manager"].includes(
+      normalizedRoleName
+    );
 
 
   const [notAuthorized, setNotAuthorized] = useState(false);

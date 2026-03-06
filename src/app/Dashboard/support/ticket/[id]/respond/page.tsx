@@ -29,6 +29,46 @@ const formatDate = (isoDate: any) => {
   return format(date, "EEEE dd/MM/yyyy | hh:mm a");
 };
 
+const normalizeRoleName = (value?: string | null) =>
+  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+const normalizePermissionSlug = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
+
+const hasSupportTicketAccess = ({
+  roleName,
+  permissionSlugs,
+}: {
+  roleName?: string;
+  permissionSlugs?: string[];
+}) => {
+  const normalizedRole = normalizeRoleName(roleName);
+  const normalizedPermissionSlugs = new Set(
+    (permissionSlugs || []).map((slug) => normalizePermissionSlug(slug))
+  );
+
+  const roleAllowed = [
+    "super admin",
+    "customer support",
+    "customer success",
+    "user manager",
+  ].includes(normalizedRole);
+
+  const permissionAllowed = [
+    "support-tickets",
+    "customer-support",
+    "customer-success",
+    "user-manager",
+    "live-chat",
+    "chat",
+  ].some((slug) => normalizedPermissionSlugs.has(slug));
+
+  return roleAllowed || permissionAllowed;
+};
+
 const page = () => {
   const APP_STATE = useAuthContext();
   const currentUser = APP_STATE?.user?.user_id;
@@ -43,10 +83,34 @@ const page = () => {
     initalFetch: true,
   });
 
+  const roleData = (data || null) as
+    | { name?: string; current_permission_group_slugs?: string[] }
+    | null;
+  const permissionSlugs = Array.isArray(roleData?.current_permission_group_slugs)
+    ? roleData.current_permission_group_slugs
+    : [];
+  const currentRoleName = normalizeRoleName(roleData?.name);
+  const escalationRoleName = normalizeRoleName(ticket?.escalation_role?.name);
+  const canAccessSupport = hasSupportTicketAccess({
+    roleName: roleData?.name,
+    permissionSlugs,
+  });
+
+  const hasClaimOwnership =
+    currentUser === ticket?.claimed_admin?.id && canAccessSupport;
+
+  const canManageNonEscalatedTicket = !ticket?.escalated && canAccessSupport;
+
+  const canManageEscalatedTicket =
+    ticket?.escalated === true &&
+    canAccessSupport &&
+    (currentRoleName === "super admin" ||
+      (Boolean(currentRoleName) && currentRoleName === escalationRoleName));
+
   const isAdmin =
-    currentUser === ticket?.claimed_admin?.id ||
-    (ticket?.escalated === true &&
-      ticket?.escalation_role?.name === data?.name);
+    hasClaimOwnership ||
+    canManageNonEscalatedTicket ||
+    canManageEscalatedTicket;
 
   return (
     <>
@@ -74,8 +138,7 @@ const page = () => {
                     )
                   }
                   disabled={!isAdmin}
-                  aria-disabled={isAdmin}
-                  title={isAdmin ? "Admins only" : "Escalate this ticket"}
+                  title={isAdmin ? "Escalate this ticket" : "Admins only"}
                 >
                   Escalate Ticket
                 </button>
@@ -86,8 +149,7 @@ const page = () => {
                 }`}
                 onClick={() => setShowConfirmModal(true)}
                 disabled={!isAdmin}
-                aria-disabled={!isAdmin}
-                title={isAdmin ? "Admins only" : "Mark ticket as resolved"}
+                title={isAdmin ? "Mark ticket as resolved" : "Admins only"}
               >
                 Mark as Resolved
               </button>
@@ -145,7 +207,7 @@ const page = () => {
                 <p className="text-[16px] font-semibold text-[#4E4F52]">
                   Escalated To:{" "}
                   <span className="font-medium">
-                    {ticket?.escalation_role.name}
+                    {ticket?.escalation_role?.name || "N/A"}
                   </span>
                 </p>
               </div>
@@ -444,8 +506,7 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
                         isUser
                           ? "bg-[#f0f0f0] text-[#181818] text-end"
                           : "bg-[#023E8A] text-white text-start"
-                      }`}
-                      style={{ maxWidth: "fit-content" }}
+                      } max-w-fit`}
                     >
                       {mes.content}
                     </div>
@@ -562,6 +623,8 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
                     type="button"
                     onClick={removeSelectedFile}
                     className="text-red-500 hover:text-red-700 p-1"
+                    aria-label="Remove selected file"
+                    title="Remove selected file"
                   >
                     <svg
                       className="w-5 h-5"
@@ -611,6 +674,8 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
                       onChange={handleFileSelect}
                       className="hidden"
                       disabled={!isAdmin || isSubmitting}
+                      aria-label="Attach a file"
+                      title="Attach a file"
                     />
 
                     {/* Attachment button */}
@@ -618,6 +683,8 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={!isAdmin || isSubmitting}
+                      aria-label="Open file picker"
+                      title="Open file picker"
                       className={`${
                         !isAdmin || isSubmitting
                           ? "opacity-50 cursor-not-allowed"

@@ -39,6 +39,13 @@ interface RoleAssignmentProps {
   revokeInvite: (id: string, email: string) => void;
   setAdminDetails: React.Dispatch<React.SetStateAction<Role[]>>;
 }
+
+const normalizeRoleName = (value?: string | null) =>
+  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+const isSuperAdminRole = (role?: Pick<Role, "name" | "is_superuser"> | null) =>
+  Boolean(role?.is_superuser) || normalizeRoleName(role?.name) === "super admin";
+
 const RoleAssignment: FC<RoleAssignmentProps> = ({
   onAddMemberOpen,
   roles,
@@ -64,7 +71,7 @@ const RoleAssignment: FC<RoleAssignmentProps> = ({
   const ManageUsers = (roleId: string) => {
     const role = roles.find((r) => r.id === roleId);
     if (!role) return;
-    const isSuperAdmin = role.name === "Super Admin" || role.is_superuser;
+    const isSuperAdmin = isSuperAdminRole(role);
     route.push(
       isSuperAdmin
         ? `/Dashboard/admin/manage-super-admin/${roleId}/`
@@ -171,7 +178,7 @@ const RoleAssignment: FC<RoleAssignmentProps> = ({
                     <p className="text-slate-600">{assigned?.email}</p>
                   </div>
 
-                  {role.name !== "Super Admin" && (
+                  {!isSuperAdminRole(role) && (
                     <Button
                       variant="link"
                       className={`text-red-600

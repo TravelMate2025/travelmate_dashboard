@@ -42,6 +42,9 @@ import { showErrorToast } from "@/utils/toasters";
 import { LoaderCircleIcon } from "lucide-react";
 import { fetchRoles, inviteSupes, transferSupes } from "@/services/admin";
 
+const normalizeRoleName = (value?: string | null) =>
+  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+
 const ManageSuperAdmin = () => {
   const [defaultTab, setDefaultTab] = useState("addNewUser");
   const route = useRouter();
@@ -88,7 +91,9 @@ const ManageSuperAdmin = () => {
     fetchRole();
   }, []);
 
-  const adminRoles = roles.filter((role) => role.name !== "Super Admin");
+  const adminRoles = roles.filter(
+    (role) => normalizeRoleName(role.name) !== "super admin"
+  );
 
   const transferSuperAdminRole = async () => {
     try {

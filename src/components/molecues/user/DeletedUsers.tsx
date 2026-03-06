@@ -26,6 +26,9 @@ import { format } from "date-fns";
 import { useMyRoles } from "@/hooks/api/roles";
 import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
 
+const normalizeRoleName = (value?: string | null) =>
+  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+
 const BulkDeleteConfirmationDialog = ({
   isOpen,
   selectedCount,
@@ -40,7 +43,10 @@ const BulkDeleteConfirmationDialog = ({
   deleting: boolean;
 }) => {
   const { loading, data } = useMyRoles({ modalVisible: isOpen });
-  const canViewMessage = data?.name === "Super Admin";
+  const roleData = (data || null) as { name?: string; is_superuser?: boolean } | null;
+  const canViewMessage =
+    Boolean(roleData?.is_superuser) ||
+    normalizeRoleName(roleData?.name) === "super admin";
 
   return (
     <Dialog open={isOpen} onOpenChange={onCancel}>

@@ -22,6 +22,23 @@ import {
 
 import { useDeleteUser } from "@/hooks/api/user";
 
+const normalizePermissionSlug = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
+
+const hasPermission = (slugs: unknown, target: string) => {
+  if (!Array.isArray(slugs)) return false;
+
+  const normalizedTarget = normalizePermissionSlug(target);
+  const normalizedSet = new Set(
+    slugs.map((slug) => normalizePermissionSlug(String(slug)))
+  );
+
+  return normalizedSet.has(normalizedTarget);
+};
+
 const DetailRow = ({
   label,
   value,
@@ -137,8 +154,10 @@ export const UserDeleteDialog = ({
 }) => {
   const { deleting, onDeleteUser } = useDeleteUser();
   const { loading, data } = useMyRoles({ modalVisible: isOpen });
-  const canViewMessage =
-    data?.current_permission_group_slugs?.includes("user-management");
+  const canViewMessage = hasPermission(
+    data?.current_permission_group_slugs,
+    "user-management"
+  );
 
   const handleConfirm = () => {
     if (!deactivatingUser?.id) return;
