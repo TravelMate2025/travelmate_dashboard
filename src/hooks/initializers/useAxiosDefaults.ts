@@ -57,21 +57,32 @@ const knownBackendOrigins = new Set(
 
 const isAbsoluteHttpUrl = (value: string) => /^https?:\/\//i.test(value);
 
-const normalizeBackendPathname = (pathname: string) => {
-  const apiStrippedPath = pathname.replace(/^\/api\/?/, "/");
-
-  if (!apiStrippedPath || apiStrippedPath === "/") {
+const ensureEndpointTrailingSlash = (path: string) => {
+  if (!path || path === "/") {
     return "/";
   }
 
-  if (apiStrippedPath.endsWith("/")) {
-    return apiStrippedPath;
+  if (path.endsWith("/")) {
+    return path;
   }
 
-  const lastSegment = apiStrippedPath.split("/").filter(Boolean).pop() || "";
+  const lastSegment = path.split("/").filter(Boolean).pop() || "";
   const looksLikeFile = lastSegment.includes(".");
 
-  return looksLikeFile ? apiStrippedPath : `${apiStrippedPath}/`;
+  return looksLikeFile ? path : `${path}/`;
+};
+
+const normalizeBackendPathname = (pathname: string) => {
+  const apiStrippedPath = pathname.replace(/^\/api\/?/, "/");
+
+  return ensureEndpointTrailingSlash(apiStrippedPath);
+};
+
+const normalizeProxyPathname = (pathname: string) => {
+  const proxyStrippedPath = pathname.replace(/^\/api\/proxy\/?/, "/");
+  const normalizedProxyPath = ensureEndpointTrailingSlash(proxyStrippedPath);
+
+  return `/api/proxy${normalizedProxyPath}`;
 };
 
 const toProxyUrl = (inputUrl?: string) => {
@@ -81,8 +92,18 @@ const toProxyUrl = (inputUrl?: string) => {
 
   const url = inputUrl.trim();
 
-  if (!url || url.startsWith("/api/proxy/") || url.startsWith("/api/auth/")) {
+  if (!url) {
     return url;
+  }
+
+  if (url.startsWith("/api/auth/")) {
+    return url;
+  }
+
+  if (url.startsWith("/api/proxy/")) {
+    const [pathname, query = ""] = url.split("?");
+    const normalizedPath = normalizeProxyPathname(pathname);
+    return `${normalizedPath}${query ? `?${query}` : ""}`;
   }
 
   let parsed: URL;
@@ -97,6 +118,11 @@ const toProxyUrl = (inputUrl?: string) => {
 
   if (isAbsoluteHttpUrl(url) && !knownBackendOrigins.has(parsed.origin)) {
     return url;
+  }
+
+  if (parsed.pathname.startsWith("/api/proxy/")) {
+    const normalizedPath = normalizeProxyPathname(parsed.pathname);
+    return `${normalizedPath}${parsed.search}`;
   }
 
   if (!parsed.pathname.startsWith("/api/")) {

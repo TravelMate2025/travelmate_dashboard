@@ -93,7 +93,6 @@ const handler = async (req: NextRequest, context: RouteContext) => {
 
     const shouldRetryWithTrailingSlash =
       upstream.status === 404 &&
-      (method === "GET" || method === "HEAD") &&
       Boolean(upstreamPath) &&
       !upstreamPath.endsWith("/");
 
