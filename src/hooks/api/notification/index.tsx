@@ -290,7 +290,6 @@ export const useWebSocketService = (accessToken: string | null) => {
 
       ws.onopen = () => {
         reconnectAttemptsRef.current = 0;
-        console.log(" WebSocket connected");
       };
 
       ws.onmessage = (event) => {

@@ -14,8 +14,6 @@ const Stats = () => {
   const { loading, data, updateDays } = useGetAllTicketStats({
     initialFetch: true,
     defaultDays: days,
-    successCallback: (message: unknown) => console.log(message),
-    errorCallback: (err: unknown) => console.error(err),
   });
 
   useEffect(() => {
