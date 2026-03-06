@@ -193,21 +193,42 @@ const CancellationGrid = ({
 };
 
 const Form = ({ booking }: { booking?: CancellationBooking | null }) => {
+  const params = useParams();
   const searchParams = useSearchParams();
   const [overridePolicy, setOverridePolicy] = useState(false);
   const [adminNote, setAdminNote] = useState("");
   const { processCancellation, loading } = useProcessBookingCancellation();
-  const cancellationIdFromQuery = searchParams.get("cancellationId")?.trim();
+
+  const normalizeId = (value?: string | number | null) => {
+    if (value === undefined || value === null) return "";
+
+    const trimmed = String(value).trim();
+    if (!trimmed || trimmed === "undefined" || trimmed === "null") {
+      return "";
+    }
+
+    return trimmed;
+  };
+
+  const bookingIdFromRoute = normalizeId(getSingleRouteParam(params, "id"));
+  const cancellationIdFromQuery = normalizeId(searchParams.get("cancellationId"));
   const cancellationIdFromBooking = booking?.cancellation_id
-    ? String(booking.cancellation_id)
+    ? normalizeId(booking.cancellation_id)
     : "";
-  const cancellationId = cancellationIdFromQuery || cancellationIdFromBooking;
+  const bookingIdFromBooking = booking?.id ? normalizeId(booking.id) : "";
+
+  // Some flows provide cancellation_id while others only provide booking id.
+  const processTargetId =
+    cancellationIdFromQuery ||
+    cancellationIdFromBooking ||
+    bookingIdFromBooking ||
+    bookingIdFromRoute;
 
   const handleProcessCancellation = async () => {
-    if (!cancellationId) return;
+    if (!processTargetId) return;
 
     await processCancellation({
-      id: cancellationId,
+      id: processTargetId,
       payload: {
         note: adminNote,
         override_policy: overridePolicy,
@@ -264,7 +285,7 @@ const Form = ({ booking }: { booking?: CancellationBooking | null }) => {
           <button
             type="button"
             onClick={handleProcessCancellation}
-            disabled={loading || !cancellationId}
+            disabled={loading || !processTargetId}
             className="w-full bg-[#023E8A] p-[16px] rounded-[8px] text-[#ffff] text-[20px] font-[500] text-center disabled:bg-gray-400"
           >
             {loading ? "Processing..." : "Process Cancellation and refund"}
