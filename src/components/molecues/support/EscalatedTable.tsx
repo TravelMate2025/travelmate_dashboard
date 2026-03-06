@@ -71,12 +71,6 @@ export const EscaleteTable: React.FC<EscalatedTableProps> = ({
   const { ticket: ticketDetails, loadingTicket } = useGetTicket({
     TicketId: ticketId as string,
     initalFetch: !!ticketId,
-    successCallback: (message) => {
-      console.log(message);
-    },
-    errorCallback: (error) => {
-      console.error(error);
-    },
   });
 
   const handleViewDetails = (ticket: EscalatedTicket) => {

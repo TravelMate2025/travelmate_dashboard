@@ -13,7 +13,7 @@ import {
   TicketDetailsDialog,
   ViewingChatModal,
 } from "./Reuseables";
-import { useGetAllTickets, useGetTicket } from "@/hooks/api/ticket";
+import { useGetAllTickets, useGetTicket, type Ticket } from "@/hooks/api/ticket";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -22,20 +22,7 @@ type TicketTabContentProps = {
   date?: string;
 };
 
-type TicketItem = {
-  id: string;
-  title: string;
-  ticket_id: string;
-  category: string;
-  created_at: string;
-  status: string;
-  escalated?: boolean;
-  user: {
-    first_name?: string;
-    last_name?: string;
-    email?: string;
-  };
-};
+type TicketItem = Ticket;
 
 export const TicketTabContent: React.FC<TicketTabContentProps> = ({
   searchTerm,
@@ -68,12 +55,6 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
   const { ticket: ticketDetails, loadingTicket } = useGetTicket({
     TicketId: ticketId as string,
     initalFetch: !!ticketId,
-    successCallback: (message) => {
-      console.log(message);
-    },
-    errorCallback: (error) => {
-      console.error(error);
-    },
   });
 
   // Function to trigger full reload
@@ -131,7 +112,7 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
 
   const handleViewDetails = (ticket: TicketItem) => {
     setSelectedTicket(ticket);
-    setTicketId(ticket.id);
+    setTicketId(String(ticket.id));
     setIsDetailsDialogOpen(true);
   };
 
@@ -143,7 +124,7 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
 
   const handleViewMessage = (ticket: TicketItem) => {
     setSelectedTicket(ticket);
-    setTicketId(ticket.id);
+    setTicketId(String(ticket.id));
     setIsChatModalOpen(true);
   };
 
@@ -157,6 +138,21 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
     setIsLoadingMore(true);
     loadNext();
   };
+
+  const normalizedSelectedTicketForDetails =
+    isDetailsDialogOpen && selectedTicket
+      ? {
+          ...selectedTicket,
+          escalation_reason: selectedTicket.escalation_reason ?? undefined,
+        }
+      : null;
+
+  const normalizedTicketDetails = ticketDetails
+    ? {
+        ...ticketDetails,
+        escalation_reason: ticketDetails.escalation_reason ?? undefined,
+      }
+    : null;
 
   const styling =
     "px-[24px] h-full data-[state=active]:text-black data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:rounded-none data-[state=active]:border-b-[2px] data-[state=active]:border-b-[#181818] flex items-center justify-center cursor-pointer bg-transparent shadow-none rounded-none";
@@ -323,14 +319,14 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
       </div>
 
       <TicketDetailsDialog
-        selectedTicket={isDetailsDialogOpen ? selectedTicket : null}
-        ticketDetails={ticketDetails}
+        selectedTicket={normalizedSelectedTicketForDetails}
+        ticketDetails={normalizedTicketDetails}
         ticketLoading={loadingTicket}
         onClose={handleDetailsDialogClose}
       />
       <ViewingChatModal
-        selectedTicket={isChatModalOpen ? selectedTicket : null}
-        ticketDetails={ticketDetails}
+        selectedTicket={isChatModalOpen}
+        ticketDetails={normalizedTicketDetails}
         ticketLoading={loadingTicket}
         onClose={handleChatModalClose}
       />

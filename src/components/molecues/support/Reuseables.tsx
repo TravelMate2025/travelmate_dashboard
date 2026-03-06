@@ -18,10 +18,10 @@ import { AlertTriangle } from "lucide-react";
 import { FilterDropdown } from "@/components/reuseables/FilterDropdown";
 
 type TicketActor = {
-  id?: string;
-  first_name?: string;
-  last_name?: string;
-  email?: string;
+  id?: string | number;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
 };
 
 type TicketClaimHistoryItem = {
@@ -30,7 +30,7 @@ type TicketClaimHistoryItem = {
 };
 
 type TicketDetails = {
-  id: string;
+  id: string | number;
   ticket_id?: string;
   category?: string;
   status?: string;
@@ -39,7 +39,7 @@ type TicketDetails = {
   created_at?: string;
   escalated?: boolean;
   escalated_at?: string;
-  escalation_reason?: string;
+  escalation_reason?: string | null;
   escalation_role?: {
     name?: string;
   };

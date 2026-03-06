@@ -153,12 +153,6 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
   const { chat, loadingChat } = useGetChat({
     ChatId: resolvedSessionId as string,
     initialFetch: Boolean(resolvedSessionId),
-    successCallback: (message) => {
-      console.log(message);
-    },
-    errorCallback: (error) => {
-      console.error(error);
-    },
   });
   const { loading, data } = useMyRoles({ modalVisible: chat?.id });
   const permissionSlugs = Array.isArray(data?.current_permission_group_slugs)

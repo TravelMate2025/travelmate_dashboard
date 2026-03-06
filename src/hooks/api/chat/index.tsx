@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
-import useWebSocket from "react-use-websocket";
 import ChatService from "@/services/chat";
 import env from "@/config/env";
 import axios from "axios";
@@ -212,6 +211,16 @@ export const useWebSocketService = ({
   // const [accessToken, setAccessToken] = useState<string | null>(null);
   const [socketUrl, setSocketUrl] = useState<string | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null); // WebSocket instance
+  const [reconnectTick, setReconnectTick] = useState(0);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldReconnectRef = useRef(true);
+
+  const clearReconnectTimer = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  };
 
   useEffect(() => {
     if (accessToken && sessionId) {
@@ -221,6 +230,8 @@ export const useWebSocketService = ({
     }
 
     return () => {
+      shouldReconnectRef.current = false;
+      clearReconnectTimer();
       if (socket) {
         socket.close();
       }
@@ -229,13 +240,31 @@ export const useWebSocketService = ({
 
   useEffect(() => {
     if (socketUrl) {
+      shouldReconnectRef.current = true;
       const ws = new WebSocket(socketUrl);
 
-      ws.onopen = () => console.log("WebSocket connected");
-      ws.onerror = (error) => console.error("WebSocket error:", error);
+      ws.onopen = () => {
+        clearReconnectTimer();
+      };
+
+      ws.onerror = () => {
+        // onclose handles retries and error paths.
+      };
+
       ws.onclose = (event) => {
-        console.error("WebSocket closed unexpectedly:", event);
-        setTimeout(() => console.log("Reconnecting WebSocket..."), 3000);
+        if (!shouldReconnectRef.current) {
+          return;
+        }
+
+        const isNormalClose = event.code === 1000 || event.wasClean;
+        if (isNormalClose) {
+          return;
+        }
+
+        clearReconnectTimer();
+        reconnectTimeoutRef.current = setTimeout(() => {
+          setReconnectTick((prev) => prev + 1);
+        }, 3000);
       };
 
       ws.onmessage = (event) => {
@@ -252,17 +281,16 @@ export const useWebSocketService = ({
 
       return () => {
         // Close the WebSocket when the component unmounts or the session changes
+        clearReconnectTimer();
         ws.close();
       };
     }
-  }, [socketUrl]);
+  }, [socketUrl, reconnectTick]);
   // console.log(messages);
 
   const send = (message: Record<string, unknown>) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(message));
-    } else {
-      console.error("WebSocket is not connected.");
     }
   };
 
