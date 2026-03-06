@@ -1,5 +1,6 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
 import env from "@/config/env";
+import { knownBackendApiBases } from "@/lib/backend-api";
 
 type PersistedAuthState = {
   accessToken?: string;
@@ -42,11 +43,57 @@ const writePersistedAuth = (value: PersistedAuthState) => {
 const isAuthExcludedRoute = (url: string = "") =>
   AUTH_EXCLUDED_PATHS.some((path) => url.includes(path));
 
-const instance = axios.create({
-  withCredentials: true,
-});
+const knownBackendOrigins = new Set(
+  knownBackendApiBases()
+    .map((base) => {
+      try {
+        return new URL(base).origin;
+      } catch {
+        return null;
+      }
+    })
+    .filter((origin): origin is string => Boolean(origin))
+);
 
-instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+const isAbsoluteHttpUrl = (value: string) => /^https?:\/\//i.test(value);
+
+const toProxyUrl = (inputUrl?: string) => {
+  if (!inputUrl || typeof window === "undefined") {
+    return inputUrl;
+  }
+
+  const url = inputUrl.trim();
+
+  if (!url || url.startsWith("/api/proxy/") || url.startsWith("/api/auth/")) {
+    return url;
+  }
+
+  let parsed: URL;
+
+  try {
+    parsed = isAbsoluteHttpUrl(url)
+      ? new URL(url)
+      : new URL(url, window.location.origin);
+  } catch {
+    return url;
+  }
+
+  if (isAbsoluteHttpUrl(url) && !knownBackendOrigins.has(parsed.origin)) {
+    return url;
+  }
+
+  if (!parsed.pathname.startsWith("/api/")) {
+    return url;
+  }
+
+  const backendPath = parsed.pathname.replace(/^\/api\/?/, "/");
+  return `/api/proxy${backendPath}${parsed.search}`;
+};
+
+const applyRequestDefaults = (config: InternalAxiosRequestConfig) => {
+  config.withCredentials = true;
+  config.url = toProxyUrl(config.url);
+
   const persistedAuth = readPersistedAuth();
   const accessToken = persistedAuth?.accessToken;
 
@@ -55,7 +102,16 @@ instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   }
 
   return config;
+};
+
+const instance = axios.create({
+  withCredentials: true,
 });
+
+axios.defaults.withCredentials = true;
+
+axios.interceptors.request.use(applyRequestDefaults);
+instance.interceptors.request.use(applyRequestDefaults);
 
 instance.interceptors.response.use(
   (response) => response,

@@ -8,10 +8,10 @@ import React, {
   Dispatch,
   useContext,
 } from "react";
-import axios from "axios";
 import usePersistAppContext, {
   getInitialStateFromLocalStorage,
 } from "@/hooks/context/auth/usePersistAuthContext";
+import instance from "@/hooks/initializers/useAxiosDefaults";
 
 import env from "@/config/env";
 
@@ -64,7 +64,7 @@ export function AuthContextWrapper({
 
     const verifyAndRefreshIfNeeded = async () => {
       try {
-        await axios.post(
+        await instance.post(
           env.api.jwtVerifyToken,
           { token: accessToken },
           { withCredentials: true }
@@ -83,7 +83,7 @@ export function AuthContextWrapper({
         }
 
         try {
-          const refreshResponse = await axios.post(
+          const refreshResponse = await instance.post(
             env.api.jwtRefreshToken,
             { refresh: refreshToken },
             { withCredentials: true }

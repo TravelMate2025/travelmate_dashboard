@@ -1,25 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
-
-const joinUrl = (base: string, path: string) => {
-  const normalizedBase = trimTrailingSlash(base || "");
-  const normalizedPath = path.replace(/^\/+/, "");
-  return `${normalizedBase}/${normalizedPath}`;
-};
-
-const resolveApiBase = () => {
-  const stagingBase = "https://travelmate-backend-knvd.onrender.com/api";
-  const liveBase = "https://travelmate-backend-1-1lgj.onrender.com/api";
-
-  const environment =
-    process.env.NEXT_PUBLIC_ENVIRONMENT?.trim().toLowerCase() || "staging";
-  const baseFromEnv = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-  const defaultBase = environment === "production" ? liveBase : stagingBase;
-
-  const normalized = trimTrailingSlash(baseFromEnv || defaultBase);
-  return normalized.endsWith("/api") ? normalized : `${normalized}/api`;
-};
+import { joinUrl, resolveBackendApiBase } from "@/lib/backend-api";
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,7 +7,7 @@ export async function POST(req: NextRequest) {
     const email = body?.email ?? "";
     const password = body?.password ?? "";
 
-    const apiBase = resolveApiBase();
+    const apiBase = resolveBackendApiBase();
 
     const endpointCandidates = [
       `${apiBase}/auth/admin/jwt/login-superuser/`,

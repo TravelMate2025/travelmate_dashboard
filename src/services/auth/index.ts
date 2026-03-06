@@ -1,5 +1,6 @@
 import axios from "axios";
 import env from "@/config/env";
+import instance from "@/hooks/initializers/useAxiosDefaults";
 import {
   AuthInterface,
   TLoginService,
@@ -14,16 +15,16 @@ class Service implements AuthInterface {
     return axios.post("/api/auth/login", payload);
   }
   resetPassword({ payload }: TResetPassword) {
-    return axios.post(env.api.user + "/reset_password/", payload);
+    return instance.post(env.api.user + "/reset_password/", payload);
   }
   verifyToken({ payload }: TVerifyOTP) {
-    return axios.post(env.api.user + "/validate_reset_token/", payload);
+    return instance.post(env.api.user + "/validate_reset_token/", payload);
   }
   resendResetToken({ payload }: TResendResetToken) {
-    return axios.post(env.api.user + "/resend_reset_token/", payload);
+    return instance.post(env.api.user + "/resend_reset_token/", payload);
   }
   newPassword({ payload }: TNewPassword) {
-    return axios.post(env.api.user + "/set_new_password/", payload);
+    return instance.post(env.api.user + "/set_new_password/", payload);
   }
 }
 
