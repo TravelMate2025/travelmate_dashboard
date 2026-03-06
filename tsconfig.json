@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -21,12 +25,29 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@app/*": ["./src/app/*"],
-      "@shared/*": ["./src/shared/*"],
-      "@widgets/*": ["./src/widgets/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@app/*": [
+        "./src/app/*"
+      ],
+      "@shared/*": [
+        "./src/shared/*"
+      ],
+      "@widgets/*": [
+        "./src/widgets/*"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.d.ts", ".next/types/**/*.ts", "src/components/pages/customer-support"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    "src/components/pages/customer-support",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

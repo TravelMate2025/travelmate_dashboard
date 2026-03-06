@@ -90,7 +90,7 @@ export default function ReportsPage() {
     const combinedBaseUrl = `${env.api.admin}/reports/bookings/combined/?group_by=day`;
     const summaryBaseUrl = `${env.api.admin}/reports/summary/?`;
 
-    let params = { breakdown: "", combined: "", summary: "" };
+    const params = { breakdown: "", combined: "", summary: "" };
 
     switch (selectedOption) {
       case "This Week": {

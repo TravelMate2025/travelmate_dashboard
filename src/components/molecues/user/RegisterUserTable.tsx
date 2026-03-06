@@ -44,7 +44,6 @@ export const UsersTable = ({
   selectedStartDate,
 }: UsersTableProps) => {
   const router = useRouter();
-  console.log({ selectedEndDate, selectedStartDate });
 
   const {
     users,

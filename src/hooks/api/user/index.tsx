@@ -16,7 +16,6 @@ export function useGetUser({
   successCallback?: (message: string) => void;
   errorCallback?: (props: { message?: string; description?: string }) => void;
 }) {
-  console.log("fetching...", UserId);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<unknown | null>(null);
 

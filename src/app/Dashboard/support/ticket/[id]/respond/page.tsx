@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { useFormik } from "formik";
+import { useFormik, FormikHelpers } from "formik";
 import { SuccessModal } from "@/components/reuseables/SuccessModal";
 import { useParams } from "next/navigation";
 import {
@@ -14,6 +14,7 @@ import { ConfirmResolution } from "@/components/molecues/support/Reuseables";
 import * as Yup from "yup";
 import { useAuthContext } from "@/context/AuthContext";
 import { useMyRoles } from "@/hooks/api/roles";
+import { getSingleRouteParam } from "@shared/lib/routeParams";
 
 const formatDate = (isoDate: any) => {
   if (!isoDate) {
@@ -69,19 +70,51 @@ const hasSupportTicketAccess = ({
   return roleAllowed || permissionAllowed;
 };
 
+type TicketActor = {
+  id?: number | string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+};
+
+type RespondTicket = {
+  id?: number | string;
+  status?: string;
+  title?: string;
+  created_at?: string;
+  category?: string;
+  escalated?: boolean;
+  escalation_role?: { name?: string };
+  escalated_by?: TicketActor;
+  claimed_admin?: TicketActor;
+  claim_timestamp?: string;
+  user?: TicketActor;
+  messages?: { results?: unknown[] } | unknown[];
+};
+
 const page = () => {
   const APP_STATE = useAuthContext();
   const currentUser = APP_STATE?.user?.user_id;
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const { id } = useParams<{ id: string }>();
+  const params = useParams();
+  const id = getSingleRouteParam(params, "id") || "";
   const router = useRouter();
+    const escalateTicket = () => {
+      const ticketId = ticketDetails?.id;
+      if (!ticketId) return;
+
+      router.push(`/Dashboard/support/ticket/${String(ticketId)}/escalate`);
+    };
+
   const { loading, data } = useMyRoles({ modalVisible: true });
 
   const { loadingTicket, ticket } = useGetTicket({
     TicketId: id as string,
     initalFetch: true,
   });
+
+  const ticketDetails = (ticket || null) as RespondTicket | null;
 
   const roleData = (data || null) as
     | { name?: string; current_permission_group_slugs?: string[] }
@@ -90,19 +123,19 @@ const page = () => {
     ? roleData.current_permission_group_slugs
     : [];
   const currentRoleName = normalizeRoleName(roleData?.name);
-  const escalationRoleName = normalizeRoleName(ticket?.escalation_role?.name);
+  const escalationRoleName = normalizeRoleName(ticketDetails?.escalation_role?.name);
   const canAccessSupport = hasSupportTicketAccess({
     roleName: roleData?.name,
     permissionSlugs,
   });
 
   const hasClaimOwnership =
-    currentUser === ticket?.claimed_admin?.id && canAccessSupport;
+    currentUser === ticketDetails?.claimed_admin?.id && canAccessSupport;
 
-  const canManageNonEscalatedTicket = !ticket?.escalated && canAccessSupport;
+  const canManageNonEscalatedTicket = !ticketDetails?.escalated && canAccessSupport;
 
   const canManageEscalatedTicket =
-    ticket?.escalated === true &&
+    ticketDetails?.escalated === true &&
     canAccessSupport &&
     (currentRoleName === "super admin" ||
       (Boolean(currentRoleName) && currentRoleName === escalationRoleName));
@@ -123,9 +156,9 @@ const page = () => {
             onClick={router.back}
           />
 
-          {ticket?.status !== "resolved" && (
+          {ticketDetails?.status !== "resolved" && (
             <div className="hidden lg:flex space-x-4">
-              {!ticket?.escalated && (
+              {!ticketDetails?.escalated && (
                 <button
                   className={`rounded-[8px] border font-medium py-2 px-4 ${
                     isAdmin
@@ -133,9 +166,7 @@ const page = () => {
                       : "border-gray-500 text-gray-700 cursor-not-allowed"
                   }`}
                   onClick={() =>
-                    router.push(
-                      `/Dashboard/support/ticket/${ticket?.id}/escalate`
-                    )
+                    escalateTicket()
                   }
                   disabled={!isAdmin}
                   title={isAdmin ? "Escalate this ticket" : "Admins only"}
@@ -161,45 +192,45 @@ const page = () => {
         ) : (
           <div className="space-y-2">
             <p className="font-medium text-[12px] lg:text-[16px] text-[#181818]">
-              {formatDate(ticket?.created_at)}{" "}
-              {ticket?.escalated == true && (
+              {formatDate(ticketDetails?.created_at)}{" "}
+              {ticketDetails?.escalated == true && (
                 <span className="text-red-700">
                   | This is an escalated ticket{" "}
                 </span>
               )}{" "}
-              {ticket?.status == "resolved" && (
+              {ticketDetails?.status == "resolved" && (
                 <span className="text-[#2D9C5E]">| Resolved </span>
               )}
             </p>
             <h2 className="lgtext-[22px] text-[18px] font-semibold text-[#181818]">
-              {ticket?.title}
+              {ticketDetails?.title}
             </h2>
             <div className="flex space-x-3 items-center flex-wrap">
               <p className="text-[16px] font-semibold text-[#4E4F52]">
                 Customer:{" "}
                 <span className="font-medium">
-                  {ticket?.user.first_name || "N/A"}{" "}
-                  {ticket?.user.last_name || "N/A"}
+                  {ticketDetails?.user?.first_name || "N/A"}{" "}
+                  {ticketDetails?.user?.last_name || "N/A"}
                 </span>
               </p>
               <div className="w-2 h-2 bg-[#9B9EA4] rounded-full"></div>
               <p className="text-[16px] font-semibold text-[#4E4F52]">
                 Category:{" "}
-                <span className="font-medium">{ticket?.category}</span>
+                <span className="font-medium">{ticketDetails?.category}</span>
               </p>
               <div className="w-2 h-2 bg-[#9B9EA4] rounded-full"></div>
               <p className="text-[16px] font-semibold text-[#4E4F52]">
                 Chat Status:{" "}
-                <span className="font-medium uppercase ">{ticket?.status}</span>
+                <span className="font-medium uppercase ">{ticketDetails?.status}</span>
               </p>
             </div>
-            {ticket?.escalated && (
+            {ticketDetails?.escalated && (
               <div className="flex space-x-3 items-center flex-wrap">
                 <p className="text-[16px] font-semibold text-[#4E4F52]">
                   Escalated By:{" "}
                   <span className="font-medium">
-                    {ticket?.escalated_by.first_name ||
-                      ticket?.escalated_by.email}{" "}
+                    {ticketDetails?.escalated_by?.first_name ||
+                      ticketDetails?.escalated_by?.email}{" "}
                     ({"Customer support"})
                   </span>
                 </p>
@@ -207,7 +238,7 @@ const page = () => {
                 <p className="text-[16px] font-semibold text-[#4E4F52]">
                   Escalated To:{" "}
                   <span className="font-medium">
-                    {ticket?.escalation_role?.name || "N/A"}
+                    {ticketDetails?.escalation_role?.name || "N/A"}
                   </span>
                 </p>
               </div>
@@ -215,15 +246,15 @@ const page = () => {
           </div>
         )}
         <Chat
-          ticket={ticket}
+          ticket={ticketDetails}
           loadingTicket={loadingTicket}
           isAdmin={isAdmin}
           currentUser={currentUser}
         />
       </div>
-      {ticket?.status !== "resolved" && (
+      {ticketDetails?.status !== "resolved" && (
         <div className="  sticky lg:hidden bottom-0 bg-white p-4 flex justify-between items-end space-x-4 shadow-lg">
-          {ticket?.escalated !== true && (
+          {ticketDetails?.escalated !== true && (
             <button
               className={`flex-1 rounded-[8px] border  font-medium py-2 ${
                 !isAdmin
@@ -231,7 +262,7 @@ const page = () => {
                   : "border-[#D72638] text-[#D72638]  "
               } `}
               onClick={() =>
-                router.push(`/Dashboard/support/ticket/${ticket?.id}/escalate`)
+                escalateTicket()
               }
               disabled={!isAdmin}
             >
@@ -261,7 +292,11 @@ const page = () => {
 
       {showConfirmModal && (
         <ConfirmResolution
-          selectedTicket={ticket}
+          selectedTicket={
+            ticketDetails
+              ? { ...ticketDetails, id: String(ticketDetails.id || "") }
+              : null
+          }
           onClose={() => setShowConfirmModal(false)}
           setShowModal={setShowSuccessModal}
         />
@@ -365,14 +400,17 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
     return formData;
   };
 
-  const formik = useFormik({
+  const formik = useFormik<{ message: string }>({
     initialValues: {
       message: "",
     },
     validationSchema: Yup.object({
       message: Yup.string(), // Remove required validation
     }),
-    onSubmit: async (values, { resetForm }) => {
+    onSubmit: async (
+      values: { message: string },
+      { resetForm }: FormikHelpers<{ message: string }>
+    ) => {
       // Check if there's either a message or an attachment
       if (!values.message.trim() && !selectedFile) {
         alert("Please enter a message or select a file to send");
@@ -390,8 +428,11 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
         ticket?.claimed_admin?.id !== currentUser
       ) {
         try {
+          const ticketId = ticket?.id ? String(ticket.id) : "";
+          if (!ticketId) return;
+
           await onClaiming({
-            TicketId: ticket?.id,
+            TicketId: ticketId,
             isShow: false,
           });
         } catch (error) {
@@ -406,7 +447,7 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
         const payload = createMessagePayload(messageToSend, selectedFile);
 
         onRespondToTicket({
-          TicketId: ticket?.id,
+          TicketId: ticket?.id ? String(ticket.id) : "",
           payload,
           successCallback: () => {
             const newMessage = {
@@ -430,9 +471,6 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
       }
     },
   });
-
-  // Add validation context for attachment
-  formik.values.hasAttachment = !!selectedFile;
 
   return (
     <div className="w-full pt-[24px] border-[1px] border-[#CDCED1] bg-[#F5F5F5] rounded-[24px] space-y-[40px] flex flex-col">

@@ -36,8 +36,10 @@ import {
 } from "@/services/admin";
 
 interface User {
-  name: string;
-  email: string;
+  id?: number;
+  name?: string;
+  email?: string;
+  [key: string]: unknown;
 }
 
 interface Role {
@@ -294,6 +296,11 @@ const AdminRolesPage: React.FC = () => {
 
   // DELETE ROLES
   const confirmDeleteRole = async () => {
+    if (!roleToDelete) {
+      showErrorToast({ message: "No role selected for deletion" });
+      return;
+    }
+
     try {
       setIsDeleteLoading(true);
       await deleteRoles(roleToDelete);

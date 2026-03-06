@@ -16,7 +16,6 @@ const CmsContent = () => {
   const { loading: roleLoading, data } = useMyRoles({ modalVisible: true });
   const { loading, data: services, refresh } = useGetAllServices({});
 
-  console.log(data?.name);
   const canEdit =
     data?.name == "Content Manager" || data?.name == "Super Admin";
   return (

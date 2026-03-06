@@ -316,7 +316,7 @@ const Dropdown = ({ options, placeholder, onSelect }: DropdownProps) => {
 };
 
 type MiniDropdownOption = {
-  id: String;
+  id: string;
   label: string;
 };
 

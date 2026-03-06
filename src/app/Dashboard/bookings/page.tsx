@@ -186,7 +186,7 @@ const BookingTab: React.FC = () => {
             <div
               className="flex items-center space-x-2 py-4 px-6 bg-[#FF6F1E] rounded-[8px] cursor-pointer p-[6px] justify-center w-full md:w-auto"
               onClick={() => {
-                const current = data?.results ?? [];
+                const current = data ?? [];
                 console.log("Exporting bookings:", current);
               }}
             >

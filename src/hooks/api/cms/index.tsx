@@ -2,19 +2,26 @@ import CMSService from "@/services/cms";
 import { useState } from "react";
 import { useEffect } from "react";
 
+type CmsService = {
+  id: string;
+  service_type: string;
+  percentage: number;
+  [key: string]: unknown;
+};
+
 export function useGetAllServices({
   initalFetch = true,
 }: {
   initalFetch?: boolean;
 }) {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<unknown | null>(null);
+  const [data, setData] = useState<CmsService[]>([]);
 
   const onCMSdata = async () => {
     setLoading(true);
     try {
       const res = await CMSService.getServices();
-      setData(res.data.results);
+      setData(Array.isArray(res.data.results) ? res.data.results : []);
     } catch (error) {
       console.error("Error fetching escalation levels:", error);
     } finally {

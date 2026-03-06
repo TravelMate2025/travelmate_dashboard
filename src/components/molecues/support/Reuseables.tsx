@@ -326,19 +326,35 @@ export const ViewingChatModal = ({
     [ticketDetails]
   );
 
+  const escalationRoleName = normalizeRoleName(ticketDetails?.escalation_role?.name);
+  const isSuperAdmin = currentRoleName === "super admin";
+
   // Check authorization first - this will be computed on every render
   const notAuthorized = useMemo(() => {
     if (!selectedTicket || !ticketDetails) return false;
 
+    if (!canViewMessage) {
+      return true;
+    }
+
     if (
       ticketDetails.escalated === true &&
-      normalizeRoleName(ticketDetails.escalation_role?.name) !== currentRoleName
+      !isSuperAdmin &&
+      Boolean(escalationRoleName) &&
+      escalationRoleName !== currentRoleName
     ) {
       return true;
     }
 
     return false;
-  }, [selectedTicket, ticketDetails, data?.name]);
+  }, [
+    selectedTicket,
+    ticketDetails,
+    canViewMessage,
+    isSuperAdmin,
+    escalationRoleName,
+    currentRoleName,
+  ]);
 
   const handleNavigateToResponse = useCallback(() => {
     if (ticketDetails?.id) {
@@ -350,11 +366,11 @@ export const ViewingChatModal = ({
   useEffect(() => {
     if (selectedTicket && !notAuthorized) {
       if (
-        ticketDetails?.claimed_admin?.id === currentUser ||
+        (ticketDetails?.claimed_admin?.id === currentUser && canViewMessage) ||
         ticketDetails?.status === "resolved" ||
         (ticketDetails?.escalated === true &&
-          normalizeRoleName(ticketDetails?.escalation_role?.name) ===
-            currentRoleName)
+          (isSuperAdmin || escalationRoleName === currentRoleName) &&
+          canViewMessage)
       ) {
         handleNavigateToResponse();
       }
@@ -366,6 +382,9 @@ export const ViewingChatModal = ({
     handleNavigateToResponse,
     currentRoleName,
     notAuthorized,
+    canViewMessage,
+    isSuperAdmin,
+    escalationRoleName,
   ]);
 
   const handleClaimTicket = useCallback(

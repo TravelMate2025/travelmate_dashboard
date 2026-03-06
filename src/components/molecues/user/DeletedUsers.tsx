@@ -98,6 +98,10 @@ const BulkDeleteConfirmationDialog = ({
 type DeletedUsersTableProps = {
   searchTerm: string;
   selectedOption: string;
+  dateRange?: {
+    from: string;
+    to: string;
+  };
 };
 
 type DeletedUserItem = {
@@ -112,7 +116,9 @@ type DeletedUserItem = {
 export const DeletedUsersTable = ({
   searchTerm,
   selectedOption,
+  dateRange,
 }: DeletedUsersTableProps) => {
+  void dateRange;
   const {
     users,
     loadNext,
