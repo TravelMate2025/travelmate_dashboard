@@ -57,6 +57,23 @@ const knownBackendOrigins = new Set(
 
 const isAbsoluteHttpUrl = (value: string) => /^https?:\/\//i.test(value);
 
+const normalizeBackendPathname = (pathname: string) => {
+  const apiStrippedPath = pathname.replace(/^\/api\/?/, "/");
+
+  if (!apiStrippedPath || apiStrippedPath === "/") {
+    return "/";
+  }
+
+  if (apiStrippedPath.endsWith("/")) {
+    return apiStrippedPath;
+  }
+
+  const lastSegment = apiStrippedPath.split("/").filter(Boolean).pop() || "";
+  const looksLikeFile = lastSegment.includes(".");
+
+  return looksLikeFile ? apiStrippedPath : `${apiStrippedPath}/`;
+};
+
 const toProxyUrl = (inputUrl?: string) => {
   if (!inputUrl || typeof window === "undefined") {
     return inputUrl;
@@ -86,7 +103,7 @@ const toProxyUrl = (inputUrl?: string) => {
     return url;
   }
 
-  const backendPath = parsed.pathname.replace(/^\/api\/?/, "/");
+  const backendPath = normalizeBackendPathname(parsed.pathname);
   return `/api/proxy${backendPath}${parsed.search}`;
 };
 

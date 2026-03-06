@@ -69,20 +69,38 @@ const handler = async (req: NextRequest, context: RouteContext) => {
   try {
     const { path = [] } = await context.params;
     const apiBase = resolveBackendApiBase();
-    const upstreamPath = path.join("/");
+    const requestPath = req.nextUrl.pathname;
+    const requestHasTrailingSlash = requestPath.endsWith("/");
+    const joinedPath = path.join("/");
+    const upstreamPath =
+      requestHasTrailingSlash && joinedPath && !joinedPath.endsWith("/")
+        ? `${joinedPath}/`
+        : joinedPath;
     const upstreamUrl = `${joinUrl(apiBase, upstreamPath)}${req.nextUrl.search}`;
 
     const method = req.method.toUpperCase();
     const hasBody = method !== "GET" && method !== "HEAD";
     const body = hasBody ? await req.arrayBuffer() : null;
-
-    const upstream = await fetch(upstreamUrl, {
+    const requestInit: RequestInit = {
       method,
       headers: buildRequestHeaders(req),
       body,
       redirect: "manual",
       cache: "no-store",
-    });
+    };
+
+    let upstream = await fetch(upstreamUrl, requestInit);
+
+    const shouldRetryWithTrailingSlash =
+      upstream.status === 404 &&
+      (method === "GET" || method === "HEAD") &&
+      Boolean(upstreamPath) &&
+      !upstreamPath.endsWith("/");
+
+    if (shouldRetryWithTrailingSlash) {
+      const retryUrl = `${joinUrl(apiBase, `${upstreamPath}/`)}${req.nextUrl.search}`;
+      upstream = await fetch(retryUrl, requestInit);
+    }
 
     const responseHeaders = buildResponseHeaders(upstream);
 
