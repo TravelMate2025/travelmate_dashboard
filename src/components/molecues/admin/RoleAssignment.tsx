@@ -84,7 +84,7 @@ const RoleAssignment: FC<RoleAssignmentProps> = ({
     try {
       setLoadingRemove((prev) => ({ ...prev, [userEmail]: true }));
 
-      await removeUsersFromRole(roleId, userEmail);
+      await removeUsersFromRole(roleId, { email: userEmail });
       const updatedRoles = roles.map((role) =>
         role.id === roleId
           ? {
@@ -186,11 +186,11 @@ const RoleAssignment: FC<RoleAssignmentProps> = ({
                        hover:text-red-800 p-0 cursor-pointer`}
                       onClick={() => {
                         setSelectedRoleId(role.id);
-                        setSelectedUserEmail(assigned.email);
+                        setSelectedUserEmail(assigned.email || null);
                         setShowConfirmRemoveModal(true);
                         setSelectedRoleId(role.id);
                       }}
-                      disabled={loadingRemove[assigned?.email]}
+                      disabled={!assigned?.email || loadingRemove[assigned?.email]}
                     >
                       {loadingRemove[assigned.email] ? "Removing" : "Remove"}
                     </Button>
@@ -211,10 +211,11 @@ const RoleAssignment: FC<RoleAssignmentProps> = ({
                     Invited
                   </Button>
                   <Button
-                    onClick={() => revokeInvite(role.id, invited.email)}
+                    onClick={() => invited.email && revokeInvite(role.id, invited.email)}
                     variant="link"
                     className={` text-green-600
                       hover:text-green-800 p-0`}
+                    disabled={!invited.email}
                   >
                     Revoke Invite
                   </Button>

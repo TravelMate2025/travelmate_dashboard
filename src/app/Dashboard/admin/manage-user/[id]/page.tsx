@@ -12,16 +12,12 @@ import {
   DialogHeader,
   DialogDescription,
 } from "@/components/ui/dialog";
-import env from "@/config/env";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DeleteIcon, RemoveFormattingIcon, SearchIcon, X } from "lucide-react";
+import { SearchIcon, X } from "lucide-react";
 import Loading from "../../loading";
 import { showErrorToast } from "@/utils/toasters";
 import { assignUserToRole, fetchRoles, removeUsersFromRole } from "@/services/admin";
-
-const normalizeRoleName = (value?: string | null) =>
-  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 
 type AssignedUser = {
   id: number;
@@ -34,8 +30,10 @@ type Roles = {
   assigned_users: AssignedUser[];
 };
 
+type AssignableUser = AssignedUser & { roleName: string };
+
 const ManageUsers = () => {
-  const [defaultTab, setDefaultTab] = useState("addNewUser");
+  const [, setDefaultTab] = useState("addNewUser");
   const route = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [addUSerModal, setIsAddUserModal] = useState(false);
@@ -79,8 +77,38 @@ const ManageUsers = () => {
   const fetchRole = async () => {
     try {
       setLoading(true);
-      const response = await fetchRoles();
-      setRoles(response.data.results || []);
+      const allRoles: any[] = [];
+      let nextUrl: string | null = null;
+      const seenUrls = new Set<string>();
+
+      do {
+        const response = await fetchRoles(nextUrl || undefined);
+        const pageResults = Array.isArray(response.data?.results)
+          ? response.data.results
+          : [];
+
+        allRoles.push(...pageResults);
+
+        const candidateNext =
+          typeof response.data?.next === "string" ? response.data.next : null;
+
+        if (candidateNext && !seenUrls.has(candidateNext)) {
+          seenUrls.add(candidateNext);
+          nextUrl = candidateNext;
+        } else {
+          nextUrl = null;
+        }
+      } while (nextUrl);
+
+      const normalizedRoles: Roles[] = allRoles.map((role: any) => ({
+        id: String(role?.id ?? ""),
+        name: String(role?.name ?? ""),
+        assigned_users: Array.isArray(role?.assigned_users)
+          ? role.assigned_users
+          : [],
+      }));
+
+      setRoles(normalizedRoles);
     } catch (error) {
       console.error("Error fetching roles:", error);
     } finally {
@@ -92,18 +120,15 @@ const ManageUsers = () => {
     fetchRole();
   }, []);
 
-  const usersAssignedToOtherRoles = roles
-    .filter(
-      (role) =>
-        String(role.id) !== String(roleId) &&
-        normalizeRoleName(role.name) !== "super admin"
-    )
+  const usersAssignedToOtherRoles: AssignableUser[] = roles
+    .filter((role) => String(role.id) !== String(roleId))
     .flatMap((role) =>
       role.assigned_users.map((user) => ({
         ...user,
         roleName: role.name,
       }))
-    );
+    )
+    .filter((user) => Boolean(user.email));
 
   const addUsersToRole = async () => {
     const emailsToAdd = usersAssignedToOtherRoles
@@ -115,7 +140,7 @@ const ManageUsers = () => {
       setShowConfirmModal(false);
       setShowSuccessModal(true);
       setSelectedUserIds([]);
-      await fetchRoles();
+      await fetchRole();
     } catch (error: any) {
       console.log(error);
       showErrorToast({
@@ -140,7 +165,7 @@ const ManageUsers = () => {
       setShowConfirmRemoveModal(false);
       setShowSuccessRemoveModal(true);
       setSelectedUserIdRemove([]);
-      await fetchRoles();
+      await fetchRole();
     } catch (error: any) {
       console.log(error);
       showErrorToast({

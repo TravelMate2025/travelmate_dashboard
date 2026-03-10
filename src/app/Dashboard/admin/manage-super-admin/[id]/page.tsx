@@ -46,7 +46,7 @@ const normalizeRoleName = (value?: string | null) =>
   (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 
 const ManageSuperAdmin = () => {
-  const [defaultTab, setDefaultTab] = useState("addNewUser");
+  const [, setDefaultTab] = useState("addNewUser");
   const route = useRouter();
 
   const [isLoadInvite, setIsLoadInvite] = useState(false);
@@ -80,8 +80,30 @@ const ManageSuperAdmin = () => {
 
   const fetchRole = async () => {
     try {
-      const response = await fetchRoles();
-      setRoles(response.data.results || []);
+      const allRoles: Role[] = [];
+      let nextUrl: string | null = null;
+      const seenUrls = new Set<string>();
+
+      do {
+        const response = await fetchRoles(nextUrl || undefined);
+        const pageResults = Array.isArray(response.data?.results)
+          ? response.data.results
+          : [];
+
+        allRoles.push(...pageResults);
+
+        const candidateNext =
+          typeof response.data?.next === "string" ? response.data.next : null;
+
+        if (candidateNext && !seenUrls.has(candidateNext)) {
+          seenUrls.add(candidateNext);
+          nextUrl = candidateNext;
+        } else {
+          nextUrl = null;
+        }
+      } while (nextUrl);
+
+      setRoles(allRoles);
     } catch (error) {
       // handle error
     }
@@ -110,7 +132,7 @@ const ManageSuperAdmin = () => {
       };
       setIsLoadTransfer(true);
       await transferSupes(payload);
-      await fetchRoles();
+      await fetchRole();
       setShowConfirmModal(false);
       setShowSuccessModal(true);
       setTimeout(() => route.push("/auth/login"), 3000);
@@ -134,7 +156,7 @@ const ManageSuperAdmin = () => {
       };
       setIsLoadInvite(true);
       await inviteSupes(payload);
-      await fetchRoles();
+      await fetchRole();
       setShowSuccessInviteModal(true);
       setTimeout(() => route.push("/auth/login"), 3000);
     } catch (error: any) {

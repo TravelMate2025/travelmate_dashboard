@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,8 +61,6 @@ const normalizeRoleName = (value?: string | null) =>
   (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 
 const AdminRolesPage: React.FC = () => {
-  const router = useRouter();
-
   const [isLoading, setIsLoading] = useState(true);
   const [isPermissionLoading, setIsPermissionLoading] = useState(true);
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
@@ -87,7 +84,8 @@ const AdminRolesPage: React.FC = () => {
   const [availablePermissions, setAvailablePermissions] = useState<
     Permissions[]
   >([]);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [selectedDepartmentId, setSelectedDepartmentId] =
+    useState<string>("");
   const [isInvited, setIsInvited] = useState(false);
 
   const [roleDetails, setRoleDetails] = useState<{
@@ -117,6 +115,11 @@ const AdminRolesPage: React.FC = () => {
   const admins = adminDetails.filter(
     (admin) => normalizeRoleName(admin.name) !== "super admin"
   );
+  const departmentOptions = admins.length > 0 ? admins : adminDetails;
+  const selectedDepartmentName =
+    departmentOptions.find((role) => String(role.id) === selectedDepartmentId)
+      ?.name ||
+    "";
 
   // FETCH PERMISSIONS TO CREATE NEW ROLE
   const fetchPermissions = async () => {
@@ -147,10 +150,47 @@ const AdminRolesPage: React.FC = () => {
   const fetchAllRoles = async () => {
     try {
       setIsLoading(true);
-      const response = await fetchRoles();
-      setAdminDetails(
-        Array.isArray(response.data.results) ? response.data.results : []
-      );
+      const allRoles: any[] = [];
+      let nextUrl: string | null = null;
+      const seenUrls = new Set<string>();
+
+      do {
+        const response = await fetchRoles(nextUrl || undefined);
+        const pageResults = Array.isArray(response.data?.results)
+          ? response.data.results
+          : [];
+
+        allRoles.push(...pageResults);
+
+        const candidateNext =
+          typeof response.data?.next === "string" ? response.data.next : null;
+
+        if (candidateNext && !seenUrls.has(candidateNext)) {
+          seenUrls.add(candidateNext);
+          nextUrl = candidateNext;
+        } else {
+          nextUrl = null;
+        }
+      } while (nextUrl);
+
+      const roleMap = new Map<string, Role>();
+      for (const role of allRoles) {
+        const normalizedId = String(role?.id ?? "");
+        if (!normalizedId) continue;
+
+        roleMap.set(normalizedId, {
+          ...role,
+          id: normalizedId,
+          assigned_users: Array.isArray(role?.assigned_users)
+            ? role.assigned_users
+            : [],
+          invited_users: Array.isArray(role?.invited_users)
+            ? role.invited_users
+            : [],
+        });
+      }
+
+      setAdminDetails(Array.from(roleMap.values()));
     } catch (error: any) {
       showErrorToast({
         message: error.response?.data?.detail?.[0] || error?.messages?.message,
@@ -323,9 +363,8 @@ const AdminRolesPage: React.FC = () => {
   // INVITE NEW MEMBER
   const inviteMember = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const role = adminDetails.find((role) => role.name === selectedOption);
-    const id = role?.id || "";
-    if (!newMember.name || !newMember.email || !newMember.role) {
+    const id = selectedDepartmentId;
+    if (!newMember.name || !newMember.email || !id) {
       showErrorToast({ message: "Fill in all the details" });
       return;
     }
@@ -341,7 +380,7 @@ const AdminRolesPage: React.FC = () => {
       setSuccessModal(true);
       setAdminDetails((prev) =>
         prev.map((role) =>
-          role.id === id
+          String(role.id) === id
             ? {
                 ...role,
                 invited_users: [
@@ -359,7 +398,7 @@ const AdminRolesPage: React.FC = () => {
         message: error?.response?.data?.message || "Cannot add new member",
       });
     } finally {
-      setSelectedOption("");
+      setSelectedDepartmentId("");
       setIsInviteLoading(false);
     }
   };
@@ -579,7 +618,16 @@ const AdminRolesPage: React.FC = () => {
                 </form>
               </DialogContent>
             </Dialog>
-            <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
+            <Dialog
+              open={isAddMemberOpen}
+              onOpenChange={(open) => {
+                setIsAddMemberOpen(open);
+                if (!open) {
+                  setSelectedDepartmentId("");
+                  setNewMember({ id: "", name: "", email: "", role: "" });
+                }
+              }}
+            >
               <DialogContent>
                 <DialogHeader className="border-b pb-2">
                   <DialogTitle className="text-center">
@@ -608,12 +656,15 @@ const AdminRolesPage: React.FC = () => {
                     />
                   </div>
                   <div className="flex flex-col gap-3">
-                    <label htmlFor="role">Role</label>
+                    <label htmlFor="role">Department</label>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="w-full p-2 py-3 rounded-[8px] space-x-4 mt-3 border-[#9b9ea4] border-[1px] flex justify-between bg-transparent items-center cursor-pointer">
+                        <button
+                          type="button"
+                          className="w-full p-2 py-3 rounded-[8px] space-x-4 mt-3 border-[#9b9ea4] border-[1px] flex justify-between bg-transparent items-center cursor-pointer"
+                        >
                           <span className="text-sm">
-                            {selectedOption || "Select Role"}
+                            {selectedDepartmentName || "Select Department"}
                           </span>
                           <img
                             src="/assets/icons/arrow-down.svg"
@@ -626,19 +677,19 @@ const AdminRolesPage: React.FC = () => {
                         align="start"
                         className="w-[var(--radix-popper-anchor-width)] min-w-[var(--radix-popper-anchor-width)] cursor-pointer"
                       >
-                        {admins.map((user, index) => (
+                        {departmentOptions.map((department) => (
                           <DropdownMenuItem
-                            key={index}
+                            key={String(department.id)}
                             className="w-full text-center px-4 py-2 hover:bg-gray-200"
                             onClick={() => {
-                              setSelectedOption(user.name);
+                              setSelectedDepartmentId(String(department.id));
                               setNewMember((prev) => ({
                                 ...prev,
-                                role: user.name,
+                                role: department.name,
                               }));
                             }}
                           >
-                            {user.name}
+                            {department.name}
                           </DropdownMenuItem>
                         ))}
                       </DropdownMenuContent>
