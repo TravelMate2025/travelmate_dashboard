@@ -28,8 +28,8 @@ type TransferSupes = {
 export const fetchPermission = () =>
     instance.get(env.api.superadminPermissionsGroups);
 
-export const fetchRoles = () =>
-    instance.get(env.api.superadminRoles);
+export const fetchRoles = (url?: string) =>
+    instance.get(url || env.api.superadminRoles);
 
 export const updateRoles = (
     roleId: string,
@@ -44,9 +44,12 @@ export const addRRoles = (
 
 export const deleteRoles = (roleToDelete: string) => instance.delete(`${env.api.superadmin}roles/${roleToDelete}/`);
 export const inviteMembers = (id: string, payload: Invite) => instance.post(`${env.api.superadmin}roles/${id}/invite/`, payload);
-export const revokeInvites = (id: string, email: string) => instance.post(`${env.api.superadmin}roles/${id}/cancel-invite/`, email);
-export const assignUserToRole = (roleId: string, email: RoleEmailPayload) => instance.post(`${env.api.superadmin}roles/${roleId}/assign/`, email);
-export const removeUsersFromRole = (roleId: string, email: RoleEmailPayload) => instance.post(`${env.api.superadmin}roles/${roleId}/remove/`, email);
+export const revokeInvites = (id: string, email: string | RoleEmailPayload) => {
+    const payload = typeof email === "string" ? { email } : email;
+    return instance.post(`${env.api.superadmin}roles/${id}/cancel-invite/`, payload);
+};
+export const assignUserToRole = (roleId: string, payload: RoleEmailPayload) => instance.post(`${env.api.superadmin}roles/${roleId}/assign/`, payload);
+export const removeUsersFromRole = (roleId: string, payload: RoleEmailPayload) => instance.post(`${env.api.superadmin}roles/${roleId}/remove/`, payload);
 export const inviteSupes = (payload: InviteSupes) => instance.post(
     `${env.api.superadmin}superadmins/invite/`,
     payload
