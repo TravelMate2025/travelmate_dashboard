@@ -15,6 +15,8 @@ const AUTH_EXCLUDED_PATHS = [
   "/users/logout/",
   "/auth/login",
   "/auth/logout",
+  "/admin/invitations/validate/",
+  "/admin/invitations/accept/",
 ];
 
 const readPersistedAuth = (): PersistedAuthState | null => {
@@ -42,6 +44,10 @@ const writePersistedAuth = (value: PersistedAuthState) => {
 
 const isAuthExcludedRoute = (url: string = "") =>
   AUTH_EXCLUDED_PATHS.some((path) => url.includes(path));
+
+const isPublicInvitationRoute = (url: string = "") =>
+  url.includes("/admin/invitations/validate/") ||
+  url.includes("/admin/invitations/accept/");
 
 const knownBackendOrigins = new Set(
   knownBackendApiBases()
@@ -140,7 +146,11 @@ const applyRequestDefaults = (config: InternalAxiosRequestConfig) => {
   const persistedAuth = readPersistedAuth();
   const accessToken = persistedAuth?.accessToken;
 
-  if (accessToken && !config.headers.Authorization) {
+  if (
+    accessToken &&
+    !config.headers.Authorization &&
+    !isPublicInvitationRoute(config.url)
+  ) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
 
@@ -220,7 +230,7 @@ instance.interceptors.response.use(
         }
       }
 
-      if (typeof window !== "undefined") {
+      if (typeof window !== "undefined" && !isAuthRoute) {
         window.location.href = "/auth/login";
       }
     }

@@ -87,6 +87,7 @@ const AdminRolesPage: React.FC = () => {
   const [selectedDepartmentId, setSelectedDepartmentId] =
     useState<string>("");
   const [isInvited, setIsInvited] = useState(false);
+  const [lastInvitedEmail, setLastInvitedEmail] = useState("");
 
   const [roleDetails, setRoleDetails] = useState<{
     id: string;
@@ -376,6 +377,7 @@ const AdminRolesPage: React.FC = () => {
 
       setIsInviteLoading(true);
       await inviteMembers(id, payload);
+      setLastInvitedEmail(newMember.email);
       setIsAddMemberOpen(false);
       setSuccessModal(true);
       setAdminDetails((prev) =>
@@ -735,7 +737,7 @@ const AdminRolesPage: React.FC = () => {
                   />
                   <DialogDescription className="lg:text-lg text-[14px] text-gray-700 text-center px-4 font-[500]">
                     You have successfully invited a new Admin. An invitation
-                    email has been sent to {newMember.email || "them"} to set up
+                    email has been sent to {lastInvitedEmail || "them"} to set up
                     their account.
                   </DialogDescription>
                 </div>
