@@ -3,11 +3,15 @@ import React, { Suspense, useEffect, useState } from "react";
 import * as Yup from "yup";
 import Button from "@/components/reuseables/Button";
 import { useField, Formik, Form } from "formik";
-import { FieldMetaProps } from "formik/dist/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import env from "@/config/env";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import instance from "@/hooks/initializers/useAxiosDefaults";
+
+type AcceptInviteFormValues = {
+  password1: string;
+  password2: string;
+};
 
 const page = () => (
   <Suspense
@@ -71,7 +75,12 @@ const LoginComponent = () => {
             `${env.api.admin}/invitations/validate/`,
             { params: { token } }
           );
-          setEmail(response.data.email);
+          const invitedEmail = response?.data?.email;
+          if (!invitedEmail) {
+            throw new Error("Invitation email missing");
+          }
+
+          setEmail(invitedEmail);
           setIsValidToken(true);
         } catch (error: unknown) {
           showErrorToast({
@@ -87,10 +96,12 @@ const LoginComponent = () => {
     }
   }, [token]);
 
-  const handleSubmit = async (values: {
-    password1: string;
-    password2: string;
-  }) => {
+  const handleSubmit = async (values: AcceptInviteFormValues) => {
+    if (!token || !email) {
+      showErrorToast({ message: "Invalid invitation details. Please use a valid invite link." });
+      return;
+    }
+
     try {
       setLoading(true);
       await instance.post(`${env.api.admin}/invitations/accept/`, {
@@ -138,12 +149,12 @@ const LoginComponent = () => {
         </h2>
       </div>
 
-      <Formik
+      <Formik<AcceptInviteFormValues>
         initialValues={{ password1: "", password2: "" }}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
       >
-        {({ values, isValid }) => {
+        {({ values, isValid }: { values: AcceptInviteFormValues; isValid: boolean }) => {
           const validations = {
             length: values.password1.length >= 8,
             number: /\d/.test(values.password1),
@@ -315,7 +326,7 @@ const ValidationItem = ({
   </div>
 );
 
-const FieldError = ({ meta }: { meta: FieldMetaProps<string> }) => {
+const FieldError = ({ meta }: { meta: { touched?: boolean; error?: string } }) => {
   if (meta.touched && meta.error) {
     return (
       <div className="mt-1 text-xs leading-5 font-normal text-[#FF0000]">
