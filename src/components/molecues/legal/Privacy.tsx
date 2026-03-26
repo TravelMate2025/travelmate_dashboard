@@ -32,8 +32,10 @@ const Privacy = ({
     onContentChange(updatedContent);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "N/A";
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -96,7 +98,7 @@ const Privacy = ({
               }}
             >
               <p className="pb-3">
-                Last updated: {formatDate(item.last_updated)}
+                Last updated: {formatDate(item.updated_at || item.last_updated)}
               </p>
 
               <p

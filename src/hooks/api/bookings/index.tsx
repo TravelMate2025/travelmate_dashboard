@@ -59,9 +59,17 @@ export const useGetAllBookings = (filters: BookingFilters = {}) => {
   const [error, setError] = useState<string | null>(null);
 
   // Add default filter for "stays" if no booking_type is provided
+  // Filter out undefined values to prevent sending empty params to API
+  const cleanedFilters = Object.entries(filters).reduce<BookingFilters>((acc, [key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
   const defaultFilters = {
     booking_type: "stays",
-    ...filters,
+    ...cleanedFilters,
   };
 
   // Fetch function
@@ -122,11 +130,13 @@ export const useGetAllBookings = (filters: BookingFilters = {}) => {
 
 export function useGetBooking({
   bookingRef,
+  bookingType,
   initalFetch = true,
   successCallback,
   errorCallback,
 }: {
   bookingRef?: string;
+  bookingType?: "flights" | "stays" | "transfers";
   initalFetch?: boolean;
   successCallback?: (message: string) => void;
   errorCallback?: (props: { message?: string; description?: string }) => void;
@@ -138,7 +148,7 @@ export function useGetBooking({
     if (!bookingRef) return;
     setLoading(true);
     try {
-      const res = await BookingService.getSingleBooking({ bookingRef });
+      const res = await BookingService.getSingleBooking({ bookingRef, bookingType });
       setData(res.data);
       if (successCallback) successCallback("Booking fetched successfully.");
     } catch (error: unknown) {
@@ -155,7 +165,7 @@ export function useGetBooking({
 
   useEffect(() => {
     if (initalFetch) fetchBooking();
-  }, [initalFetch, bookingRef]);
+  }, [initalFetch, bookingRef, bookingType]);
 
   return { loadingBooking, booking };
 }

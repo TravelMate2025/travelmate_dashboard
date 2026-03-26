@@ -1,5 +1,6 @@
 import env from "@/config/env";
 import instance from "@/hooks/initializers/useAxiosDefaults";
+import axios from "axios";
 import {
   BookingDetailResponse,
   BookingListApiResponse,
@@ -8,6 +9,22 @@ import {
   BookingCancellationRequestPayload,
   BookingCancellationProcessPayload,
 } from "./types";
+
+const isHtmlServerError = (error: unknown) => {
+  if (!axios.isAxiosError(error)) {
+    return false;
+  }
+
+  const status = error.response?.status;
+  const contentType =
+    error.response?.headers?.["content-type"] ||
+    error.response?.headers?.["Content-Type"];
+  const responseData = error.response?.data;
+  const htmlBody =
+    typeof responseData === "string" && /<html|<!doctype html/i.test(responseData);
+
+  return status === 500 && (htmlBody || /text\/html/i.test(contentType || ""));
+};
 
 class Service {
   getBookings({
@@ -40,10 +57,50 @@ class Service {
     });
   }
 
-  getSingleBooking({ bookingRef }: { bookingRef?: string }) {
-    return instance.get<BookingDetailResponse>(
-      `${env.api.bookingAdminById}${bookingRef}/`
-    );
+  getSingleBooking({
+    bookingRef,
+    bookingType,
+  }: {
+    bookingRef?: string;
+    bookingType?: "flights" | "stays" | "transfers";
+  }) {
+    const endpoint = `${env.api.bookingAdminById}${bookingRef}/`;
+    const bookingTypes: Array<"stays" | "flights" | "transfers"> = [
+      "stays",
+      "flights",
+      "transfers",
+    ];
+
+    const requestByType = (type?: "stays" | "flights" | "transfers") =>
+      instance.get<BookingDetailResponse>(endpoint, {
+        params: type ? { booking_type: type } : undefined,
+      });
+
+    return requestByType(bookingType)
+      .then((response) => response)
+      .catch(async (error: unknown) => {
+        if (
+          !bookingType &&
+          axios.isAxiosError(error) &&
+          error.response?.status === 404
+        ) {
+          for (const fallbackType of bookingTypes) {
+            try {
+              const fallbackResponse = await requestByType(fallbackType);
+              return fallbackResponse;
+            } catch (fallbackError: unknown) {
+              if (
+                !axios.isAxiosError(fallbackError) ||
+                fallbackError.response?.status !== 404
+              ) {
+                throw fallbackError;
+              }
+            }
+          }
+        }
+
+        return Promise.reject(error);
+      });
   }
 
   getAdminBookingsList(params?: Record<string, unknown>) {
@@ -93,13 +150,24 @@ class Service {
     bookingType?: "flights" | "stays" | "transfers";
     payload: BookingCancellationRequestPayload;
   }) {
-    return instance.post<BookingCancellationApiResponse>(
-      `${env.api.bookingAdminRequestCancellation}${bookingId}/`,
-      payload,
-      {
-        params: bookingType ? { booking_type: bookingType } : undefined,
-      }
-    );
+    const endpoint = `${env.api.bookingAdminRequestCancellation}${bookingId}/`;
+
+    if (!bookingType) {
+      return instance.post<BookingCancellationApiResponse>(endpoint, payload);
+    }
+
+    return instance
+      .post<BookingCancellationApiResponse>(endpoint, payload, {
+        params: { booking_type: bookingType },
+      })
+      .catch((error: unknown) => {
+        // Fallback to backend auto-detection if typed lookup crashes upstream.
+        if (isHtmlServerError(error)) {
+          return instance.post<BookingCancellationApiResponse>(endpoint, payload);
+        }
+
+        return Promise.reject(error);
+      });
   }
 
   processCancellation({

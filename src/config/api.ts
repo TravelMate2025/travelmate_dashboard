@@ -69,6 +69,7 @@ const api = () => {
     bookingMyAdvancedSearch: API_BASE + "/bookings/my/advanced-search/",
     bookingMySearchByReference: API_BASE + "/bookings/my/search/",
     bookingMySummary: API_BASE + "/bookings/my/summary/",
+    hotelBookingDetailsById: API_BASE + "/hotels/",
   };
 };
 

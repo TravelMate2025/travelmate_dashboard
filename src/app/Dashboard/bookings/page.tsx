@@ -18,7 +18,6 @@ interface FilterProps {
   selectedOption: string;
   selectedStartDate?: string;
   selectedEndDate?: string;
-  selectedDate?: string;
   currency: string;
 }
 
@@ -32,8 +31,28 @@ const BookingTab: React.FC = () => {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [selectedStartDate, setSelectedStartDate] = useState<string>();
   const [selectedEndDate, setSelectedEndDate] = useState<string>();
-  const [selectedDate, setSelectedDate] = useState<string>();
   const [currency, setCurrency] = useState("NGN");
+  const [statusTabFilter, setStatusTabFilter] = useState("all");
+
+  const normalizeApiDate = (value?: string) => {
+    if (!value) return undefined;
+
+    // Accept values already in API format.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return undefined;
+    }
+
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
 
   // Filter state for the hook
   const [apiFilters, setApiFilters] = useState<any>({
@@ -55,11 +74,36 @@ const BookingTab: React.FC = () => {
     }
   };
 
+  const mapDropdownToStatusTab = (option: string) => {
+    const normalized = option.toLowerCase().trim();
+
+    if (!normalized || normalized === "all") return "all";
+    if (normalized === "paid" || normalized === "ongoing") return "ongoing";
+    if (normalized === "cancelled") return "cancelled";
+    if (normalized === "pending" || normalized === "pending refund") {
+      return "pending";
+    }
+    if (normalized === "refunded" || normalized === "refund") return "refunded";
+
+    return "all";
+  };
+
+  const handleStatusOptionChange = (option: string) => {
+    setSelectedOption(option);
+    setStatusTabFilter(mapDropdownToStatusTab(option));
+  };
+
+  const handleStatusTabChange = (status: string) => {
+    setStatusTabFilter(status);
+
+    // Manual tab changes should fetch by tab status only.
+    setSelectedOption("");
+  };
+
   // Use the hook with current apiFilters
   const {
     data,
     loading,
-    error,
     loadNext,
     hasNext,
   } = useGetAllBookings(apiFilters);
@@ -69,24 +113,29 @@ const BookingTab: React.FC = () => {
 
   // Apply filters whenever dependencies change
   useEffect(() => {
+    const normalizedStartDate = normalizeApiDate(selectedStartDate);
+    const normalizedEndDate = normalizeApiDate(selectedEndDate);
+
     const newApiFilters: any = {
       booking_type: mapBookingType(activeTab),
       search: searchTerm || undefined,
-      from_date: selectedStartDate || undefined,
-      to_date: selectedEndDate || undefined,
+      from_date: normalizedStartDate,
+      to_date: normalizedEndDate,
       currency,
     };
 
-    if (selectedOption) {
-      if (["PAID", "PENDING", "FAILED"].includes(selectedOption.toUpperCase())) {
-        newApiFilters.payment_status = selectedOption.toUpperCase();
-      } else if (
-        ["ongoing", "completed", "cancelled", "pending"].includes(
-          selectedOption.toLowerCase()
-        )
-      ) {
-        newApiFilters.status = selectedOption.toLowerCase();
-      }
+    // Status tab filtering is handled CLIENT-SIDE in BookingTable/FlightBookings/CarBookings
+    // Do NOT send status filters to the API - fetch all bookings and filter client-side
+    // Explicitly ensure status and payment_status are NOT in the params
+    delete newApiFilters.status;
+    delete newApiFilters.payment_status;
+
+    // Only dropdown "paid" and "failed" filters go to the API
+    const normalizedOption = selectedOption.toLowerCase().trim();
+    if (normalizedOption === "paid") {
+      newApiFilters.payment_status = "paid";
+    } else if (normalizedOption === "failed") {
+      newApiFilters.payment_status = "failed";
     }
 
     const str = JSON.stringify(newApiFilters);
@@ -107,9 +156,9 @@ const BookingTab: React.FC = () => {
   useEffect(() => {
     setSearchTerm("");
     setSelectedOption("");
-    setSelectedDate(undefined);
     setSelectedStartDate(undefined);
     setSelectedEndDate(undefined);
+    setStatusTabFilter("all");
   }, [activeTab]);
 
   const filterProps: FilterProps = {
@@ -117,7 +166,6 @@ const BookingTab: React.FC = () => {
     selectedOption,
     selectedStartDate,
     selectedEndDate,
-    selectedDate,
     currency,
   };
 
@@ -185,10 +233,7 @@ const BookingTab: React.FC = () => {
 
             <div
               className="flex items-center space-x-2 py-4 px-6 bg-[#FF6F1E] rounded-[8px] cursor-pointer p-[6px] justify-center w-full md:w-auto"
-              onClick={() => {
-                const current = data ?? [];
-                console.log("Exporting bookings:", current);
-              }}
+              onClick={() => null}
             >
               <img src="/assets/icons/orange-download.svg" alt="" className=" lg:w-auto" />
               <span className="font-[600] text-[16px] lg:text-[16px] text-[#fff]">Export as CSV file</span>
@@ -203,13 +248,11 @@ const BookingTab: React.FC = () => {
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           selectedOption={selectedOption}
-          setSelectedOption={setSelectedOption}
+          setSelectedOption={handleStatusOptionChange}
           selectedStartDate={selectedStartDate}
           setSelectedStartDate={setSelectedStartDate}
           selectedEndDate={selectedEndDate}
           setSelectedEndDate={setSelectedEndDate}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
         />
 
         {/* Content (UNCHANGED UI) */}
@@ -221,6 +264,8 @@ const BookingTab: React.FC = () => {
             loading={loading}
             onLoadMore={loadNext}
             hasMore={hasNext}
+            activeStatusTab={statusTabFilter}
+            onStatusTabChange={handleStatusTabChange}
           />
         </TabsContent>
 
@@ -232,6 +277,8 @@ const BookingTab: React.FC = () => {
             loading={loading}
             onLoadMore={loadNext}
             hasMore={hasNext}
+            activeStatusTab={statusTabFilter}
+            onStatusTabChange={handleStatusTabChange}
           />
         </TabsContent>
 
@@ -243,6 +290,8 @@ const BookingTab: React.FC = () => {
             loading={loading}
             onLoadMore={loadNext}
             hasMore={hasNext}
+            activeStatusTab={statusTabFilter}
+            onStatusTabChange={handleStatusTabChange}
           />
         </TabsContent>
       </Tabs>

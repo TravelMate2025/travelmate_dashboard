@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useGetBooking, useRequestBookingCancellation } from "@/hooks/api/bookings";
 
 import StayDetails from "@/components/molecues/bookings/data/stays/StaysDetails";
@@ -10,17 +10,43 @@ import FlightDetails from "@/components/molecues/bookings/data/flight/FlightDeta
 export default function BookingDetailsPage() {
   const { id }: { id: string } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const routeBookingType = searchParams.get("type")?.toLowerCase();
+  const normalizedRouteType =
+    routeBookingType === "stays" ||
+    routeBookingType === "stay" ||
+    routeBookingType === "flights" ||
+    routeBookingType === "flight" ||
+    routeBookingType === "transfers" ||
+    routeBookingType === "transfer" ||
+    routeBookingType === "cars" ||
+    routeBookingType === "car" ||
+    routeBookingType === "taxi" ||
+    routeBookingType === "taxis"
+      ? routeBookingType === "stay"
+        ? "stays"
+        : routeBookingType === "flight"
+        ? "flights"
+        : routeBookingType === "transfer" ||
+          routeBookingType === "cars" ||
+          routeBookingType === "car" ||
+          routeBookingType === "taxi" ||
+          routeBookingType === "taxis"
+        ? "transfers"
+        : routeBookingType
+      : undefined;
   const { requestCancellation, loading: requestingCancellation } =
     useRequestBookingCancellation();
 
   const { booking, loadingBooking } = useGetBooking({
     bookingRef: id,
+    bookingType: normalizedRouteType,
     initalFetch: true,
     successCallback: () => {},
   });
 
   const bookingComponents: Record<string, React.ReactNode> = {
-    stays: <StayDetails />,
+    stays: <StayDetails data={booking?.result} />,
     transfers: <CarDetails data={booking?.result} />,
     flights: <FlightDetails data={booking?.result} />,
   };
@@ -36,15 +62,24 @@ export default function BookingDetailsPage() {
   const handleRequestCancellation = async () => {
     if (!id) return;
 
+    const cancellationType = resolvedBookingType || normalizedRouteType;
+    const typeQuery = cancellationType
+      ? `&type=${encodeURIComponent(cancellationType)}`
+      : "";
+
     await requestCancellation({
       bookingId: id,
-      bookingType: resolvedBookingType,
+      bookingType: cancellationType,
       reason: "Cancellation requested by admin",
       successCallback: ({ cancellationRequestId }) => {
         router.push(
           cancellationRequestId
-            ? `/Dashboard/bookings/${id}/process-cancel?cancellationId=${encodeURIComponent(cancellationRequestId)}`
-            : `/Dashboard/bookings/${id}/process-cancel`
+            ? `/Dashboard/bookings/${id}/process-cancel?cancellationId=${encodeURIComponent(cancellationRequestId)}${typeQuery}`
+            : `/Dashboard/bookings/${id}/process-cancel${
+                cancellationType
+                  ? `?type=${encodeURIComponent(cancellationType)}`
+                  : ""
+              }`
         );
       },
     });

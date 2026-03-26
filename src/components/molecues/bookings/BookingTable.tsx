@@ -16,7 +16,6 @@ interface FilterProps {
   selectedOption: string;
   selectedStartDate?: string;
   selectedEndDate?: string;
-  selectedDate?: string;
   currency: string;
 }
 
@@ -25,7 +24,10 @@ interface BookingItem {
   reference?: string;
   booking_reference?: string;
   booking_status?: string;
+  status?: string;
   payment_status?: string;
+  created_at?: string;
+  date_booked?: string;
   hotel_name?: string;
   total_amount?: string | number;
   check_in?: string;
@@ -45,6 +47,8 @@ interface BookingTableProps {
   loading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
+  activeStatusTab: string;
+  onStatusTabChange?: (status: string) => void;
 }
 
 const BookingTable: React.FC<BookingTableProps> = ({
@@ -54,37 +58,72 @@ const BookingTable: React.FC<BookingTableProps> = ({
   loading,
   onLoadMore,
   hasMore,
+  activeStatusTab,
+  onStatusTabChange,
 }) => {
-  
-  const [activeSubTab, setActiveSubTab] = useState<string>("ongoing");
   const [filteredData, setFilteredData] = useState<BookingItem[]>([]);
 
   const styling =
     "h-full data-[state=active]:text-[#181818] data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:rounded-none data-[state=active]:border-b-[3px] data-[state=active]:border-b-[#181818] data-[state=active]:mb-0 flex items-center justify-center cursor-pointer bg-transparent shadow-none rounded-none text-[18px] text-[#4E4F52] font-[400] ";
 
   /**
-   * Filter data based on active sub-tab
-   * This runs whenever bookings or the selected tab changes
+   * Keep table rows in backend order semantics and only enforce
+   * most-recent-to-least-recent sorting on the currently fetched dataset.
    */
   useEffect(() => {
     const safeBookings = Array.isArray(bookings) ? bookings : [];
 
-    const filtered = safeBookings.filter((item) => {
-      const status = item.booking_status?.toLowerCase();
-      switch (activeSubTab) {
-        case "ongoing":
-          return status === "pending" || status === "confirmed";
-        case "completed":
-          return status === "completed";
-        case "cancelled":
-          return status === "cancelled";
-        default:
-          return true;
-      }
-    });
+    const normalizeStatus = (value?: string) =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "_");
 
-    setFilteredData(filtered);
-  }, [bookings, activeSubTab]);
+    const matchesActiveTab = (item: BookingItem) => {
+      if (activeStatusTab === "all") return true;
+
+      const bookingStatus = normalizeStatus(item.booking_status || item.status);
+      const paymentStatus = normalizeStatus(item.payment_status);
+
+      if (activeStatusTab === "ongoing") {
+        return bookingStatus === "ongoing";
+      }
+
+      if (activeStatusTab === "completed") {
+        return bookingStatus === "completed" || bookingStatus === "confirmed";
+      }
+
+      if (activeStatusTab === "pending") {
+        return bookingStatus === "pending" ||
+          paymentStatus === "pending" ||
+          paymentStatus === "refund_pending";
+      }
+
+      if (activeStatusTab === "refunded") {
+        return bookingStatus === "refunded" || paymentStatus === "refunded";
+      }
+
+      return bookingStatus === activeStatusTab;
+    };
+
+    const getBookingTimestamp = (item: BookingItem) => {
+      const dateValue =
+        item.created_at || item.date_booked || item.check_in || item.check_out;
+
+      if (!dateValue) return 0;
+
+      const timestamp = new Date(dateValue).getTime();
+      return Number.isNaN(timestamp) ? 0 : timestamp;
+    };
+
+    const tabFiltered = safeBookings.filter(matchesActiveTab);
+
+    const sorted = [...tabFiltered].sort(
+      (a, b) => getBookingTimestamp(b) - getBookingTimestamp(a)
+    );
+
+    setFilteredData(sorted);
+  }, [bookings, activeStatusTab]);
 
 
   const formatAmount = (amount: string | number) => {
@@ -99,7 +138,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
   /**
    * Format date into dd/mm/yyyy
    */
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
     return date.toLocaleDateString("en-GB");
@@ -108,7 +147,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
   /**
    * Format stay dates
    */
-  const formatStayDates = (checkIn: string, checkOut: string) => {
+  const formatStayDates = (checkIn?: string, checkOut?: string) => {
     if (!checkIn || !checkOut) return "N/A";
     return `${formatDate(checkIn)} - ${formatDate(checkOut)}`;
   };
@@ -116,23 +155,27 @@ const BookingTable: React.FC<BookingTableProps> = ({
   /**
    * Calculate nights between two dates
    */
-  const calculateNights = (checkIn: string, checkOut: string) => {
-    if (!checkIn || !checkOut) return 0;
+  const calculateNights = (checkIn?: string, checkOut?: string) => {
+    if (!checkIn || !checkOut) return "N/A";
     const start = new Date(checkIn);
     const end = new Date(checkOut);
     const diffTime = Math.abs(end.getTime() - start.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const getStatusStyling = (status: string) => {
+  const getStatusStyling = (status?: string) => {
     switch (status?.toLowerCase()) {
       case "completed":
       case "confirmed":
       case "paid":
+      case "succeeded":
         return "text-[#2D9C5E] border-[#2D9C5E] bg-[#2D9C5E1A]";
       case "cancelled":
       case "failed":
+      case "refunded":
         return "text-[#E74C3C] border-[#E74C3C] bg-[#E74C3C1A]";
+      case "ongoing":
+        return "text-[#0084D9] border-[#0084D9] bg-[#0084D91A]";
       case "pending":
       default:
         return "text-[#EFB608] border-[#EFB608] bg-[#EFB60833]";
@@ -143,16 +186,30 @@ const BookingTable: React.FC<BookingTableProps> = ({
     <div className="bg-white border border-gray-300 rounded-lg py-4">
       <h2 className="text-lg font-semibold px-4 mb-4">{title}</h2>
 
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
+      <Tabs
+        value={activeStatusTab}
+        onValueChange={(value) => {
+          onStatusTabChange?.(value);
+        }}
+      >
         <TabsList className="flex space-x-6 items-center bg-transparent shadow-none rounded-none pb-0">
+          <TabsTrigger value="all" className={styling}>
+            All
+          </TabsTrigger>
           <TabsTrigger value="ongoing" className={styling}>
             Ongoing
+          </TabsTrigger>
+          <TabsTrigger value="pending" className={styling}>
+            Pending
           </TabsTrigger>
           <TabsTrigger value="completed" className={styling}>
             Completed
           </TabsTrigger>
           <TabsTrigger value="cancelled" className={styling}>
             Cancelled
+          </TabsTrigger>
+          <TabsTrigger value="refunded" className={styling}>
+            Refunded
           </TabsTrigger>
         </TabsList>
 
@@ -202,8 +259,13 @@ const BookingTable: React.FC<BookingTableProps> = ({
                 ))
               ) : filteredData.length > 0 ? (
                 <>
-                  {filteredData.map((item) => (
-                    <TableRow key={item.id}>
+                  {filteredData.map((item, index) => {
+                    const roomType = item.rooms?.[0]?.room_type || "Standard";
+                    const bookingStatus = item.booking_status || item.status || "PENDING";
+                    const paymentStatus = item.payment_status || "PENDING";
+
+                    return (
+                    <TableRow key={String(item.id ?? item.reference ?? item.booking_reference ?? index)}>
                       <TableCell className="py-3 px-4 text-sm text-[#181818]">
                         {item.reference || "N/A"}
                       </TableCell>
@@ -217,8 +279,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
                           : "N/A"}
                       </TableCell>
                       <TableCell className="py-3 px-4 text-sm text-[#181818]">
-                        {/* Booked On - Replace with actual booked date when available */}
-                        N/A
+                        {formatDate(item.date_booked || item.created_at)}
                       </TableCell>
                       <TableCell className="py-3 px-4 text-sm text-[#181818]">
                         {formatStayDates(item.check_in, item.check_out)}
@@ -227,9 +288,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
                         {calculateNights(item.check_in, item.check_out)}
                       </TableCell>
                       <TableCell className="py-3 px-4 text-sm text-[#181818]">
-                        {item.rooms?.length > 0
-                          ? item.rooms[0].room_type || "Standard"
-                          : "Standard"}
+                        {roomType}
                       </TableCell>
                       <TableCell className="py-3 px-4 text-sm text-[#181818]">
                         {item.total_amount
@@ -239,26 +298,27 @@ const BookingTable: React.FC<BookingTableProps> = ({
                       <TableCell className="py-3 px-4">
                         <div
                           className={`border rounded-[12px] text-[14px] font-[400] p-[8px] w-fit ${getStatusStyling(
-                            item.payment_status
+                            paymentStatus
                           )}`}
                         >
-                          {item.payment_status || "PENDING"}
+                          {paymentStatus}
                         </div>
                       </TableCell>
                       <TableCell className="py-3 px-4">
                         <div
                           className={`border rounded-[12px] text-[14px] font-[400] p-[8px] w-fit ${getStatusStyling(
-                            item.booking_status
+                            bookingStatus
                           )}`}
                         >
-                          {item.booking_status || "PENDING"}
+                          {bookingStatus}
                         </div>
                       </TableCell>
                       <TableCell className="py-3 px-4 cursor-pointer">
-                        <BookingTableDropdown bookingId={item.id} />
+                        <BookingTableDropdown bookingId={item.id} bookingType="stays" />
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
 
                   {/* Load More Button */}
                   {hasMore && !loading && (

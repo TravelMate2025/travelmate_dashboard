@@ -167,36 +167,41 @@ const RoleAssignment: FC<RoleAssignmentProps> = ({
                   Assigned users ({role.assigned_users?.length})
                 </p>
               </div>
-              {role.assigned_users?.map((assigned, i) => (
-                <div
-                  className=" flex justify-between w-full lg:items-center align-top lg:align-middle"
-                  key={i}
-                >
-                  <div className="flex flex-col justify-normal ">
-                    <p className="font-medium">
-                      {assigned?.name || assigned?.email || "Unnamed User"}
-                    </p>
-                    <p className="text-slate-600">{assigned?.email}</p>
-                  </div>
+              {role.assigned_users?.map((assigned, i) => {
+                const assignedEmail = assigned.email || "";
+                const isRemoving = Boolean(assignedEmail && loadingRemove[assignedEmail]);
 
-                  {!isSuperAdminRole(role) && (
-                    <Button
-                      variant="link"
-                      className={`text-red-600
+                return (
+                  <div
+                    className=" flex justify-between w-full lg:items-center align-top lg:align-middle"
+                    key={i}
+                  >
+                    <div className="flex flex-col justify-normal ">
+                      <p className="font-medium">
+                        {assigned?.name || assigned?.email || "Unnamed User"}
+                      </p>
+                      <p className="text-slate-600">{assigned?.email}</p>
+                    </div>
+
+                    {!isSuperAdminRole(role) && (
+                      <Button
+                        variant="link"
+                        className={`text-red-600
                        hover:text-red-800 p-0 cursor-pointer`}
-                      onClick={() => {
-                        setSelectedRoleId(role.id);
-                        setSelectedUserEmail(assigned.email || null);
-                        setShowConfirmRemoveModal(true);
-                        setSelectedRoleId(role.id);
-                      }}
-                      disabled={!assigned?.email || loadingRemove[assigned?.email]}
-                    >
-                      {loadingRemove[assigned.email] ? "Removing" : "Remove"}
-                    </Button>
-                  )}
-                </div>
-              ))}
+                        onClick={() => {
+                          setSelectedRoleId(role.id);
+                          setSelectedUserEmail(assignedEmail || null);
+                          setShowConfirmRemoveModal(true);
+                          setSelectedRoleId(role.id);
+                        }}
+                        disabled={!assignedEmail || isRemoving}
+                      >
+                        {isRemoving ? "Removing" : "Remove"}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
               {role.invited_users?.map((invited, i) => (
                 <div
                   className=" flex justify-between w-full items-center"

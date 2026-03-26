@@ -3,8 +3,14 @@ import React, { useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { GridValues, FlexValues, Policy } from "@/components/molecues/bookings/reuseables";
 import { Switch } from "@/components/ui/switch";
-import { useGetBooking, useProcessBookingCancellation } from "@/hooks/api/bookings";
+import {
+  useGetBooking,
+  useProcessBookingCancellation,
+  useRequestBookingCancellation,
+} from "@/hooks/api/bookings";
 import { getSingleRouteParam } from "@shared/lib/routeParams";
+
+type SupportedBookingType = "stays" | "flights" | "transfers";
 
 const formatDisplayDate = (value?: string) => {
   if (!value) return "--";
@@ -23,6 +29,7 @@ interface CancellationResult {
 
 interface CancellationBooking {
   id?: string | number;
+  booking_type?: string;
   cancellation_id?: string | number;
   cancellation_status?: string;
   booking_status?: string;
@@ -37,15 +44,44 @@ interface CancellationBooking {
 interface CancelDetailsProps {
   booking?: CancellationBooking | null;
   loadingBooking?: boolean;
+  bookingId?: string;
+  routeBookingType?: SupportedBookingType;
 }
 
 const page = () => {
   const params = useParams();
+  const searchParams = useSearchParams();
   const bookingId = getSingleRouteParam(params, "id");
+  const routeBookingType = searchParams.get("type")?.toLowerCase();
+
+  const normalizedRouteType =
+    routeBookingType === "stays" ||
+    routeBookingType === "stay" ||
+    routeBookingType === "flights" ||
+    routeBookingType === "flight" ||
+    routeBookingType === "transfers" ||
+    routeBookingType === "transfer" ||
+    routeBookingType === "cars" ||
+    routeBookingType === "car" ||
+    routeBookingType === "taxis" ||
+    routeBookingType === "taxi"
+      ? routeBookingType === "stay"
+        ? "stays"
+        : routeBookingType === "flight"
+        ? "flights"
+        : routeBookingType === "transfer" ||
+          routeBookingType === "cars" ||
+          routeBookingType === "car" ||
+          routeBookingType === "taxis" ||
+          routeBookingType === "taxi"
+        ? "transfers"
+        : routeBookingType
+      : undefined;
   const router = useRouter();
 
   const { booking, loadingBooking } = useGetBooking({
     bookingRef: bookingId,
+    bookingType: normalizedRouteType,
     initalFetch: Boolean(bookingId),
   });
 
@@ -71,12 +107,22 @@ const page = () => {
         </h1>
       </div>
 
-      <CancelDetails booking={booking} loadingBooking={loadingBooking} />
+      <CancelDetails
+        booking={booking}
+        loadingBooking={loadingBooking}
+        bookingId={bookingId}
+        routeBookingType={normalizedRouteType}
+      />
     </div>
   );
 };
 
-const CancelDetails = ({ booking, loadingBooking }: CancelDetailsProps) => {
+const CancelDetails = ({
+  booking,
+  loadingBooking,
+  bookingId,
+  routeBookingType,
+}: CancelDetailsProps) => {
   const cancellationStatus =
     booking?.cancellation_status || booking?.booking_status || "pending";
 
@@ -141,6 +187,8 @@ const CancelDetails = ({ booking, loadingBooking }: CancelDetailsProps) => {
       </div>
       <CancellationGrid
         booking={booking}
+        bookingId={bookingId}
+        routeBookingType={routeBookingType}
         reason={reason}
         additionalDetails={additionalDetails}
         policyList={policyList}
@@ -151,11 +199,15 @@ const CancelDetails = ({ booking, loadingBooking }: CancelDetailsProps) => {
 
 const CancellationGrid = ({
   booking,
+  bookingId,
+  routeBookingType,
   reason,
   additionalDetails,
   policyList,
 }: {
   booking?: CancellationBooking | null;
+  bookingId?: string;
+  routeBookingType?: SupportedBookingType;
   reason: string;
   additionalDetails: string;
   policyList: string[];
@@ -187,17 +239,32 @@ const CancellationGrid = ({
           </div>
         </div>
       </div>
-      <Form booking={booking} />
+      <Form
+        booking={booking}
+        bookingId={bookingId}
+        routeBookingType={routeBookingType}
+      />
     </div>
   );
 };
 
-const Form = ({ booking }: { booking?: CancellationBooking | null }) => {
+const Form = ({
+  booking,
+  bookingId,
+  routeBookingType,
+}: {
+  booking?: CancellationBooking | null;
+  bookingId?: string;
+  routeBookingType?: SupportedBookingType;
+}) => {
   const params = useParams();
   const searchParams = useSearchParams();
   const [overridePolicy, setOverridePolicy] = useState(false);
   const [adminNote, setAdminNote] = useState("");
+  const [workingMessage, setWorkingMessage] = useState<string | null>(null);
   const { processCancellation, loading } = useProcessBookingCancellation();
+  const { requestCancellation, loading: requesting } =
+    useRequestBookingCancellation();
 
   const normalizeId = (value?: string | number | null) => {
     if (value === undefined || value === null) return "";
@@ -210,30 +277,74 @@ const Form = ({ booking }: { booking?: CancellationBooking | null }) => {
     return trimmed;
   };
 
-  const bookingIdFromRoute = normalizeId(getSingleRouteParam(params, "id"));
+  const bookingIdFromRoute = normalizeId(
+    bookingId || getSingleRouteParam(params, "id")
+  );
   const cancellationIdFromQuery = normalizeId(searchParams.get("cancellationId"));
   const cancellationIdFromBooking = booking?.cancellation_id
     ? normalizeId(booking.cancellation_id)
     : "";
-  const bookingIdFromBooking = booking?.id ? normalizeId(booking.id) : "";
 
-  // Some flows provide cancellation_id while others only provide booking id.
+  // Unified process-cancellation endpoint expects cancellation request id.
   const processTargetId =
     cancellationIdFromQuery ||
-    cancellationIdFromBooking ||
-    bookingIdFromBooking ||
-    bookingIdFromRoute;
+    cancellationIdFromBooking;
+
+  const bookingTypeFromData = (() => {
+    const rawType = String(booking?.booking_type || "")
+      .trim()
+      .toLowerCase();
+
+    return rawType === "stays" || rawType === "flights" || rawType === "transfers"
+      ? rawType
+      : undefined;
+  })();
+
+  const effectiveBookingType = bookingTypeFromData || routeBookingType;
 
   const handleProcessCancellation = async () => {
-    if (!processTargetId) return;
+    let cancellationRequestId = processTargetId;
 
-    await processCancellation({
-      id: processTargetId,
+    if (!cancellationRequestId) {
+      if (!bookingIdFromRoute) return;
+
+      setWorkingMessage("Creating cancellation request...");
+      const cancellationRequestResult = await requestCancellation({
+        bookingId: bookingIdFromRoute,
+        bookingType: effectiveBookingType,
+        reason: "Cancellation requested by admin",
+        adminRemark: adminNote,
+      });
+
+      cancellationRequestId = normalizeId(
+        cancellationRequestResult?.cancellationRequestId
+      );
+    }
+
+    if (!cancellationRequestId) {
+      setWorkingMessage(null);
+      return;
+    }
+
+    setWorkingMessage("Processing cancellation and refund...");
+
+    console.log("[ProcessCancellation] Submitting", {
+      cancellationRequestId,
       payload: {
         note: adminNote,
         override_policy: overridePolicy,
       },
     });
+
+    await processCancellation({
+      id: cancellationRequestId,
+      payload: {
+        note: adminNote,
+        override_policy: overridePolicy,
+      },
+    });
+
+    setWorkingMessage(null);
   };
 
   return (
@@ -285,10 +396,13 @@ const Form = ({ booking }: { booking?: CancellationBooking | null }) => {
           <button
             type="button"
             onClick={handleProcessCancellation}
-            disabled={loading || !processTargetId}
+            disabled={loading || requesting || !bookingIdFromRoute}
             className="w-full bg-[#023E8A] p-[16px] rounded-[8px] text-[#ffff] text-[20px] font-[500] text-center disabled:bg-gray-400"
+            title={!bookingIdFromRoute ? "Booking ID is required before processing." : undefined}
           >
-            {loading ? "Processing..." : "Process Cancellation and refund"}
+            {loading || requesting
+              ? workingMessage || "Processing..."
+              : "Process Cancellation and refund"}
           </button>
         </div>
       </div>

@@ -32,8 +32,10 @@ const Terms = ({
     onContentChange(updatedContent);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "N/A";
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -92,7 +94,7 @@ const Terms = ({
               className="text-[16px] lg:text-[18px] font-[400] text-[#181818] leading-[30px]"
             >
               <p className="pb-3">
-                Last updated: {formatDate(item.last_updated)}
+                Last updated: {formatDate(item.updated_at || item.last_updated)}
               </p>
               {/* Split content by newline and render each line as a paragraph */}
               {item.content.split("\n").map((line, index) => (

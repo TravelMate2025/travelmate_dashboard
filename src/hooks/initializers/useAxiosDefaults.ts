@@ -63,6 +63,9 @@ const knownBackendOrigins = new Set(
 
 const isAbsoluteHttpUrl = (value: string) => /^https?:\/\//i.test(value);
 
+const isTravelmateBackendHost = (hostname: string) =>
+  /^travelmate-backend(-[a-z0-9]+)?\.onrender\.com$/i.test(hostname);
+
 const ensureEndpointTrailingSlash = (path: string) => {
   if (!path || path === "/") {
     return "/";
@@ -122,7 +125,10 @@ const toProxyUrl = (inputUrl?: string) => {
     return url;
   }
 
-  if (isAbsoluteHttpUrl(url) && !knownBackendOrigins.has(parsed.origin)) {
+  const isKnownBackendOrigin = knownBackendOrigins.has(parsed.origin);
+  const isKnownTravelmateBackend = isTravelmateBackendHost(parsed.hostname);
+
+  if (isAbsoluteHttpUrl(url) && !isKnownBackendOrigin && !isKnownTravelmateBackend) {
     return url;
   }
 
@@ -170,6 +176,8 @@ instance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const requestUrl = originalRequest?.url || "";
+    const isAuthRoute = isAuthExcludedRoute(requestUrl);
 
     if (
       error.response &&
@@ -178,8 +186,7 @@ instance.interceptors.response.use(
     ) {
       originalRequest._retry = true; // Mark request for retry
 
-      const requestUrl = originalRequest?.url || "";
-      const isAuthRoute = isAuthExcludedRoute(requestUrl);
+      let shouldForceLogout = false;
 
       if (!isAuthRoute) {
         const persistedAuth = readPersistedAuth();
@@ -226,11 +233,21 @@ instance.interceptors.response.use(
 
               return instance(originalRequest);
             }
-          } catch {}
+            shouldForceLogout = true;
+          } catch (refreshError: any) {
+            const refreshStatus = refreshError?.response?.status;
+
+            // Only force logout when refresh token is actually invalid/expired.
+            if (refreshStatus === 401 || refreshStatus === 403) {
+              shouldForceLogout = true;
+            }
+          }
+        } else {
+          shouldForceLogout = true;
         }
       }
 
-      if (typeof window !== "undefined" && !isAuthRoute) {
+      if (typeof window !== "undefined" && !isAuthRoute && shouldForceLogout) {
         window.location.href = "/auth/login";
       }
     }

@@ -19,7 +19,18 @@ import {
   useGetAllNotifications,
   useWebSocketService,
 } from "@/hooks/api/notification";
+import { showInfoToast } from "@/utils/toasters";
 import type { AppNotification } from "@/hooks/api/notification";
+
+const INACTIVITY_TIMEOUT_MS = 3 * 60 * 1000;
+const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
+  "mousemove",
+  "mousedown",
+  "keydown",
+  "scroll",
+  "touchstart",
+  "click",
+];
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
@@ -28,6 +39,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { onLogout } = useLogout();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const hasLoggedOutRef = React.useRef(false);
 
   const currentNavItem = navItems.find(
     (item) =>
@@ -38,6 +50,64 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleLinkClick = () => {
     setMobileSidebarOpen(false);
   };
+
+  useEffect(() => {
+    let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+    let logoutDelayTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearInactivityTimer = () => {
+      if (!inactivityTimer) {
+        return;
+      }
+
+      clearTimeout(inactivityTimer);
+      inactivityTimer = null;
+    };
+
+    const startInactivityTimer = () => {
+      clearInactivityTimer();
+
+      inactivityTimer = setTimeout(() => {
+        if (hasLoggedOutRef.current) {
+          return;
+        }
+
+        hasLoggedOutRef.current = true;
+        showInfoToast({
+          message: "Session expired due to inactivity",
+          description: "You were inactive for 3 minutes and have been logged out.",
+        });
+
+        logoutDelayTimer = setTimeout(() => {
+          onLogout();
+        }, 1200);
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+
+    const handleUserActivity = () => {
+      if (hasLoggedOutRef.current) {
+        return;
+      }
+
+      startInactivityTimer();
+    };
+
+    ACTIVITY_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, handleUserActivity, { passive: true });
+    });
+
+    startInactivityTimer();
+
+    return () => {
+      clearInactivityTimer();
+      if (logoutDelayTimer) {
+        clearTimeout(logoutDelayTimer);
+      }
+      ACTIVITY_EVENTS.forEach((eventName) => {
+        window.removeEventListener(eventName, handleUserActivity);
+      });
+    };
+  }, [onLogout]);
 
   return (
     <div className="flex h-screen overflow-hidden">

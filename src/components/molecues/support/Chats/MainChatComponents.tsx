@@ -1,8 +1,6 @@
 "use client";
 import React from "react";
 import { useRef, useEffect, useState, useMemo } from "react";
-import { useFormik } from "formik";
-import * as Yup from "yup";
 import { useRouter } from "next/navigation";
 import { useGetChat } from "@/hooks/api/chat";
 import { useParams } from "next/navigation";
@@ -11,8 +9,7 @@ import { useWebSocketService } from "@/hooks/api/chat";
 import ChatService from "@/services/chat";
 import { useAuthContext } from "@/context/AuthContext";
 import { useMyRoles } from "@/hooks/api/roles";
-import { FileText, ArrowUpRight, DownloadIcon, X } from "lucide-react";
-import { getCookies } from "@/context/Auth-Cookies";
+import { FileText, DownloadIcon, X } from "lucide-react";
 import { getSingleRouteParam } from "@shared/lib/routeParams";
 const Spinner = () => (
   <svg
@@ -37,18 +34,26 @@ const Spinner = () => (
 );
 
 type ChatActor = {
-  id?: string;
+  id?: string | number;
   first_name?: string;
   last_name?: string;
   email?: string;
+  name?: string;
+  full_name?: string;
+  display_name?: string;
+  username?: string;
+  provider?: string;
+  auth_provider?: string;
+  signup_provider?: string;
+  social_provider?: string;
 };
 
-type ChatMessage = {
-  id?: string;
+type UIChatMessage = {
+  id?: string | number;
   clientMessageId?: number;
   message?: string;
   content?: string;
-  sender_id?: string;
+  sender_id?: string | number;
   sender_info?: ChatActor;
   created_at?: string;
   type?: string;
@@ -59,17 +64,33 @@ type ChatMessage = {
 };
 
 type ChatSession = {
-  id?: string;
+  id?: string | number;
   created_at?: string;
   status?: string;
   user_info?: ChatActor;
   claimed_by_info?: ChatActor | null;
   assigned_admin_info?: ChatActor | null;
-  messages?: ChatMessage[];
+  messages?: UIChatMessage[];
+};
+
+const toMessageList = (messages: unknown): UIChatMessage[] => {
+  if (Array.isArray(messages)) {
+    return messages as UIChatMessage[];
+  }
+
+  if (
+    messages &&
+    typeof messages === "object" &&
+    Array.isArray((messages as { results?: unknown[] }).results)
+  ) {
+    return (messages as { results: UIChatMessage[] }).results;
+  }
+
+  return [];
 };
 
 type MainChatProps = {
-  sessionId?: string;
+  sessionId?: string | number;
   accessToken?: string;
 };
 
@@ -78,7 +99,7 @@ type SessionProps = {
   loadingChat: boolean;
   isReadOnly: boolean;
   canViewMessage: boolean;
-  currentUser: string;
+  currentUser: string | number;
   accessToken?: string;
 };
 
@@ -89,7 +110,7 @@ const formatDate = (isoDate: string | number | Date | null | undefined) => {
 
   const date = new Date(isoDate);
 
-  if (isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime())) {
     return "Invalid date";
   }
 
@@ -107,6 +128,80 @@ const normalizePermissionSlug = (value?: string | null) =>
     .trim()
     .toLowerCase()
     .replace(/[\s_]+/g, "-");
+
+const normalizeStatus = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toUpperCase();
+
+const isImageAttachment = (message: UIChatMessage) => {
+  const type = String(message.attachment_type || "").toLowerCase();
+  if (type.startsWith("image/")) {
+    return true;
+  }
+
+  const url = String(message.attachment_url || "").toLowerCase();
+  return /\.(jpg|jpeg|png|gif|webp)(\?|$)/.test(url);
+};
+
+const toReadableNameFromEmail = (email?: string) => {
+  if (!email || !email.includes("@")) {
+    return "";
+  }
+
+  return email
+    .split("@")[0]
+    .replace(/[._-]+/g, " ")
+    .trim();
+};
+
+const normalizeProvider = (value?: string) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const formatProviderLabel = (value?: string) => {
+  const normalized = normalizeProvider(value);
+
+  if (!normalized) {
+    return "unknown";
+  }
+
+  if (["email", "password", "local", "credentials", "basic"].includes(normalized)) {
+    return "email";
+  }
+
+  return `social (${String(value).trim()})`;
+};
+
+const getCustomerIdentity = (actor?: ChatActor | null) => {
+  const firstLastName = `${actor?.first_name || ""} ${actor?.last_name || ""}`.trim();
+  const fallbackName =
+    firstLastName ||
+    actor?.display_name?.trim() ||
+    actor?.full_name?.trim() ||
+    actor?.name?.trim() ||
+    actor?.username?.trim() ||
+    toReadableNameFromEmail(actor?.email) ||
+    "Unknown customer";
+
+  const provider =
+    actor?.social_provider ||
+    actor?.signup_provider ||
+    actor?.auth_provider ||
+    actor?.provider;
+
+  const accountSource = provider
+    ? formatProviderLabel(provider)
+    : actor?.email
+    ? "email"
+    : "unknown";
+
+  return {
+    name: fallbackName,
+    accountSource,
+  };
+};
 
 const hasSupportChatAccess = ({
   roleName,
@@ -148,13 +243,18 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
   const authAccessToken = APP_STATE?.accessToken || accessToken;
   const params = useParams();
   const chatId = getSingleRouteParam(params, "id");
-  const resolvedSessionId = sessionId || chatId;
+  const resolvedSessionId = sessionId ?? chatId;
+  const normalizedSessionId =
+    resolvedSessionId !== undefined && resolvedSessionId !== null
+      ? String(resolvedSessionId)
+      : undefined;
 
   const { chat, loadingChat } = useGetChat({
-    ChatId: resolvedSessionId as string,
-    initialFetch: Boolean(resolvedSessionId),
+    ChatId: normalizedSessionId || "",
+    initialFetch: Boolean(normalizedSessionId),
   });
-  const { loading, data } = useMyRoles({ modalVisible: chat?.id });
+  const chatDetails = (chat || null) as ChatSession | null;
+  const { data } = useMyRoles({ modalVisible: Boolean(chatDetails?.id) });
   const permissionSlugs = Array.isArray(data?.current_permission_group_slugs)
     ? data.current_permission_group_slugs
     : [];
@@ -163,24 +263,24 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
     permissionSlugs,
   });
 
-  const isReadOnly = chat?.status === "CLOSED" || !canViewMessage;
+  const isReadOnly =
+    ["CLOSED", "RESOLVED"].includes(normalizeStatus(chatDetails?.status)) ||
+    !canViewMessage;
 
   const router = useRouter();
   const [closing, setClosing] = useState(false);
-  const formattedCreatedAt = formatDate(chat?.created_at);
-  const customerName =
-    `${chat?.user_info?.first_name || ""} ${chat?.user_info?.last_name || ""}`
-      .trim() || "Unknown customer";
-  const chatDisplayId = chat?.id ? `Chat--${chat.id}` : "Chat ID unavailable";
+  const formattedCreatedAt = formatDate(chatDetails?.created_at);
+  const customerIdentity = getCustomerIdentity(chatDetails?.user_info);
+  const chatDisplayId = chatDetails?.id ? `Chat--${chatDetails.id}` : "Chat ID unavailable";
   const chatDisplayStatus =
-    String(chat?.status || "").trim() || "Unknown";
+    String(chatDetails?.status || "").trim() || "Unknown";
 
   // Close chat handler
   const handleCloseChat = async () => {
-    if (!chat?.id) return;
+    if (!chatDetails?.id) return;
     setClosing(true);
     try {
-      await ChatService.closeChat({ id: chat.id });
+      await ChatService.closeChat({ id: chatDetails.id });
       // Optionally, show a toast or notification
       router.push("/Dashboard/support/chats"); // Redirect after closing
     } catch (error) {
@@ -225,8 +325,13 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
             <p className="lg:text-[16px] text-[12px]  font-semibold text-[#4E4F52]">
               Customer:{" "}
               <span className="font-medium">
-                {customerName}
+                {customerIdentity.name}
               </span>
+            </p>
+            <div className="w-2 h-2 bg-[#9B9EA4] rounded-full"></div>
+            <p className="lg:text-[16px] text-[12px] font-semibold text-[#4E4F52]">
+              Account source:{" "}
+              <span className="font-medium capitalize">{customerIdentity.accountSource}</span>
             </p>
             <div className="w-2 h-2 bg-[#9B9EA4] rounded-full"></div>
             <p className="lg:text-[16px] text-[12px]  font-semibold text-[#4E4F52]">
@@ -243,7 +348,7 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
       )}
 
       <Session
-        chat={chat}
+        chat={chatDetails}
         loadingChat={loadingChat}
           isReadOnly={isReadOnly}
         canViewMessage={canViewMessage}
@@ -262,18 +367,21 @@ export const Session = ({
   currentUser,
   accessToken,
 }: SessionProps) => {
-  const {
-    messages: liveMessages,
-    send,
-    socket,
-  } = useWebSocketService({ sessionId: chat?.id, accessToken });
+  const websocketSessionId =
+    chat?.id !== undefined && chat?.id !== null ? String(chat.id) : undefined;
+  const { messages: liveMessages, send } = useWebSocketService({
+    sessionId: websocketSessionId,
+    accessToken,
+  });
   const [input, setInput] = useState("");
   const lastMessageRef = useRef<HTMLDivElement | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [uploadingMessages, setUploadingMessages] = useState<ChatMessage[]>(
+  const [uploadingMessages, setUploadingMessages] = useState<UIChatMessage[]>(
     []
+  );
+  const liveMessagesList = useMemo(
+    () => (Array.isArray(liveMessages) ? (liveMessages as UIChatMessage[]) : []),
+    [liveMessages]
   );
 
   const handleDownload = () => {
@@ -309,7 +417,7 @@ export const Session = ({
     document.body.removeChild(link);
   };
 
-  const handleAttachmentDownload = async (message: ChatMessage) => {
+  const handleAttachmentDownload = async (message: UIChatMessage) => {
     const fallbackUrl = message?.attachment_url;
 
     try {
@@ -349,6 +457,13 @@ export const Session = ({
   ) => {
     const file = event.target.files?.[0];
     if (file) {
+      const maxSizeMb = 10;
+      if (file.size > maxSizeMb * 1024 * 1024) {
+        alert(`File size must be less than ${maxSizeMb}MB`);
+        event.target.value = "";
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = () => {
         const base64String = reader.result as string;
@@ -372,17 +487,16 @@ export const Session = ({
           },
         ]);
         send(payload);
+        event.target.value = "";
       };
       reader.readAsDataURL(file);
     }
   };
 
   const systemErrorMessage = useMemo(() => {
-    const errorMsgObj = liveMessages.find(
-      (msg: ChatMessage) => msg.type === "error"
-    );
-    return errorMsgObj ? errorMsgObj.message : null;
-  }, [liveMessages]);
+    const errorMsgObj = liveMessagesList.find((msg) => msg.type === "error");
+    return typeof errorMsgObj?.message === "string" ? errorMsgObj.message : null;
+  }, [liveMessagesList]);
 
   // Remove uploading message when real message arrives (match by clientMessageId)
   useEffect(() => {
@@ -390,8 +504,8 @@ export const Session = ({
     setUploadingMessages((prev) =>
       prev.filter(
         (umsg) =>
-          !liveMessages.some(
-            (msg: ChatMessage) =>
+          !liveMessagesList.some(
+            (msg) =>
               (msg.clientMessageId &&
                 msg.clientMessageId === umsg.clientMessageId) ||
               // fallback: match by file name, sender, and created_at (if backend doesn't echo clientMessageId)
@@ -399,18 +513,18 @@ export const Session = ({
           )
       )
     );
-  }, [liveMessages]);
+  }, [liveMessagesList, uploadingMessages.length]);
 
   const allMessages = useMemo(() => {
-    const history = chat?.messages || [];
-    const live = liveMessages.filter(
-      (live: ChatMessage) =>
+    const history = toMessageList(chat?.messages);
+    const live = liveMessagesList.filter(
+      (live) =>
         live.type !== "session_info" &&
         live.type !== "error" &&
-        !history.some((msg: ChatMessage) => msg.id === live.id)
+        !history.some((msg) => msg.id === live.id)
     );
     return [...history, ...live, ...uploadingMessages];
-  }, [chat?.messages, liveMessages, uploadingMessages]);
+  }, [chat?.messages, liveMessagesList, uploadingMessages]);
 
   const handleSend = () => {
     if (input.trim()) {
@@ -467,13 +581,16 @@ export const Session = ({
           <div className="text-center text-gray-500">Loading messages...</div>
         ) : (
           <div className="flex-1 overflow-auto p-4 space-y-4">
-            {allMessages.map((mes: ChatMessage, index: number) => {
+            {allMessages.map((mes, index: number) => {
+              const customerId = chat?.user_info?.id;
+              const senderId = mes.sender_info?.id || mes.sender_id;
               const isUser =
-                chat?.user_info?.id === mes.sender_info?.id ||
-                chat?.user_info?.id === mes.sender_id;
+                String(customerId || "") !== "" &&
+                String(senderId || "") !== "" &&
+                String(customerId) === String(senderId);
               return (
                 <div
-                  key={index}
+                  key={mes.id ?? `${mes.created_at ?? "message"}-${index}`}
                   className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                   ref={index === allMessages.length - 1 ? lastMessageRef : null}
                 >
@@ -493,14 +610,17 @@ export const Session = ({
 
                     {mes.attachment_url && (
                       <div className="mt-2">
-                        {mes.attachment_type === "other" ? (
+                        {isImageAttachment(mes) ? (
                           <img
                             src={mes.attachment_url}
                             alt="Attachment"
                             className={`w-[250px] h-auto rounded-lg shadow-lg cursor-pointer ${
                               isUser ? "ml-auto" : "mr-auto"
                             }`}
-                            onClick={() => handleImageClick(mes.attachment_url)}
+                            onClick={() =>
+                              mes.attachment_url &&
+                              handleImageClick(mes.attachment_url)
+                            }
                           />
                         ) : (
                           <button
@@ -543,7 +663,7 @@ export const Session = ({
         )}
 
         <div className="p-4 border-t flex items-center gap-4">
-          {chat?.status === "resolved" ? (
+          {normalizeStatus(chat?.status) === "RESOLVED" ? (
             <p className="text-center w-full text-gray-500">
               This chat has been marked as resolved
             </p>

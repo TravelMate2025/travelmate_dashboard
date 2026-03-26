@@ -98,7 +98,10 @@ const BookingDetails = ({ data }: { data: FlightBookingData }) => {
         return "text-[#2D9C5E] border-[#2D9C5E] bg-[#2D9C5E1A]";
       case "cancelled":
       case "failed":
+      case "refunded":
         return "text-[#E74C3C] border-[#E74C3C] bg-[#E74C3C1A]";
+      case "ongoing":
+        return "text-[#0084D9] border-[#0084D9] bg-[#0084D91A]";
       case "pending":
       default:
         return "text-[#EFB608] border-[#EFB608] bg-[#EFB60833]";
