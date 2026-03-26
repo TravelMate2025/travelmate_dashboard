@@ -9,7 +9,6 @@ import {
   TableBody,
 } from "@/components/ui/table";
 import { BookingTableDropdown } from "./reuseables";
-import { format } from "path";
 
 // Define the interface for filter props
 interface FilterProps {
@@ -17,7 +16,6 @@ interface FilterProps {
   selectedOption: string;
   selectedStartDate?: string;
   selectedEndDate?: string;
-  selectedDate?: string;
   currency: string;
 }
 
@@ -37,12 +35,14 @@ interface FlightBooking {
   id?: string | number;
   booking_reference?: string;
   passenger_count?: number;
+  created_at?: string;
   date_booked?: string;
   flight_details?: FlightDetail[];
   flight_booking_type?: string;
   total_amount?: string | number;
   payment_status?: string;
   booking_status?: string;
+  status?: string;
   [key: string]: unknown;
 }
 
@@ -54,6 +54,8 @@ interface FlightBookingsProps {
   loading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
+  activeStatusTab: string;
+  onStatusTabChange?: (status: string) => void;
 }
 
 const FlightBookings: React.FC<FlightBookingsProps> = ({
@@ -63,10 +65,9 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
   loading,
   onLoadMore,
   hasMore,
+  activeStatusTab,
+  onStatusTabChange,
 }) => {
-  console.log(bookings);
-  const [activeSubTab, setActiveSubTab] = useState<string>("ongoing");
-
   const styling =
     "h-full data-[state=active]:text-[#181818] data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:rounded-none data-[state=active]:border-b-[3px] data-[state=active]:border-b-[#181818] data-[state=active]:mb-0 flex items-center justify-center cursor-pointer bg-transparent shadow-none rounded-none text-[18px] text-[#4E4F52] font-[400] ";
 
@@ -74,20 +75,55 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
   const filteredData = useMemo(() => {
     if (!Array.isArray(bookings)) return [];
 
-    return bookings.filter((item) => {
-      const status = item.booking_status?.toLowerCase();
-      switch (activeSubTab) {
-        case "ongoing":
-          return status === "pending" || status === "confirmed";
-        case "completed":
-          return status === "completed";
-        case "cancelled":
-          return status === "cancelled";
-        default:
-          return true;
+    const normalizeStatus = (value?: string) =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+
+    const matchesActiveTab = (item: FlightBooking) => {
+      if (activeStatusTab === "all") return true;
+
+      const bookingStatus = normalizeStatus(
+        (item.booking_status || item.status) as string
+      );
+      const paymentStatus = normalizeStatus(item.payment_status as string);
+
+      if (activeStatusTab === "ongoing") {
+        return bookingStatus === "ongoing";
       }
-    });
-  }, [bookings, activeSubTab]);
+
+      if (activeStatusTab === "completed") {
+        return bookingStatus === "completed" || bookingStatus === "confirmed";
+      }
+
+      if (activeStatusTab === "pending") {
+        return bookingStatus === "pending" ||
+          paymentStatus === "pending" ||
+          paymentStatus === "refund_pending";
+      }
+
+      if (activeStatusTab === "refunded") {
+        return bookingStatus === "refunded" || paymentStatus === "refunded";
+      }
+
+      return bookingStatus === activeStatusTab;
+    };
+
+    const getBookingTimestamp = (item: FlightBooking) => {
+      const dateValue = item.created_at || item.date_booked;
+      if (!dateValue) return 0;
+
+      const timestamp = new Date(dateValue).getTime();
+      return Number.isNaN(timestamp) ? 0 : timestamp;
+    };
+
+    const tabFiltered = bookings.filter(matchesActiveTab);
+
+    return [...tabFiltered].sort(
+      (a, b) => getBookingTimestamp(b) - getBookingTimestamp(a)
+    );
+  }, [bookings, activeStatusTab]);
 
   // Format amount based on currency
   const formatAmount = (amount: string | number) => {
@@ -111,10 +147,14 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
       case "completed":
       case "confirmed":
       case "paid":
+      case "succeeded":
         return "text-[#2D9C5E] border-[#2D9C5E] bg-[#2D9C5E1A]";
       case "cancelled":
       case "failed":
+      case "refunded":
         return "text-[#E74C3C] border-[#E74C3C] bg-[#E74C3C1A]";
+      case "ongoing":
+        return "text-[#0084D9] border-[#0084D9] bg-[#0084D91A]";
       case "pending":
       default:
         return "text-[#EFB608] border-[#EFB608] bg-[#EFB60833]";
@@ -146,16 +186,30 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
     <div className="bg-white border border-gray-300 rounded-lg py-4">
       <h2 className="text-lg font-semibold px-4 mb-4">{title}</h2>
 
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
+      <Tabs
+        value={activeStatusTab}
+        onValueChange={(value) => {
+          onStatusTabChange?.(value);
+        }}
+      >
         <TabsList className="flex space-x-6 items-center bg-transparent shadow-none rounded-none pb-0">
+          <TabsTrigger value="all" className={styling}>
+            All
+          </TabsTrigger>
           <TabsTrigger value="ongoing" className={styling}>
             Ongoing
+          </TabsTrigger>
+          <TabsTrigger value="pending" className={styling}>
+            Pending
           </TabsTrigger>
           <TabsTrigger value="completed" className={styling}>
             Completed
           </TabsTrigger>
           <TabsTrigger value="cancelled" className={styling}>
             Cancelled
+          </TabsTrigger>
+          <TabsTrigger value="refunded" className={styling}>
+            Refunded
           </TabsTrigger>
         </TabsList>
 
@@ -201,9 +255,9 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
                     ))}
                   </TableRow>
                 ))
-              ) : bookings.length > 0 ? (
+              ) : filteredData.length > 0 ? (
                 <>
-                  {bookings.map((item) => (
+                  {filteredData.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="text-[14px] font-[400] text-[#181818] py-3 px-4">
                         {item.id ? `BK_00${item.id}` : "N/A"}
@@ -242,14 +296,14 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
                       <TableCell className="py-3 px-4">
                         <div
                           className={`border-[1px] rounded-[12px] text-[14px] font-[400] p-[10px] w-fit ${getStatusStyling(
-                            item.booking_status
+                            (item.booking_status || item.status) as string
                           )}`}
                         >
-                          {item.booking_status || "PENDING"}
+                          {item.booking_status || (item.status as string) || "PENDING"}
                         </div>
                       </TableCell>
                       <TableCell className="py-3 px-4 cursor-pointer">
-                        <BookingTableDropdown bookingId={item.id} />
+                        <BookingTableDropdown bookingId={item.id} bookingType="flights" />
                       </TableCell>
                     </TableRow>
                   ))}

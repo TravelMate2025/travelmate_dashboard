@@ -91,14 +91,19 @@ const handler = async (req: NextRequest, context: RouteContext) => {
 
     let upstream = await fetch(upstreamUrl, requestInit);
 
-    const shouldRetryWithTrailingSlash =
-      upstream.status === 404 &&
-      Boolean(upstreamPath) &&
-      !upstreamPath.endsWith("/");
+    // Retry once with the alternate slash style to support backends that are
+    // strict about either trailing slash or no trailing slash.
+    const shouldRetryAlternateSlash = upstream.status === 404 && Boolean(upstreamPath);
 
-    if (shouldRetryWithTrailingSlash) {
-      const retryUrl = `${joinUrl(apiBase, `${upstreamPath}/`)}${req.nextUrl.search}`;
-      upstream = await fetch(retryUrl, requestInit);
+    if (shouldRetryAlternateSlash) {
+      const alternateUpstreamPath = upstreamPath.endsWith("/")
+        ? upstreamPath.replace(/\/+$/, "")
+        : `${upstreamPath}/`;
+
+      if (alternateUpstreamPath && alternateUpstreamPath !== upstreamPath) {
+        const retryUrl = `${joinUrl(apiBase, alternateUpstreamPath)}${req.nextUrl.search}`;
+        upstream = await fetch(retryUrl, requestInit);
+      }
     }
 
     const responseHeaders = buildResponseHeaders(upstream);

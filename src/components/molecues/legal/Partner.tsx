@@ -186,6 +186,17 @@ const Partner = ({
   }, []);
 
   const noPartners = content.every((cat) => cat.partners.length === 0);
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
   const formatSnakeToTitle = (value: string): string => {
     return value
       .split("_")
@@ -294,6 +305,31 @@ const Partner = ({
                     item.object_id === partner.id
                 );
 
+                const latestPartnerHistory = historyDetails.reduce<HistoryProps | null>(
+                  (latest, item) => {
+                    if (
+                      item.content_type !== "partner" ||
+                      item.object_id !== partner.id
+                    ) {
+                      return latest;
+                    }
+
+                    if (!latest) return item;
+
+                    return new Date(item.timestamp).getTime() >
+                      new Date(latest.timestamp).getTime()
+                      ? item
+                      : latest;
+                  },
+                  null
+                );
+
+                const partnerTimestamp =
+                  partner.last_updated ||
+                  partner.updated_at ||
+                  partner.created_at ||
+                  latestPartnerHistory?.timestamp;
+
                 return (
                   <TableRow key={`${cat.id}-${partner.id}`}>
                     <TableCell>{serial++}</TableCell>
@@ -310,7 +346,7 @@ const Partner = ({
                       )}
                     </TableCell>
                     <TableCell>{partner.name}</TableCell>
-                    <TableCell>{new Date().toLocaleDateString()}</TableCell>
+                    <TableCell>{formatDate(partnerTimestamp)}</TableCell>
                     <TableCell>{formatSnakeToTitle(cat.name)}</TableCell>
                     <TableCell>{matched?.admin_full_name}</TableCell>
                     <TableCell>{matched?.admin_role}</TableCell>

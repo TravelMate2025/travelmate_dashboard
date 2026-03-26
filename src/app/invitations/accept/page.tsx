@@ -1,10 +1,9 @@
 "use client";
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import * as Yup from "yup";
 import Button from "@/components/reuseables/Button";
 import { useField, Formik, Form } from "formik";
 import { useRouter, useSearchParams } from "next/navigation";
-import env from "@/config/env";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import instance from "@/hooks/initializers/useAxiosDefaults";
 
@@ -12,6 +11,9 @@ type AcceptInviteFormValues = {
   password1: string;
   password2: string;
 };
+
+const INVITE_VALIDATE_PATH = "/api/admin/invitations/validate/";
+const INVITE_ACCEPT_PATH = "/api/admin/invitations/accept/";
 
 const page = () => (
   <Suspense
@@ -40,13 +42,35 @@ const validationSchema = Yup.object().shape({
 
 const LoginComponent = () => {
   const router = useRouter();
-  const searchParamas = useSearchParams();
-  const token = searchParamas.get("token");
+  const searchParams = useSearchParams();
+  const rawToken = searchParams.get("token");
+  const token = useMemo(() => {
+    if (!rawToken) {
+      return null;
+    }
+
+    // Some mail clients keep '+' unencoded and URL parsing turns them into spaces.
+    return rawToken.trim().replace(/\s+/g, "+");
+  }, [rawToken]);
   const [isValidToken, setIsValidToken] = useState<boolean | null>(null);
   const [email, setEmail] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
-  const [successCreate, setSuccessCreate] = useState(false)
+  const [successCreate, setSuccessCreate] = useState(false);
+
+  const getStatusCode = (error: unknown) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "response" in error &&
+      typeof (error as { response?: unknown }).response === "object"
+    ) {
+      const response = error as { response?: { status?: number } };
+      return response.response?.status;
+    }
+
+    return undefined;
+  };
 
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (
@@ -62,6 +86,12 @@ const LoginComponent = () => {
     return fallback;
   };
 
+  const validateInvite = async (inviteToken: string) => {
+    return instance.get(INVITE_VALIDATE_PATH, {
+      params: { token: inviteToken },
+    });
+  };
+
   useEffect(() => {
     if (!token) {
       showErrorToast({ message: "Missing invitation token" });
@@ -71,10 +101,7 @@ const LoginComponent = () => {
       const validateInvitation = async () => {
         try {
           setLoading(true);
-          const response = await instance.get(
-            `${env.api.admin}/invitations/validate/`,
-            { params: { token } }
-          );
+          const response = await validateInvite(token);
           const invitedEmail = response?.data?.email;
           if (!invitedEmail) {
             throw new Error("Invitation email missing");
@@ -83,8 +110,13 @@ const LoginComponent = () => {
           setEmail(invitedEmail);
           setIsValidToken(true);
         } catch (error: unknown) {
+          const defaultMessage =
+            getStatusCode(error) === 500
+              ? "Invitation link could not be validated right now. Please try again or request a new invite."
+              : "Invalid or expired token.";
+
           showErrorToast({
-            message: getErrorMessage(error, "Invalid or expired invitation token"),
+            message: getErrorMessage(error, defaultMessage),
           });
           setIsValidToken(false);
         } finally {
@@ -104,17 +136,24 @@ const LoginComponent = () => {
 
     try {
       setLoading(true);
-      await instance.post(`${env.api.admin}/invitations/accept/`, {
+      await instance.post(INVITE_ACCEPT_PATH, {
         email,
         token,
         password: values.password1,
       });
-      setSuccessCreate(true)
-      showSuccessToast({message: "Password created successfully! You are now redirected to the Login page."})
+      setSuccessCreate(true);
+      showSuccessToast({
+        message: "Password created successfully! You are now redirected to the Login page.",
+      });
       setTimeout(() => router.push("/auth/login"), 3000);
     } catch (error: unknown) {
+      const defaultMessage =
+        getStatusCode(error) === 500
+          ? "Unable to complete invitation right now. Please try again shortly."
+          : "Something went wrong";
+
       showErrorToast({
-        message: getErrorMessage(error, "Something went wrong"),
+        message: getErrorMessage(error, defaultMessage),
       });
       console.log(getErrorMessage(error, "Something went wrong"));
     } finally {

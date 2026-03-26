@@ -34,18 +34,20 @@ const page = () => {
 export type AboutContent = {
   id: number;
   content: string;
-  updated_at: string;
+  updated_at?: string;
+  last_updated?: string;
 };
 export type PrivacyPolicy = {
   id: number;
   content: string;
-  last_updated: string;
+  last_updated?: string;
+  updated_at?: string;
 };
 export type TermsContent = {
   id: number;
   content: string;
-  updated_at: string;
-  last_updated: string;
+  updated_at?: string;
+  last_updated?: string;
 };
 
 export type Partners = {
@@ -56,6 +58,9 @@ export type Partners = {
   website: string;
   category: number;
   is_active: boolean;
+  updated_at?: string;
+  last_updated?: string;
+  created_at?: string;
 };
 
 export type PartnerCategory = {
@@ -116,14 +121,6 @@ const ContentTab = () => {
     partnerCategory: [],
   });
 
-  const [contentIds, setContentIds] = useState({
-    about: 0,
-    privacy: null,
-    terms: null,
-    partners: null,
-    partnerCategory: null,
-  });
-
   const fetchData = async () => {
     setIsLoading(true);
     setError(null);
@@ -144,6 +141,7 @@ const ContentTab = () => {
             id: about.id,
             content: about.content,
             updated_at: about.updated_at,
+            last_updated: about.last_updated,
           },
         ],
         privacy: [
@@ -151,6 +149,7 @@ const ContentTab = () => {
             id: privacy.id,
             content: privacy.content,
             last_updated: privacy.last_updated,
+            updated_at: privacy.updated_at,
           },
         ],
         terms: [
@@ -158,7 +157,7 @@ const ContentTab = () => {
             id: terms.id,
             content: terms.content,
             updated_at: terms.updated_at,
-            last_updated: terms.updated_at,
+            last_updated: terms.last_updated || terms.updated_at,
           },
         ],
         partnerCategory: merged,
@@ -181,15 +180,23 @@ const ContentTab = () => {
     try {
       if (!editStates.about_us) {
         await addAbout(contents.about[0].content);
+        await fetchData();
         showSuccessToast({
           message: "About content added successfully!",
         });
       } else {
-        updateAbout(
-          contentIds.about,
+        const aboutId = contents.about?.[0]?.id;
+        if (!aboutId) {
+          throw new Error("About content ID not found.");
+        }
+
+        const nowIso = new Date().toISOString();
+        await updateAbout(
+          aboutId,
           contents.about[0].content,
-          contents.about[0].updated_at
+          nowIso
         );
+        await fetchData();
         setEditStates((prev) => ({ ...prev, about_us: false }));
         showSuccessToast({
           message: "About content updated successfully!",
@@ -213,15 +220,18 @@ const ContentTab = () => {
     try {
       if (!editStates.privacy_policy) {
         await addPrivacy(contents.privacy[0].content);
+        await fetchData();
         showSuccessToast({
           message: "Privacy content added successfully!",
         });
       } else {
-        updatePrivacy(
+        const nowIso = new Date().toISOString();
+        await updatePrivacy(
           contents.privacy[0].id,
           contents.privacy[0].content,
-          contents.privacy[0].last_updated
+          nowIso
         );
+        await fetchData();
 
         setEditStates((prev) => ({ ...prev, privacy_policy: false }));
         showSuccessToast({
@@ -246,16 +256,19 @@ const ContentTab = () => {
     try {
       if (!editStates.terms_of_use) {
         await addTerms(contents.terms[0].content);
+        await fetchData();
         showSuccessToast({
           message: "Terms of use content added successfully!",
         });
       } else {
-        updateTerms(
+        const nowIso = new Date().toISOString();
+        await updateTerms(
           contents.terms[0].id,
           contents.terms[0].content,
-          contents.terms[0].updated_at
-        ),
-          setEditStates((prev) => ({ ...prev, terms_of_use: false }));
+          nowIso
+        );
+        await fetchData();
+        setEditStates((prev) => ({ ...prev, terms_of_use: false }));
         showSuccessToast({
           message: "Terms of use content updated successfully!",
         });

@@ -47,7 +47,7 @@ class Service {
     return instance.post(env.api.chat + id + "/claim/");
   }
 
-  closeChat({ id }: { id: number }) {
+  closeChat({ id }: { id: string | number }) {
     return instance.post(env.api.chat  + id + "/close/");
   }
 

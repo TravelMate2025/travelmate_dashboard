@@ -41,7 +41,6 @@ const DateDialog = ({
     if (internalDate) {
       const formattedDate = format(internalDate, "dd-MM-yyyy");
       setSelectedDate(formattedDate);
-      console.log("Formatted Date:", formattedDate);
     }
     onClose();
   };
@@ -130,18 +129,15 @@ export const DatePairDialog = ({
     setInternalEndDate(undefined);
     setSelectedStartDate("");
     setSelectedEndDate("");
-    console.log("Cleared Dates");
   };
 
   const handleApply = () => {
     if (internalStartDate) {
       const formattedStartDate = format(internalStartDate, "yyyy-MM-dd");
       setSelectedStartDate(formattedStartDate);
-      console.log("Selected Start Date Set:", formattedStartDate);
     }
     if (internalEndDate) {
       const formattedEndDate = format(internalEndDate, "yyyy-MM-dd");
-      console.log("Selected End Date Set:", formattedEndDate);
       setSelectedEndDate(formattedEndDate);
     }
     onClose();
@@ -161,7 +157,6 @@ export const DatePairDialog = ({
               mode="range"
               selected={{ from: internalStartDate, to: internalEndDate }}
               onSelect={(range) => {
-                console.log("Selected Range:", range);
                 if (range) {
                   setInternalStartDate(range.from);
                   setInternalEndDate(range.to);

@@ -27,8 +27,10 @@ const About = ({
 }: Props) => {
   const currentContent = content?.[0]?.content || "";
 
-   const formatDate = (dateString: string) => {
+   const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "N/A";
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -75,7 +77,7 @@ const About = ({
         ))
       ) : currentContent && !isContentEmpty(currentContent) ? (
         <div className="text-[16px] lg:text-[18px] font-[400] text-[#181818] leading-[30px]">
-          <p className="pb-3">Last Updated: {formatDate(content[0]?.updated_at)}</p>
+          <p className="pb-3">Last Updated: {formatDate(content[0]?.updated_at || content[0]?.last_updated)}</p>
           <p
             dangerouslySetInnerHTML={{
               __html: currentContent,

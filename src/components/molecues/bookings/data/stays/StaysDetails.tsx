@@ -1,52 +1,131 @@
 "use client";
 
-import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Grid } from "lucide-react";
+import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
 
-export default function StayDetails() {
-  const params = useParams();
-  const id = params?.id;
-  const router = useRouter();
+type StayRoom = {
+  room_type?: string;
+  room_name?: string;
+  adults?: number;
+  children?: number;
+  quantity?: number;
+  price?: number;
+};
 
+type StayCustomerDetails = {
+  name?: string;
+  surname?: string;
+  age?: number;
+  email?: string;
+  phone?: string;
+  city?: string;
+  country?: string;
+};
+
+type StayBookingData = {
+  id?: string | number;
+  reference?: string;
+  booking_status?: string;
+  payment_status?: string;
+  check_in?: string;
+  check_out?: string;
+  date_booked?: string;
+  created_at?: string;
+  currency?: string;
+  hotel_name?: string;
+  hotel_code?: string | number;
+  total_amount?: number;
+  payment_reference?: string;
+  payment_transaction_id?: string;
+  session_id?: string;
+  customer_details?: StayCustomerDetails;
+  rooms?: StayRoom[];
+  cancellation_policy?: string[] | null;
+};
+
+const toDisplayDate = (value?: string) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString("en-GB");
+};
+
+const toStatusClass = (status?: string) => {
+  const normalized = String(status || "").toLowerCase();
+  if (["completed", "confirmed", "paid", "succeeded"].includes(normalized)) {
+    return "text-[#2D9C5E] border-[#2D9C5E] bg-[#2D9C5E1A]";
+  }
+  if (["cancelled", "failed", "refunded"].includes(normalized)) {
+    return "text-[#E74C3C] border-[#E74C3C] bg-[#E74C3C1A]";
+  }
+  if (["ongoing"].includes(normalized)) {
+    return "text-[#0084D9] border-[#0084D9] bg-[#0084D91A]";
+  }
+  return "text-[#EFB608] border-[#EFB608] bg-[#EFB60833]";
+};
+
+const formatAmount = (amount?: number, currency?: string) => {
+  if (typeof amount !== "number") return "N/A";
+  const safeCurrency = (currency || "USD").toUpperCase();
+
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: safeCurrency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${safeCurrency} ${amount.toFixed(2)}`;
+  }
+};
+
+const getNights = (checkIn?: string, checkOut?: string) => {
+  if (!checkIn || !checkOut) return "N/A";
+  const start = new Date(checkIn);
+  const end = new Date(checkOut);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "N/A";
+  const diff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  return diff > 0 ? `${diff} night${diff > 1 ? "s" : ""}` : "N/A";
+};
+
+export default function StayDetails({ data }: { data?: StayBookingData }) {
   return (
     <div className="space-y-[24px]">
-      <BookingDetails />
-      <GridDetails />
+      <BookingDetails data={data} />
+      <GridDetails data={data} />
     </div>
   );
 }
 
-const BookingDetails = () => {
+const BookingDetails = ({ data }: { data?: StayBookingData }) => {
   return (
     <div className="space-y-[24px]">
-      <div className="bg-[#fff] p-[24px] space-y-[20px] rounded-[12px] w-full ">
-        <h1 className="font-[600] text-[20px] text-[#181818] ">
-          Confirmation Details
-        </h1>
+      <div className="bg-[#fff] p-[24px] space-y-[20px] rounded-[12px] w-full">
+        <h1 className="font-[600] text-[20px] text-[#181818]">Confirmation Details</h1>
 
-        <div className="flex justify-between items-center">
-          <GridValues title="Confirmation Number" value="123456789" />
-          <GridValues title="Pin Code" value="1111" />
-          <GridValues title="Booked On" value="25/05/2025" />
-          <GridValues title="Check In" value="25/05/2025" />
-          <GridValues title="Check Out" value="30/05/2025" />
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <GridValues title="Confirmation Number" value={data?.reference || "N/A"} />
+          <GridValues title="Hotel Code" value={String(data?.hotel_code || "N/A")} />
+          <GridValues title="Booked On" value={toDisplayDate(data?.date_booked || data?.created_at)} />
+          <GridValues title="Check In" value={toDisplayDate(data?.check_in)} />
+          <GridValues title="Check Out" value={toDisplayDate(data?.check_out)} />
 
           <div className="flex flex-col items-start space-y-3">
             <h1 className="text-[16px] font-[500] text-[#4E4F52] whitespace-nowrap">
-              Payment Status{" "}
+              Payment Status
             </h1>
-            <div className="border-[1px] border-[#2D9C5E] rounded-[12px] text-[#2D9C5E] text-[14px] font-[400] bg-[#2D9C5E1A] px-[20px] py-[10px] whitespace-nowrap flex-shrink-0">
-              Paid
+            <div className={`border rounded-[12px] text-[14px] font-[400] p-[8px] w-fit ${toStatusClass(data?.payment_status)}`}>
+              {data?.payment_status || "PENDING"}
             </div>
           </div>
+
           <div className="flex flex-col items-start space-y-3">
             <h1 className="text-[16px] font-[500] text-[#4E4F52] whitespace-nowrap">
               Booking Status
             </h1>
-            <div className="border-[1px] border-[#2D9C5E] rounded-[12px] text-[#2D9C5E] text-[14px] font-[400] bg-[#2D9C5E1A] px-[20px] py-[10px] whitespace-nowrap flex-shrink-0">
-              Confirmed
+            <div className={`border rounded-[12px] text-[14px] font-[400] p-[8px] w-fit ${toStatusClass(data?.booking_status)}`}>
+              {data?.booking_status || "PENDING"}
             </div>
           </div>
         </div>
@@ -55,52 +134,51 @@ const BookingDetails = () => {
   );
 };
 
-export const GridDetails = () => {
-  const List = [
-    "Cancellation period: Until May 24, 2025 11:59 PM",
-    "Full Refund: Until May 24, 2025 11:59 PM",
-    "Partial Refund (50%): May 28, 2025 11:59 PM",
-    "No Refund: After May 29, 2025",
-  ];
+export const GridDetails = ({ data }: { data?: StayBookingData }) => {
+  const customer = data?.customer_details;
+  const fullName = [customer?.name, customer?.surname].filter(Boolean).join(" ") || customer?.name || "N/A";
+  const room = data?.rooms?.[0];
+  const roomType = room?.room_type || room?.room_name || "N/A";
+  const roomQuantity = room?.quantity || (data?.rooms?.length ? data.rooms.length : 1);
+
+  const policyList = Array.isArray(data?.cancellation_policy) && data?.cancellation_policy.length
+    ? data.cancellation_policy
+    : [
+        "Cancellation policy is not provided by the supplier for this booking.",
+      ];
+
   return (
     <div className="grid grid-cols-2 gap-[24px]">
       <div className="space-y-6">
         <div className="bg-[#fff] space-y-[22px] p-[24px] rounded-[12px]">
           <div className="space-y-4">
-            <h1 className="text-[20px] font-[600] text-[#181818]">
-              Guest Details
-            </h1>
+            <h1 className="text-[20px] font-[600] text-[#181818]">Guest Details</h1>
             <div className="space-y-4">
-              <FlexValues title="Name" value="John Doe" />
-              <FlexValues title="Date Of Birth" value="01/01/1990" />
+              <FlexValues title="Name" value={fullName} />
+              <FlexValues title="Age" value={customer?.age ?? "N/A"} />
             </div>
           </div>
+
           <div className="space-y-4">
-            <h1 className="text-[20px] font-[600] text-[#181818]">
-              Contact Information
-            </h1>
+            <h1 className="text-[20px] font-[600] text-[#181818]">Contact Information</h1>
             <div className="space-y-4">
-              <FlexValues title="Email Address" value="Johndoe@gmail.com" />
-              <FlexValues title="Phone Number" value="09012345678" />
+              <FlexValues title="Email Address" value={customer?.email || "N/A"} />
+              <FlexValues title="Phone Number" value={customer?.phone || "N/A"} />
+              <FlexValues title="City" value={customer?.city || "N/A"} />
+              <FlexValues title="Country" value={customer?.country || "N/A"} />
             </div>
           </div>
         </div>
+
         <div className="bg-[#fff] space-y-[22px] p-[24px] rounded-[12px]">
           <div className="space-y-4">
-            <h1 className="text-[20px] font-[600] text-[#181818]">
-              Stay Details
-            </h1>
+            <h1 className="text-[20px] font-[600] text-[#181818]">Stay Details</h1>
             <div className="space-y-4">
               <FlexValues title="Type" value="Hotel" />
-              <FlexValues
-                title="Property Name"
-                value="Maison Fahrenheit Hotel"
-              />
-              <FlexValues title="Room Type" value="Standard King Room" />
-              <FlexValues
-                title="Location"
-                value="80 Adetokunbo Ademola Street, Victoria Island, Lagos."
-              />
+              <FlexValues title="Property Name" value={data?.hotel_name || "N/A"} />
+              <FlexValues title="Room Type" value={roomType} />
+              <FlexValues title="Rooms" value={roomQuantity} />
+              <FlexValues title="Duration" value={getNights(data?.check_in, data?.check_out)} />
             </div>
           </div>
         </div>
@@ -109,46 +187,57 @@ export const GridDetails = () => {
       <div className="space-y-6">
         <div className="bg-[#fff] space-y-[22px] p-[24px] rounded-[12px]">
           <div className="space-y-4">
-            <h1 className="text-[20px] font-[600] text-[#181818]">
-              Transaction Details
-            </h1>
+            <h1 className="text-[20px] font-[600] text-[#181818]">Transaction Details</h1>
             <div className="space-y-4">
-              <FlexValues title="Payment Method" value="Paypal" />
-              <FlexValues title="Transaction ID" value="TXN789456123" />
+              <FlexValues title="Payment Reference" value={data?.payment_reference || "N/A"} />
+              <FlexValues
+                title="Transaction ID"
+                value={data?.payment_transaction_id || data?.session_id || "N/A"}
+              />
             </div>
           </div>
         </div>
-        <Transaction />
-        <Policy List={List} />
+        <Transaction
+          roomType={roomType}
+          roomCount={roomQuantity}
+          duration={getNights(data?.check_in, data?.check_out)}
+          total={formatAmount(data?.total_amount, data?.currency)}
+        />
+        <Policy List={policyList} />
       </div>
     </div>
   );
 };
 
-export const Transaction = () => {
+export const Transaction = ({
+  roomType,
+  roomCount,
+  duration,
+  total,
+}: {
+  roomType: string;
+  roomCount: number;
+  duration: string;
+  total: string;
+}) => {
   return (
     <div className="bg-[#fff] p-[24px] rounded-[12px]">
-      <h1 className="text-[20px] font-[600] text-[#181818] mb-[16px]">
-        Payment Details
-      </h1>
+      <h1 className="text-[20px] font-[600] text-[#181818] mb-[16px]">Payment Details</h1>
       <div className="space-y-4">
         <div className="flex justify-between">
           <div className="space-y-3">
-            <h1 className="text-[16px] font-[500] text-[#4E4F52]">
-              Standard King Room
-            </h1>
-            <div className="flex space-x-1 items-center ">
-              <span className="">1 room</span>
-              <span className=" w-[6px] h-[6px] bg-[#4E4F52] rounded-full"></span>
-              <span className="">7 Nights</span>
+            <h1 className="text-[16px] font-[500] text-[#4E4F52]">{roomType}</h1>
+            <div className="flex space-x-1 items-center">
+              <span>{roomCount} room{roomCount > 1 ? "s" : ""}</span>
+              <span className="w-[6px] h-[6px] bg-[#4E4F52] rounded-full"></span>
+              <span>{duration}</span>
             </div>
           </div>
 
-          <p className="">₦70,000</p>
+          <p>{total}</p>
         </div>
-        <FlexValues title="Taxes(15%)" value="₦10,000" />
-        <div className="borde-[1px] border-[#ACAEB3] border-b "></div>
-        <FlexValues title="Total" value="₦80,000" />
+        <div className="border-[1px] border-[#ACAEB3] border-b"></div>
+        <FlexValues title="Total" value={total} />
       </div>
     </div>
   );

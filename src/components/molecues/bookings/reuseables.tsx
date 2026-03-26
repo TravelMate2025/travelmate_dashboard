@@ -73,21 +73,27 @@ export const Policy = ({ List }: PolicyProps) => {
 
 export const BookingTableDropdown = ({
   bookingId,
+  bookingType,
 }: {
   bookingId?: string | number;
+  bookingType?: "stays" | "flights" | "transfers";
 }) => {
   const router = useRouter();
   const resolvedBookingId =
     bookingId !== undefined && bookingId !== null ? String(bookingId) : "";
 
+  const bookingTypeQuery = bookingType
+    ? `?type=${encodeURIComponent(bookingType)}`
+    : "";
+
   const handleViewDetails = () => {
     if (!resolvedBookingId) return;
-    router.push(`/Dashboard/bookings/${resolvedBookingId}`);
+    router.push(`/Dashboard/bookings/${resolvedBookingId}${bookingTypeQuery}`);
   };
 
   const handleCancelBooking = () => {
     if (!resolvedBookingId) return;
-    router.push(`/Dashboard/bookings/${resolvedBookingId}/process-cancel`);
+    router.push(`/Dashboard/bookings/${resolvedBookingId}/process-cancel${bookingTypeQuery}`);
   };
 
   const options = [
@@ -178,8 +184,6 @@ interface FilterProps {
   setSelectedStartDate: (date: string | undefined) => void;
   selectedEndDate?: string;
   setSelectedEndDate: (date: string | undefined) => void;
-  selectedDate?: string;
-  setSelectedDate: (date: string | undefined) => void;
 }
 
 export const Filter: React.FC<FilterProps> = ({
@@ -193,8 +197,6 @@ export const Filter: React.FC<FilterProps> = ({
   setSelectedStartDate,
   selectedEndDate,
   setSelectedEndDate,
-  selectedDate,
-  setSelectedDate,
 }) => {
   const [inputValue, setInputValue] = useState("");
 
@@ -220,23 +222,21 @@ export const Filter: React.FC<FilterProps> = ({
     }
   };
 
-  // Format date display
-  const formatDateDisplay = () => {
-    if (selectedStartDate && selectedEndDate) {
-      return `${selectedStartDate} - ${selectedEndDate}`;
-    } else if (selectedStartDate || selectedEndDate) {
-      return selectedStartDate || selectedEndDate;
-    }
-    return "yyyy-mm-dd - yyyy-mm-dd";
-  };
+  const fromDateDisplay = selectedStartDate || "yyyy-mm-dd";
+  const toDateDisplay = selectedEndDate || "yyyy-mm-dd";
 
   // Filter options based on booking type context
   const getFilterOptions = () => {
     return [
       {
         id: 1,
-        label: "PAID",
-        value: "PAID",
+        label: "Ongoing",
+        value: "ongoing",
+      },
+      {
+        id: 4,
+        label: "Pending",
+        value: "pending",
       },
       {
         id: 6,
@@ -244,14 +244,9 @@ export const Filter: React.FC<FilterProps> = ({
         value: "cancelled",
       },
       {
-        id: 2,
-        label: "PENDING REFUND",
-        value: "PENDING REFUND",
-      },
-      {
         id: 3,
         label: "REFUNDED",
-        value: "REFUNDED",
+        value: "refunded",
       },
     ];
   };
@@ -298,7 +293,7 @@ export const Filter: React.FC<FilterProps> = ({
               <DropdownMenuContent className="w-48 mt-1 border border-gray-300 rounded-lg bg-white shadow-lg">
                 <DropdownMenuItem
                   className="px-3 py-2 font-[400] text-[12px] text-[#181818] cursor-pointer"
-                  onClick={() => setSelectedOption("")}
+                  onClick={() => setSelectedOption("all")}
                 >
                   All
                 </DropdownMenuItem>
@@ -327,13 +322,14 @@ export const Filter: React.FC<FilterProps> = ({
                   alt="Calendar Icon"
                   className="w-6 flex-shrink-0"
                 />
-                <div className="ml-2 flex flex-col lg:flex-row lg:items-center">
+                <div className="ml-2 flex flex-col items-start">
                   <span className="text-[14px] font-light text-[#181818]">
-                    Select Date
+                    Select Date Range
                   </span>
-                  <span className="text-[14px] font-light text-[#9B9EA4] hidden xl:inline-block lg:ml-1 truncate">
-                    {formatDateDisplay()}
-                  </span>
+                  <div className="text-[12px] font-light text-[#9B9EA4] hidden xl:flex flex-col leading-[1.2]">
+                    <span>From: {fromDateDisplay}</span>
+                    <span>To: {toDateDisplay}</span>
+                  </div>
                 </div>
               </div>
             </div>

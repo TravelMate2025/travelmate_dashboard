@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { useFormik, FormikHelpers } from "formik";
+import { useFormik } from "formik";
 import { SuccessModal } from "@/components/reuseables/SuccessModal";
 import { useParams } from "next/navigation";
 import {
@@ -16,14 +16,16 @@ import { useAuthContext } from "@/context/AuthContext";
 import { useMyRoles } from "@/hooks/api/roles";
 import { getSingleRouteParam } from "@shared/lib/routeParams";
 
-const formatDate = (isoDate: any) => {
+type DateInput = string | number | Date | null | undefined;
+
+const formatDate = (isoDate: DateInput) => {
   if (!isoDate) {
     return "Invalid date";
   }
 
-  const date = new Date(isoDate);
+  const date = isoDate instanceof Date ? isoDate : new Date(isoDate);
 
-  if (isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime())) {
     return "Invalid date";
   }
 
@@ -75,6 +77,73 @@ type TicketActor = {
   first_name?: string;
   last_name?: string;
   email?: string;
+  name?: string;
+  full_name?: string;
+  display_name?: string;
+  username?: string;
+  provider?: string;
+  auth_provider?: string;
+  signup_provider?: string;
+  social_provider?: string;
+};
+
+const toReadableNameFromEmail = (email?: string) => {
+  if (!email || !email.includes("@")) {
+    return "";
+  }
+
+  return email
+    .split("@")[0]
+    .replace(/[._-]+/g, " ")
+    .trim();
+};
+
+const normalizeProvider = (value?: string) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const formatProviderLabel = (value?: string) => {
+  const normalized = normalizeProvider(value);
+
+  if (!normalized) {
+    return "unknown";
+  }
+
+  if (["email", "password", "local", "credentials", "basic"].includes(normalized)) {
+    return "email";
+  }
+
+  return `social (${String(value).trim()})`;
+};
+
+const getCustomerIdentity = (actor?: TicketActor | null) => {
+  const firstLastName = `${actor?.first_name || ""} ${actor?.last_name || ""}`.trim();
+  const fallbackName =
+    firstLastName ||
+    actor?.display_name?.trim() ||
+    actor?.full_name?.trim() ||
+    actor?.name?.trim() ||
+    actor?.username?.trim() ||
+    toReadableNameFromEmail(actor?.email) ||
+    "Unknown customer";
+
+  const provider =
+    actor?.social_provider ||
+    actor?.signup_provider ||
+    actor?.auth_provider ||
+    actor?.provider;
+
+  const accountSource = provider
+    ? formatProviderLabel(provider)
+    : actor?.email
+    ? "email"
+    : "unknown";
+
+  return {
+    name: fallbackName,
+    accountSource,
+  };
 };
 
 type RespondTicket = {
@@ -92,7 +161,44 @@ type RespondTicket = {
   messages?: { results?: unknown[] } | unknown[];
 };
 
-const page = () => {
+type TicketMessage = {
+  id?: number | string;
+  content?: string | null;
+  attachment?: unknown;
+  sender?: { id?: number | string };
+  sender_id?: number | string;
+  sender_info?: { id?: number | string };
+  timestamp?: string;
+  created_at?: string;
+};
+
+const toTicketMessage = (value: unknown): TicketMessage | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  return value as TicketMessage;
+};
+
+const toMessageList = (
+  messages?: { results?: unknown[] } | unknown[]
+): TicketMessage[] => {
+  const source = Array.isArray(messages)
+    ? messages
+    : Array.isArray(messages?.results)
+    ? messages.results
+    : [];
+
+  return source
+    .map((message) => toTicketMessage(message))
+    .filter((message): message is TicketMessage => Boolean(message));
+};
+
+type MessageFormValues = {
+  message: string;
+};
+
+const TicketRespondPage: React.FC = () => {
   const APP_STATE = useAuthContext();
   const currentUser = APP_STATE?.user?.user_id;
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -115,6 +221,7 @@ const page = () => {
   });
 
   const ticketDetails = (ticket || null) as RespondTicket | null;
+  const customerIdentity = getCustomerIdentity(ticketDetails?.user);
 
   const roleData = (data || null) as
     | { name?: string; current_permission_group_slugs?: string[] }
@@ -209,8 +316,14 @@ const page = () => {
               <p className="text-[16px] font-semibold text-[#4E4F52]">
                 Customer:{" "}
                 <span className="font-medium">
-                  {ticketDetails?.user?.first_name || "N/A"}{" "}
-                  {ticketDetails?.user?.last_name || "N/A"}
+                  {customerIdentity.name}
+                </span>
+              </p>
+              <div className="w-2 h-2 bg-[#9B9EA4] rounded-full"></div>
+              <p className="text-[16px] font-semibold text-[#4E4F52]">
+                Account source:{" "}
+                <span className="font-medium capitalize">
+                  {customerIdentity.accountSource}
                 </span>
               </p>
               <div className="w-2 h-2 bg-[#9B9EA4] rounded-full"></div>
@@ -305,11 +418,40 @@ const page = () => {
   );
 };
 
-const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
+const getAttachmentUrl = (attachment: unknown): string => {
+  if (typeof attachment === "string") {
+    return attachment;
+  }
+
+  if (attachment && typeof attachment === "object") {
+    const attachmentObject = attachment as { url?: unknown; file?: unknown };
+
+    if (typeof attachmentObject.url === "string") {
+      return attachmentObject.url;
+    }
+
+    if (typeof attachmentObject.file === "string") {
+      return attachmentObject.file;
+    }
+  }
+
+  return "";
+};
+
+type ChatProps = {
+  ticket: RespondTicket | null;
+  loadingTicket: boolean;
+  isAdmin: boolean;
+  currentUser?: string | number;
+};
+
+const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: ChatProps) => {
   const { claiming, onClaiming } = useClaimTicket();
   const { responding, onRespondToTicket } = useRespondToTicket();
 
-  const [messages, setMessages] = useState(ticket?.messages || []);
+  const [messages, setMessages] = useState<TicketMessage[]>(
+    toMessageList(ticket?.messages)
+  );
   const lastMessageRef = useRef<HTMLDivElement | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -321,7 +463,7 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    setMessages(ticket?.messages.results || []);
+    setMessages(toMessageList(ticket?.messages));
   }, [ticket]);
 
   useEffect(() => {
@@ -337,6 +479,7 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
       // Check file size (limit to 10MB for example)
       if (file.size > 10 * 1024 * 1024) {
         alert("File size must be less than 10MB");
+        event.target.value = "";
         return;
       }
 
@@ -358,6 +501,7 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
         alert(
           "Please select a valid file type (images, PDF, Word, Excel, or text files)"
         );
+        event.target.value = "";
         return;
       }
 
@@ -400,20 +544,23 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
     return formData;
   };
 
-  const formik = useFormik<{ message: string }>({
+  const formik = useFormik<MessageFormValues>({
     initialValues: {
       message: "",
     },
     validationSchema: Yup.object({
       message: Yup.string(), // Remove required validation
     }),
-    onSubmit: async (
-      values: { message: string },
-      { resetForm }: FormikHelpers<{ message: string }>
-    ) => {
+    onSubmit: async (values, { resetForm }) => {
       // Check if there's either a message or an attachment
       if (!values.message.trim() && !selectedFile) {
         alert("Please enter a message or select a file to send");
+        return;
+      }
+
+      const ticketId = ticket?.id ? String(ticket.id) : "";
+      if (!ticketId) {
+        alert("Unable to send message: ticket not found.");
         return;
       }
 
@@ -428,14 +575,11 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
         ticket?.claimed_admin?.id !== currentUser
       ) {
         try {
-          const ticketId = ticket?.id ? String(ticket.id) : "";
-          if (!ticketId) return;
-
           await onClaiming({
             TicketId: ticketId,
             isShow: false,
           });
-        } catch (error) {
+        } catch {
           return;
         }
       }
@@ -446,26 +590,26 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
         // Create FormData payload with message and file
         const payload = createMessagePayload(messageToSend, selectedFile);
 
-        onRespondToTicket({
-          TicketId: ticket?.id ? String(ticket.id) : "",
-          payload,
-          successCallback: () => {
-            const newMessage = {
-              id: new Date().toISOString(),
-              content: messageToSend || null,
-              attachment: selectedFile
-                ? URL.createObjectURL(selectedFile)
-                : null, // Temporary preview URL
-              sender: { id: currentUser },
-              timestamp: new Date().toISOString(),
-            };
-            setMessages((prevMessages: any) => [...prevMessages, newMessage]);
-            resetForm();
-            removeSelectedFile();
-            setIsSubmitting(false);
-          },
-        });
-      } catch (error) {
+        await Promise.resolve(
+          onRespondToTicket({
+            TicketId: ticketId,
+            payload,
+            successCallback: () => {
+              const newMessage: TicketMessage = {
+                id: new Date().toISOString(),
+                content: messageToSend || null,
+                attachment: selectedFile ? URL.createObjectURL(selectedFile) : null,
+                sender: { id: currentUser },
+                timestamp: new Date().toISOString(),
+              };
+              setMessages((prevMessages) => [...prevMessages, newMessage]);
+              resetForm();
+              removeSelectedFile();
+              setIsSubmitting(false);
+            },
+          })
+        );
+      } catch {
         setIsSubmitting(false);
         alert("Failed to send message. Please try again.");
       }
@@ -524,11 +668,23 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
         <MessageLoading />
       ) : (
         <div className="flex-1 overflow-auto p-4 space-y-2">
-          {messages.map((mes: any, index: number) => {
-            const isUser = ticket?.user.id === mes.sender.id;
+          {messages.map((mes, index) => {
+            const customerId =
+              ticket?.user?.id ||
+              (ticket?.user as TicketActor & { user_id?: string | number; pk?: string | number } | undefined)
+                ?.user_id ||
+              (ticket?.user as TicketActor & { user_id?: string | number; pk?: string | number } | undefined)
+                ?.pk;
+            const senderId =
+              mes?.sender?.id || mes?.sender_id || mes?.sender_info?.id;
+            const isUser =
+              String(customerId || "") !== "" &&
+              String(senderId || "") !== "" &&
+              String(customerId) === String(senderId);
+            const attachmentUrl = getAttachmentUrl(mes?.attachment);
             return (
               <div
-                key={mes.id}
+                key={mes.id ?? `${mes.created_at ?? "message"}-${index}`}
                 className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 ref={index === messages.length - 1 ? lastMessageRef : null}
               >
@@ -551,18 +707,18 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
                   )}
 
                   {/* Image Attachment */}
-                  {mes.attachment && (
+                  {attachmentUrl && (
                     <div
                       className={`flex ${
                         isUser ? "justify-end" : "justify-start"
                       }`}
                     >
-                      {mes.attachment.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+                      {/\.(jpeg|jpg|gif|png|webp)$/i.test(attachmentUrl) ? (
                         <img
-                          src={mes.attachment}
+                          src={attachmentUrl}
                           alt="Attachment"
                           className="w-[250px] h-auto rounded-lg shadow-lg cursor-pointer"
-                          onClick={() => setModalImage(mes.attachment)}
+                          onClick={() => setModalImage(attachmentUrl)}
                         />
                       ) : (
                         <div className="bg-white p-3 rounded-lg shadow-lg border max-w-[250px]">
@@ -581,13 +737,12 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
                               />
                             </svg>
                             <a
-                              href={mes.attachment}
+                              href={attachmentUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:text-blue-800 text-sm font-medium truncate"
                             >
-                              {mes.attachment.split("/").pop() ||
-                                "Download File"}
+                              {attachmentUrl.split("/").pop() || "Download File"}
                             </a>
                           </div>
                         </div>
@@ -601,7 +756,7 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: any) => {
                       isUser ? "text-right" : "text-left"
                     }`}
                   >
-                    {format(new Date(mes.timestamp), "do MMMM : h:mmaaa")}
+                    {formatDate(mes?.timestamp || mes?.created_at)}
                   </span>
                 </div>
               </div>
@@ -815,4 +970,4 @@ const DetailsLoader = () => {
   );
 };
 
-export default page;
+export default TicketRespondPage;

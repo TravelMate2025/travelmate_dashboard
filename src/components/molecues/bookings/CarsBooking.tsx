@@ -15,7 +15,6 @@ interface FilterProps {
   selectedOption: string;
   selectedStartDate?: string;
   selectedEndDate?: string;
-  selectedDate?: string;
   currency: string;
 }
 
@@ -26,6 +25,7 @@ interface CarPassenger {
 
 interface CarBooking {
   id?: string | number;
+  booking_id?: string | number;
   booking_reference?: string;
   passenger_name?: string;
   pickup_location_label?: string;
@@ -34,6 +34,7 @@ interface CarBooking {
   total_amount?: string | number;
   payment_status?: string;
   booking_status?: string;
+  status?: string;
   created_at?: string;
   date_booked?: string;
   [key: string]: unknown;
@@ -46,6 +47,8 @@ interface CarBookingsProps {
   loading: boolean;
   onLoadMore: () => void;
   hasMore: boolean;
+  activeStatusTab: string;
+  onStatusTabChange?: (status: string) => void;
 }
 
 const CarBookings: React.FC<CarBookingsProps> = ({
@@ -55,8 +58,9 @@ const CarBookings: React.FC<CarBookingsProps> = ({
   loading,
   onLoadMore,
   hasMore,
+  activeStatusTab,
+  onStatusTabChange,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<string>("ongoing");
 
   const styling =
     "h-full data-[state=active]:text-[#181818] data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:rounded-none data-[state=active]:border-b-[3px] data-[state=active]:border-b-[#181818] data-[state=active]:mb-0 flex items-center justify-center cursor-pointer bg-transparent shadow-none rounded-none text-[18px] text-[#4E4F52] font-[400] ";
@@ -65,20 +69,53 @@ const CarBookings: React.FC<CarBookingsProps> = ({
   const filteredData = useMemo(() => {
     if (!Array.isArray(bookings)) return [];
 
-    return bookings.filter((item) => {
-      const status = item.booking_status?.toLowerCase();
-      switch (activeSubTab) {
-        case "ongoing":
-          return status === "pending" || status === "confirmed";
-        case "completed":
-          return status === "completed";
-        case "cancelled":
-          return status === "cancelled";
-        default:
-          return true;
+    const normalizeStatus = (value?: string) =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+
+    const matchesActiveTab = (item: CarBooking) => {
+      if (activeStatusTab === "all") return true;
+
+      const bookingStatus = normalizeStatus(item.booking_status || item.status);
+      const paymentStatus = normalizeStatus(item.payment_status);
+
+      if (activeStatusTab === "ongoing") {
+        return bookingStatus === "ongoing";
       }
-    });
-  }, [bookings, activeSubTab]);
+
+      if (activeStatusTab === "completed") {
+        return bookingStatus === "completed" || bookingStatus === "confirmed";
+      }
+
+      if (activeStatusTab === "pending") {
+        return bookingStatus === "pending" ||
+          paymentStatus === "pending" ||
+          paymentStatus === "refund_pending";
+      }
+
+      if (activeStatusTab === "refunded") {
+        return bookingStatus === "refunded" || paymentStatus === "refunded";
+      }
+
+      return bookingStatus === activeStatusTab;
+    };
+
+    const getBookingTimestamp = (item: CarBooking) => {
+      const dateValue = item.created_at || item.date_booked;
+      if (!dateValue) return 0;
+
+      const timestamp = new Date(dateValue).getTime();
+      return Number.isNaN(timestamp) ? 0 : timestamp;
+    };
+
+    const tabFiltered = bookings.filter(matchesActiveTab);
+
+    return [...tabFiltered].sort(
+      (a, b) => getBookingTimestamp(b) - getBookingTimestamp(a)
+    );
+  }, [bookings, activeStatusTab]);
 
   // Format amount
   const formatAmount = (amount: string | number) => {
@@ -100,10 +137,14 @@ const CarBookings: React.FC<CarBookingsProps> = ({
       case "completed":
       case "confirmed":
       case "paid":
+      case "succeeded":
         return "text-[#2D9C5E] border-[#2D9C5E] bg-[#2D9C5E1A]";
       case "cancelled":
       case "failed":
+      case "refunded":
         return "text-[#E74C3C] border-[#E74C3C] bg-[#E74C3C1A]";
+      case "ongoing":
+        return "text-[#0084D9] border-[#0084D9] bg-[#0084D91A]";
       case "pending":
       default:
         return "text-[#EFB608] border-[#EFB608] bg-[#EFB60833]";
@@ -121,16 +162,30 @@ const CarBookings: React.FC<CarBookingsProps> = ({
       <h2 className="text-lg font-semibold px-4 mb-4">{title}</h2>
 
       {/* Tabs for status filters */}
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
+      <Tabs
+        value={activeStatusTab}
+        onValueChange={(value) => {
+          onStatusTabChange?.(value);
+        }}
+      >
         <TabsList className="flex space-x-6 items-center bg-transparent shadow-none rounded-none pb-0">
+          <TabsTrigger value="all" className={styling}>
+            All
+          </TabsTrigger>
           <TabsTrigger value="ongoing" className={styling}>
             Ongoing
+          </TabsTrigger>
+          <TabsTrigger value="pending" className={styling}>
+            Pending
           </TabsTrigger>
           <TabsTrigger value="completed" className={styling}>
             Completed
           </TabsTrigger>
           <TabsTrigger value="cancelled" className={styling}>
             Cancelled
+          </TabsTrigger>
+          <TabsTrigger value="refunded" className={styling}>
+            Refunded
           </TabsTrigger>
         </TabsList>
 
@@ -178,9 +233,9 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                     ))}
                   </TableRow>
                 ))
-              ) : bookings.length > 0 ? (
+              ) : filteredData.length > 0 ? (
                 <>
-                  {bookings.map((item) => (
+                  {filteredData.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="text-[14px] font-[400] text-[#181818] py-3 px-4">
                         {item.booking_reference || "N/A"}
@@ -228,14 +283,17 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                       <TableCell className="py-3 px-4">
                         <div
                           className={`border-[1px] rounded-[12px] text-[14px] font-[400] p-[10px] w-fit ${getStatusStyling(
-                            item.booking_status
+                            item.booking_status || item.status
                           )}`}
                         >
-                          {item.booking_status || "PENDING"}
+                          {item.booking_status || item.status || "PENDING"}
                         </div>
                       </TableCell>
                       <TableCell className="py-3 px-4 cursor-pointer">
-                        <BookingTableDropdown bookingId={item.id} />
+                        <BookingTableDropdown
+                          bookingId={item.booking_id || item.booking_reference || item.id}
+                          bookingType="transfers"
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
