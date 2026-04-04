@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import TicketService from "@/services/ticket";
+import ChatService from "@/services/chat";
 import axios from "axios";
 import env from "@/config/env";
 import instance from "@/hooks/initializers/useAxiosDefaults";
@@ -25,10 +26,22 @@ export interface Ticket {
   user: User;
   messages: unknown[];
   escalated: boolean;
-  escalation_level: string | null;
-  escalation_reason: string | null;
-  escalation_response_time: string | null;
-  escalation_note: string | null;
+  escalation_role?: {
+    id: number;
+    name: string;
+    description: string;
+  } | null;
+  escalation_reason?: string | null;
+  escalation_response_time?: string | null;
+  escalation_note?: string | null;
+  escalated_by?: User | null;
+  escalated_at?: string | null;
+  claimed_admin?: User | null;
+  claim_timestamp?: string | null;
+  escalation_note_text?: string | null;
+  claim_note_text?: string | null;
+  escalation_history?: string | null;
+  claim_history?: string | null;
 }
 
 interface Level {
@@ -39,6 +52,55 @@ interface Level {
 
 type TicketFilters = Record<string, string | number | boolean | null | undefined>;
 
+export type TicketListFilters = {
+  status?: string;
+  date?: string;
+  search?: string;
+  role?: number;
+  escalation_role?: number;
+  limit?: number;
+  offset?: number;
+};
+
+type TicketStatsFilters = {
+  days?: number;
+  weeks?: number;
+  months?: number;
+  years?: number;
+};
+
+export type TicketStatsResponse = {
+  unresolved_escalated?: {
+    count?: number;
+    tickets?: unknown[];
+  };
+  resolved_tickets?: {
+    count?: number;
+    tickets?: unknown[];
+  };
+  categories?: Array<{
+    category?: string;
+    total?: number;
+    pending?: number;
+    resolved?: number;
+    escalated?: number;
+  }>;
+  escalation_roles?: Array<{
+    escalation_role?: string;
+    total?: number;
+    pending?: number;
+    resolved?: number;
+  }>;
+  pending_tickets?: {
+    count?: number;
+    tickets?: unknown[];
+  };
+  average_response_time?: {
+    seconds?: number;
+    human_readable?: string;
+  };
+};
+
 export const useGetAllTickets = () => {
   const BASE_URL = env.api.ticket;
 
@@ -46,7 +108,7 @@ export const useGetAllTickets = () => {
   const [nextPageUrl, setNextPageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFiltersState] = useState<TicketFilters>({});
+  const [filters, setFiltersState] = useState<TicketListFilters>({});
   const hasFetchedInitial = useRef(false);
   const isFetching = useRef(false); // Prevent redundant fetches
 
@@ -97,7 +159,7 @@ export const useGetAllTickets = () => {
   );
 
   // Set filters with deep comparison to prevent redundant updates
-  const setFilters = (newFilters: TicketFilters) => {
+  const setFilters = (newFilters: TicketListFilters) => {
     setFiltersState((prevFilters) => {
       const prevString = JSON.stringify(prevFilters);
       const newString = JSON.stringify(newFilters);
@@ -233,8 +295,8 @@ export function useGetAllEscalationReasons({
 }
 
 type TEscalate = {
-  escalation_level: number;
-  escalation_reason: number;
+  escalation_role: number;
+  escalation_reason: string;
   escalation_note: string;
   escalation_response_time: string;
 };
@@ -328,80 +390,163 @@ export const useCreateEscalationLevel = () => {
   return { loading, onEsccalationLevel, isSuccess };
 };
 
-type TRespond = {
-  content: string;
-  attachment?: File;
-};
+export function useGetAllTicketStats({
+  initialFetch = true,
+  defaultFilters = { days: 7 },
+  successCallback,
+  errorCallback,
+}: {
+  initialFetch?: boolean;
+  defaultFilters?: TicketStatsFilters;
+  successCallback?: (message: string) => void;
+  errorCallback?: (props: { message?: string; description?: string }) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<TicketStatsResponse | null>(null);
+  const [filters, setFilters] = useState<TicketStatsFilters>(defaultFilters);
 
-export const useRespondToTicket = () => {
-  const [responding, setLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-
-  const onRespondToTicket = async ({
-    TicketId,
-    payload,
-    successCallback,
-  }: {
-    TicketId: string;
-    payload: FormData;
-    successCallback?: () => void;
-  }) => {
+  const fetchTicketsStats = async () => {
     setLoading(true);
-    setIsSuccess(false);
     try {
-      const res = await TicketService.respondToTicket({ TicketId, payload });
-      const message = res.data.detail || "Ticket response sent sucessfully";
+      const response = await TicketService.getTicketsStats(filters);
+      setData(response.data);
+      successCallback?.("Tickets fetched successfully.");
+    } catch (error: unknown) {
+      const status = axios.isAxiosError(error)
+        ? error.response?.status
+        : undefined;
+      const errorDescription = axios.isAxiosError(error)
+        ? error.response?.data?.detail || error.response?.data?.message || error.message
+        : error instanceof Error
+          ? error.message
+          : "Unknown error";
 
-      showSuccessToast({ message });
+      setData((prev) =>
+        prev ?? {
+          pending_tickets: { count: 0, tickets: [] },
+          resolved_tickets: { count: 0, tickets: [] },
+          unresolved_escalated: { count: 0, tickets: [] },
+          average_response_time: { seconds: 0, human_readable: "0s" },
+        }
+      );
 
-      try {
-        successCallback?.();
-      } catch (callbackError) {
-        console.error("Error in successCallback:", callbackError);
+      if (status === 502) {
+        showErrorToast({
+          message: "Ticket stats are temporarily unavailable",
+          description: "Please try again shortly.",
+        });
       }
 
-      setIsSuccess(true);
-    } catch (error: unknown) {
-      const errorMessage =
-        axios.isAxiosError(error)
-          ? error.response?.data?.message ||
-            "Unable to respond to ticket at the moment!"
-          :
-        "Unable to respond to ticket at the moment!";
-      showErrorToast({ message: errorMessage });
+      errorCallback?.({
+        message:
+          status === 502
+            ? "Ticket stats are temporarily unavailable"
+            : "An error occurred while fetching tickets",
+        description: errorDescription,
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  return { responding, onRespondToTicket, isSuccess };
+  const updateFilters = (newFilters: TicketStatsFilters) => {
+    setFilters((prevFilters) => {
+      const nextFilters = { ...prevFilters, ...newFilters };
+      const prevString = JSON.stringify(prevFilters);
+      const nextString = JSON.stringify(nextFilters);
+
+      if (prevString === nextString) {
+        return prevFilters;
+      }
+
+      return nextFilters;
+    });
+  };
+
+  const updateDays = (newDays: number) => {
+    updateFilters({ days: newDays, weeks: undefined, months: undefined, years: undefined });
+  };
+
+  useEffect(() => {
+    if (initialFetch) fetchTicketsStats();
+  }, [initialFetch, filters]);
+
+  return {
+    loading,
+    data,
+    updateDays,
+    updateFilters,
+    fetchTicketsStats,
+  };
+}
+
+type TicketMessage = {
+  id?: number | string;
+  ticket?: number | string;
+  sender_id?: number | string;
+  sender_name?: string;
+  content?: string;
+  attachment?: string | null;
+  attachment_url?: string | null;
+  created_at?: string;
+  is_staff?: boolean;
 };
 
-export function useGetAllTicketStats({
+export function useGetTicketMessages({
+  ticketPk,
+  admin = true,
   initialFetch = true,
-  defaultDays = 7,
-  successCallback,
-  errorCallback,
 }: {
+  ticketPk?: string | number;
+  admin?: boolean;
   initialFetch?: boolean;
-  defaultDays?: number;
-  successCallback?: (message: string) => void;
-  errorCallback?: (props: { message?: string; description?: string }) => void;
 }) {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<unknown>([]);
-  const [days, setDays] = useState<number>(defaultDays);
+  const [data, setData] = useState<{
+    count?: number;
+    next?: string | null;
+    previous?: string | null;
+    results?: TicketMessage[];
+  } | null>(null);
 
-  const fetchTicketsStats = async () => {
+  const flattenMessages = (results?: unknown[]) => {
+    if (!Array.isArray(results)) {
+      return [] as TicketMessage[];
+    }
+
+    return results.flatMap((entry) => {
+      if (Array.isArray(entry)) {
+        return entry.filter((item): item is TicketMessage => Boolean(item));
+      }
+
+      return entry ? [entry as TicketMessage] : [];
+    });
+  };
+
+  const fetchMessages = async () => {
+    if (!ticketPk) return;
+
     setLoading(true);
     try {
-      const response = await TicketService.getTicketsStats({ days });
-      setData(response.data);
-      successCallback?.("Tickets fetched successfully.");
+      const response = await TicketService.getTicketMessages({
+        ticketPk,
+        admin,
+      });
+
+      const payload = response.data;
+      const rawResults = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.results)
+          ? payload.results
+          : [];
+
+      setData({
+        ...(Array.isArray(payload) ? { count: payload.length } : payload),
+        results: flattenMessages(rawResults),
+      });
     } catch (error: unknown) {
-      console.error("Error fetching tickets:", error);
-      errorCallback?.({
-        message: "An error occurred while fetching tickets",
+      showErrorToast({
+        message: "An error occurred while fetching ticket messages",
         description: error instanceof Error ? error.message : "Unknown error",
       });
     } finally {
@@ -409,23 +554,71 @@ export function useGetAllTicketStats({
     }
   };
 
-  const updateDays = (newDays: number) => {
-    if (newDays !== days) {
-      setDays(newDays);
-      fetchTicketsStats(); // Fetch data with the updated days
+  useEffect(() => {
+    if (initialFetch) fetchMessages();
+  }, [initialFetch, ticketPk, admin]);
+
+  return { loading, data, fetchMessages };
+}
+
+export function useCreateTicketMessage() {
+  const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const onCreateTicketMessage = async ({
+    ticketPk,
+    payload,
+    admin = true,
+    successCallback,
+  }: {
+    ticketPk: string | number;
+    payload: { content: string; attachment?: File | null };
+    admin?: boolean;
+    successCallback?: () => void;
+  }) => {
+    setLoading(true);
+    setIsSuccess(false);
+    try {
+      let attachmentUrl: string | null | undefined = null;
+
+      if (payload.attachment) {
+        const uploadResponse = await ChatService.uploadAttachment(
+          payload.attachment
+        );
+        attachmentUrl =
+          uploadResponse.data?.url ||
+          uploadResponse.data?.file ||
+          uploadResponse.data?.attachment ||
+          uploadResponse.data?.path ||
+          uploadResponse.data ||
+          null;
+      }
+
+      const response = await TicketService.createTicketMessage({
+        ticketPk,
+        payload: {
+          content: payload.content,
+          attachment: attachmentUrl,
+        },
+        admin,
+      });
+
+      showSuccessToast({
+        message: response.data?.detail || "Message added successfully.",
+      });
+      successCallback?.();
+      setIsSuccess(true);
+    } catch (error: unknown) {
+      showErrorToast({
+        message: "Unable to add ticket message at the moment.",
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (initialFetch) fetchTicketsStats();
-  }, [initialFetch, days]);
-
-  return {
-    loading,
-    data,
-    updateDays,
-    fetchTicketsStats,
-  };
+  return { loading, onCreateTicketMessage, isSuccess };
 }
 
 export function useClaimTicket() {
@@ -479,15 +672,25 @@ export const useResolveTicket = () => {
 
   const onResolveTicket = async ({
     TicketId,
+    payload,
     successCallback,
   }: {
     TicketId: string;
+    payload?: {
+      title?: string;
+      category?: string;
+      description?: string;
+      status?: string;
+      escalation_reason?: string;
+      escalation_response_time?: string;
+      escalation_note?: string;
+    };
     successCallback?: () => void;
   }) => {
     setLoading(true);
     setIsSuccess(false);
     try {
-      const res = await TicketService.resolveTicket(TicketId);
+      const res = await TicketService.resolveTicketWithPayload(TicketId, payload);
       const message = res.data.detail || "Ticket response sent sucessfully";
 
       showSuccessToast({ message });
@@ -503,9 +706,9 @@ export const useResolveTicket = () => {
       const errorMessage =
         axios.isAxiosError(error)
           ? error.response?.data?.message ||
-            "Unable to respond to ticket at the moment!"
+            "Unable to resolve ticket at the moment!"
           :
-        "Unable to respond to ticket at the moment!";
+        "Unable to resolve ticket at the moment!";
       showErrorToast({ message: errorMessage });
     } finally {
       setLoading(false);
@@ -515,8 +718,50 @@ export const useResolveTicket = () => {
   return { resolving, onResolveTicket, isSuccess };
 };
 
+export const useDeleteTicket = () => {
+  const [deleting, setDeleting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const onDeleteTicket = async ({
+    TicketId,
+    successCallback,
+  }: {
+    TicketId: string;
+    successCallback?: () => void;
+  }) => {
+    setDeleting(true);
+    setIsSuccess(false);
+    try {
+      await TicketService.deleteTicket({ TicketId });
+      const message = "Ticket deleted successfully";
+
+      showSuccessToast({ message });
+
+      try {
+        successCallback?.();
+      } catch (callbackError) {
+        console.error("Error in successCallback:", callbackError);
+      }
+
+      setIsSuccess(true);
+    } catch (error: unknown) {
+      const errorMessage =
+        axios.isAxiosError(error)
+          ? error.response?.data?.message ||
+            "Unable to delete ticket at the moment!"
+          :
+        "Unable to delete ticket at the moment!";
+      showErrorToast({ message: errorMessage });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return { deleting, onDeleteTicket, isSuccess };
+};
+
 export const useGetAllEscalatedTickets = () => {
-  const BASE_URL = env.api.ticket;
+  const BASE_URL = `${env.api.ticket}escalated/`;
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [nextPageUrl, setNextPageUrl] = useState<string | null>(null); // Pagination disabled
@@ -529,8 +774,6 @@ export const useGetAllEscalatedTickets = () => {
   // Build URL with filters
   const buildUrl = useCallback(() => {
     const params = new URLSearchParams();
-
-    params.set("escalated", "true");
 
     Object.entries(filters).forEach(([key, value]) => {
       if (

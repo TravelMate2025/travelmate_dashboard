@@ -15,13 +15,35 @@ type DashboardRevenue = {
   total_revenue: number;
   car_revenue: number;
   flight_revenue: number;
-  currency: "NGN";
+  currency: string;
+};
+
+type DashboardActivity = {
+  user_full_name: string;
+  profile_picture: string;
+  booking_type: string;
+  amount: number;
+  date: string;
+};
+
+type DashboardMessage = {
+  id: string;
+  type: string;
+  title: string;
+  content: string;
+  sender: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
+  created_at: string;
+  link: string;
 };
 
 type DashboardSetters = {
   setBookings: (data: DashboardSummary) => void;
-  setActivity: (data: unknown[]) => void;
-  setMessages: (data: unknown[]) => void;
+  setActivity: (data: DashboardActivity[]) => void;
+  setMessages: (data: DashboardMessage[]) => void;
   setLoading: (data: boolean) => void;
   setRevenue: (data: DashboardRevenue) => void;
   setUsers: (data: DashboardUsers) => void;
@@ -30,6 +52,82 @@ type DashboardSetters = {
 
 type DashboardOptions = {
   isSuperadmin?: boolean;
+};
+
+const toNumber = (value: unknown): number => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value !== "string") {
+    return 0;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "-") {
+    return 0;
+  }
+
+  const normalized = trimmed.replace(/[^0-9.-]/g, "");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const toStringValue = (value: unknown): string => {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return String(value);
+  }
+  return "";
+};
+
+const toMessageArray = (payload: unknown): DashboardMessage[] => {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload.map((item) => {
+    const source = item as Record<string, unknown>;
+    const senderSource =
+      source.sender && typeof source.sender === "object"
+        ? (source.sender as Record<string, unknown>)
+        : null;
+
+    return {
+      id: toStringValue(source.id),
+      type: toStringValue(source.type),
+      title: toStringValue(source.title),
+      content: toStringValue(source.content),
+      sender: senderSource
+        ? {
+            id: toNumber(senderSource.id),
+            name: toStringValue(senderSource.name),
+            email: toStringValue(senderSource.email),
+          }
+        : null,
+      created_at: toStringValue(source.created_at),
+      link: toStringValue(source.link),
+    };
+  });
+};
+
+const toActivityArray = (payload: unknown): DashboardActivity[] => {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+
+  return payload.map((item) => {
+    const source = item as Record<string, unknown>;
+    return {
+      user_full_name: toStringValue(source.user_full_name),
+      profile_picture: toStringValue(source.profile_picture),
+      booking_type: toStringValue(source.booking_type),
+      amount: toNumber(source.amount),
+      date: toStringValue(source.date),
+    };
+  });
 };
 
 const toBookingsArray = (payload: unknown): unknown[] => {
@@ -86,6 +184,7 @@ export async function fetchDashboardData(
       activities,
       messages,
       overviewResponse,
+      revenueResponse,
       statsResponse,
       userCountResponse,
       allBookings,
@@ -93,6 +192,7 @@ export async function fetchDashboardData(
         instance.get(env.api.dashboardactivities),
         instance.get(env.api.dashboardmessages),
         instance.get(env.api.dashboardoverview),
+        instance.get(env.api.dashboardrevenue),
         instance.get(env.api.dashboardbookings),
         instance.get(env.api.usercount),
         instance.get(env.api.bookingAdminList, {
@@ -103,6 +203,7 @@ export async function fetchDashboardData(
     const activitiesResponse = settledData(activities, { data: [] as unknown[] });
     const messagesResponse = settledData(messages, { data: [] as unknown[] });
     const overviewApiResponse = settledData(overviewResponse, { data: {} as Record<string, unknown> });
+    const revenueApiResponse = settledData(revenueResponse, { data: {} as Record<string, unknown> });
     const statsApiResponse = settledData(statsResponse, { data: {} as Record<string, unknown> });
     const userCountApiResponse = settledData(userCountResponse, { data: {} as Record<string, unknown> });
     const allBookingsApiResponse = settledData(allBookings, {
@@ -112,46 +213,44 @@ export async function fetchDashboardData(
     const overviewData = overviewApiResponse?.data || {};
     const statsData = statsApiResponse?.data || (overviewData as { stats?: Record<string, unknown> })?.stats || {};
     const userCountData = userCountApiResponse?.data || {};
-
-    setActivity(
+    const revenueData =
+      revenueApiResponse?.data ||
+      (overviewData as { revenue?: Record<string, unknown> })?.revenue ||
+      {};
+    const recentActivities =
       (activitiesResponse as { data?: unknown[] })?.data ??
-        (overviewData as { recent_activities?: unknown[] })?.recent_activities ??
-        []
-    );
-    setMessages(
+      (overviewData as { recent_activities?: unknown[] })?.recent_activities ??
+      [];
+    const latestMessages =
       (messagesResponse as { data?: unknown[] })?.data ??
-        (overviewData as { messages?: unknown[] })?.messages ??
-        []
-    );
+      (overviewData as { messages?: unknown[] })?.messages ??
+      [];
+
+    setActivity(toActivityArray(recentActivities));
+    setMessages(toMessageArray(latestMessages));
 
     const summaryData = overviewData;
 
     setBookings({
       total_bookings:
-        (statsData as { total_bookings?: number })?.total_bookings ??
-        (summaryData as { total_bookings?: number })?.total_bookings ??
-        (summaryData as { bookings?: number })?.bookings ??
-        0,
+        toNumber((statsData as { total_bookings?: unknown })?.total_bookings) ||
+        toNumber((summaryData as { total_bookings?: unknown })?.total_bookings) ||
+        toNumber((summaryData as { bookings?: unknown })?.bookings),
     });
 
     setUsers({
       total_normal_users:
-        (userCountData as { total_normal_users?: number })?.total_normal_users ??
-        (summaryData as { total_users?: number })?.total_users ??
-        (summaryData as { users?: number })?.users ??
-        0,
+        toNumber((userCountData as { total_normal_users?: unknown })?.total_normal_users) ||
+        toNumber((summaryData as { total_users?: unknown })?.total_users) ||
+        toNumber((summaryData as { users?: unknown })?.users),
     });
 
     if (isSuperadmin) {
-      const revenueData =
-        (summaryData as { revenue?: Record<string, number> })?.revenue ??
-        (summaryData as Record<string, number>);
-
       setRevenue({
-        total_revenue: revenueData?.total_revenue ?? 0,
-        car_revenue: revenueData?.car_revenue ?? 0,
-        flight_revenue: revenueData?.flight_revenue ?? 0,
-        currency: "NGN",
+        total_revenue: toNumber((revenueData as { total_revenue?: unknown })?.total_revenue),
+        car_revenue: toNumber((revenueData as { car_revenue?: unknown })?.car_revenue),
+        flight_revenue: toNumber((revenueData as { flight_revenue?: unknown })?.flight_revenue),
+        currency: toStringValue((revenueData as { currency?: unknown })?.currency) || "NGN",
       });
     }
 

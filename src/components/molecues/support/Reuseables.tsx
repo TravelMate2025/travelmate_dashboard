@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useCallback, act } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -38,17 +38,22 @@ type TicketDetails = {
   description?: string;
   created_at?: string;
   escalated?: boolean;
-  escalated_at?: string;
+  escalated_at?: string | null;
   escalation_reason?: string | null;
   escalation_role?: {
+    id?: string | number;
     name?: string;
-  };
-  escalated_by?: TicketActor;
+    description?: string;
+  } | null;
+  escalated_by?: TicketActor | null;
   claimed_admin?: TicketActor | null;
-  user?: TicketActor;
-  claim_history?: {
-    results?: TicketClaimHistoryItem[];
-  };
+  user?: TicketActor | null;
+  claim_history?:
+    | {
+        results?: TicketClaimHistoryItem[];
+      }
+    | string
+    | null;
 };
 
 type TicketDetailsDialogProps = {
@@ -107,15 +112,21 @@ const canAccessSupportTickets = ({
 export const TableDropdown = ({
   onViewDetails,
   onViewMessage,
+  onDeleteTicket,
 }: {
   parentWidth: number;
   onViewDetails?: () => void;
   onViewMessage?: () => void;
+  onDeleteTicket?: () => void;
 }) => {
   const options = [
     { label: "View Ticket Details", action: onViewDetails },
     { label: "Open Ticket Chat", action: onViewMessage },
-  ];
+    { label: "Delete Ticket", action: onDeleteTicket },
+  ].filter(
+    (option): option is { label: string; action: () => void } =>
+      typeof option.action === "function"
+  );
 
   return (
     <div className="relative overflow-visible">
@@ -163,10 +174,35 @@ export const TicketDetailsDialog = ({
   ticketLoading,
   onClose,
 }: TicketDetailsDialogProps) => {
+  const APP_STATE = useAuthContext();
+  const { claiming, onClaiming } = useClaimTicket();
+  const { data } = useMyRoles({ modalVisible: !!selectedTicket });
+  const currentUser = APP_STATE?.user?.user_id;
   const name = `${ticketDetails?.user?.first_name || "---"} ${
     ticketDetails?.user?.last_name || "---"
   }`;
   const formattedDate = formatCreatedAt(ticketDetails?.created_at, 2);
+  const currentRoleName = normalizeRoleName(data?.name);
+  const canClaimTicket = canAccessSupportTickets({
+    roleName: currentRoleName,
+    permissionSlugs: data?.current_permission_group_slugs,
+  });
+  const isAlreadyClaimed = Boolean(ticketDetails?.claimed_admin);
+  const isClaimedByCurrentUser =
+    ticketDetails?.claimed_admin?.id === currentUser;
+
+  const handleClaimTicket = useCallback(() => {
+    if (!ticketDetails?.id || !canClaimTicket) return;
+
+    onClaiming({
+      TicketId: String(ticketDetails.id),
+      successCallback: () => {
+        window.location.href = `/Dashboard/support/ticket/${String(
+          ticketDetails.id
+        )}/respond`;
+      },
+    });
+  }, [ticketDetails, canClaimTicket, onClaiming]);
   return (
     <div
       className={`fixed inset-0 z-100 bg-black/50 ${
@@ -181,9 +217,21 @@ export const TicketDetailsDialog = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b-[1px] w-full border-[#BCBEC2]">
-          <h2 className="font-[600] text-[16px] lg:text-[28px] px-[16px] lg:px-[32px] py-[8px] text-[#181818]">
-            Ticket Details
-          </h2>
+          <div className="flex items-center justify-between gap-4 px-[16px] lg:px-[32px] py-[8px]">
+            <h2 className="font-[600] text-[16px] lg:text-[28px] text-[#181818]">
+              Ticket Details
+            </h2>
+            {!isAlreadyClaimed && !isClaimedByCurrentUser && canClaimTicket && (
+              <button
+                type="button"
+                className="rounded-[8px] bg-[#023E8A] px-4 py-2 text-white font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={handleClaimTicket}
+                disabled={claiming || ticketLoading}
+              >
+                {claiming ? "Claiming..." : "Claim Ticket"}
+              </button>
+            )}
+          </div>
         </div>
         <div className="space-y-6">
           <div className="px-[16px] lg:px-[32px] space-y-6">
@@ -308,7 +356,6 @@ export const ViewingChatModal = ({
 }) => {
   const APP_STATE = useAuthContext();
   const router = useRouter();
-  const { claiming, onClaiming } = useClaimTicket();
   const currentUser = APP_STATE?.user?.user_id;
 
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -387,26 +434,6 @@ export const ViewingChatModal = ({
     escalationRoleName,
   ]);
 
-  const handleClaimTicket = useCallback(
-    (ticketDetails: TicketDetails) => {
-      if (!ticketDetails?.id) return;
-
-      if (!canViewMessage) {
-        setShowNotAuthorized(true); // Show NotAuthorizedModal
-        return;
-      }
-
-      onClaiming({
-        TicketId: ticketDetails.id,
-        successCallback: () =>
-          router.push(`/Dashboard/support/ticket/${ticketDetails.id}/respond`),
-      });
-
-      console.log(`Claim ticket triggered for ticket ID: ${ticketDetails.id}`);
-    },
-    [onClaiming, router, canViewMessage]
-  );
-
   const handleEscalateTicket = useCallback(() => {
     if (!canViewMessage) {
       setShowNotAuthorized(true); // Show NotAuthorizedModal
@@ -459,24 +486,16 @@ export const ViewingChatModal = ({
               <UnclaimedTicketSection
                 ticketDetails={ticketDetails!}
                 formattedDate={formattedDate}
-                claiming={claiming}
-                handleClaimTicket={handleClaimTicket}
                 handleEscalateTicket={handleEscalateTicket}
               />
             ) : isClaimedByCurrentUser ? (
               <UnclaimedTicketSection
                 ticketDetails={ticketDetails!}
                 formattedDate={formattedDate}
-                claiming={claiming}
-                handleClaimTicket={handleClaimTicket}
                 handleEscalateTicket={handleEscalateTicket}
               />
             ) : (
-              <ClaimedTicketSection
-                ticketDetails={ticketDetails!}
-                claiming={claiming}
-                handleClaimTicket={handleClaimTicket}
-              />
+              <ClaimedTicketSection ticketDetails={ticketDetails!} />
             )}
 
             <button
@@ -496,12 +515,8 @@ export const ViewingChatModal = ({
 
 const ClaimedTicketSection = ({
   ticketDetails,
-  claiming,
-  handleClaimTicket,
 }: {
   ticketDetails: TicketDetails;
-  claiming: boolean;
-  handleClaimTicket: (ticketDetails: TicketDetails) => void;
 }) => {
   const router = useRouter();
   return (
@@ -540,19 +555,6 @@ const ClaimedTicketSection = ({
               View Only
             </span>
           </div>
-
-          <div className="w-full lg:w-auto p-4 rounded-[8px] bg-[#023E8A] flex items-center space-x-3 justify-center cursor-pointer">
-            <span
-              className="text-[#fff] text-[20px] font-[500]"
-              onClick={() => handleClaimTicket(ticketDetails)}
-            >
-              {claiming ? (
-                <div className="w-5 h-5 border-4 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                "Yes, Proceed"
-              )}
-            </span>
-          </div>
         </div>
       </div>
     </>
@@ -562,15 +564,11 @@ const ClaimedTicketSection = ({
 const UnclaimedTicketSection = ({
   ticketDetails,
   formattedDate,
-  handleClaimTicket,
   handleEscalateTicket,
-  claiming,
 }: {
   ticketDetails: TicketDetails;
   formattedDate: string;
-  handleClaimTicket: (ticketDetails: TicketDetails) => void;
   handleEscalateTicket: () => void;
-  claiming: boolean;
 }) => {
   const router = useRouter();
   return (
@@ -602,22 +600,6 @@ const UnclaimedTicketSection = ({
             <span className="text-[#D72638] lg:text-[20px] text-[12px] font-[500]">
               Escalate Ticket
             </span>
-          </div>
-
-          <div
-            className="p-4 rounded-[8px] bg-[#023E8A] flex items-center space-x-3 w-full justify-center cursor-pointer"
-            onClick={() => handleClaimTicket(ticketDetails)}
-          >
-            {claiming ? (
-              <div className="w-5 h-5 border-4 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <>
-                <img src="/assets/icons/ModalDanger.svg" alt="" />
-                <span className="text-[#fff] lg:text-[20px] text-[12px] font-[500]">
-                  Claim Ticket
-                </span>
-              </>
-            )}
           </div>
         </div>
       </div>

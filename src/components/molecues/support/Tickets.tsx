@@ -7,15 +7,41 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { useState, useEffect } from "react";
-import { formatDistanceToNow, parseISO, format, addDays } from "date-fns";
 import {
   TableDropdown,
   TicketDetailsDialog,
   ViewingChatModal,
 } from "./Reuseables";
-import { useGetAllTickets, useGetTicket, type Ticket } from "@/hooks/api/ticket";
+import {
+  useDeleteTicket,
+  useGetAllTickets,
+  useGetTicket,
+  type Ticket,
+} from "@/hooks/api/ticket";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+const formatDisplayDate = (timestamp: string): string => {
+  const match = timestamp.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return "--/--/----";
+  const [, year, month, day] = match;
+  return `${day}/${month}/${year}`;
+};
+
+const formatDisplayTime = (timestamp: string): string => {
+  const match = timestamp.match(/T(\d{2}):(\d{2})/);
+  if (!match) return "--:--";
+  const [, hour, minute] = match;
+  return `${hour}:${minute}`;
+};
 
 type TicketTabContentProps = {
   searchTerm: string;
@@ -36,6 +62,8 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [pendingDeleteTicket, setPendingDeleteTicket] =
+    useState<TicketItem | null>(null);
 
   // Add state to track previous values for comparison
   const [prevSearchTerm, setPrevSearchTerm] = useState(searchTerm);
@@ -49,6 +77,7 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
     nextPageUrl,
     setFilters,
   } = useGetAllTickets();
+  const { deleting, onDeleteTicket } = useDeleteTicket();
 
   const [tickets, setTickets] = useState<TicketItem[]>([]);
 
@@ -85,7 +114,7 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
   }, [statusFilter, searchTerm, date, setFilters, prevSearchTerm, prevDate]);
 
   useEffect(() => {
-    if (fetchedTickets && fetchedTickets.length > 0) {
+    if (fetchedTickets) {
       setTickets(fetchedTickets);
       setIsLoadingMore(false);
       setIsInitialLoad(false);
@@ -139,11 +168,45 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
     loadNext();
   };
 
+  const handleDeleteTicket = (ticket: TicketItem) => {
+    if (!ticket?.id) return;
+
+    setPendingDeleteTicket(ticket);
+  };
+
+  const confirmDeleteTicket = () => {
+    if (!pendingDeleteTicket?.id) return;
+
+    onDeleteTicket({
+      TicketId: String(pendingDeleteTicket.id),
+      successCallback: () => {
+        setTickets((prevTickets) =>
+          prevTickets.filter(
+            (item) => String(item.id) !== String(pendingDeleteTicket.id)
+          )
+        );
+
+        if (String(ticketId) === String(pendingDeleteTicket.id)) {
+          handleDetailsDialogClose();
+          handleChatModalClose();
+        }
+
+        setPendingDeleteTicket(null);
+      },
+    });
+  };
+
   const normalizedSelectedTicketForDetails =
     isDetailsDialogOpen && selectedTicket
       ? {
           ...selectedTicket,
           escalation_reason: selectedTicket.escalation_reason ?? undefined,
+          escalated_at: selectedTicket.escalated_at ?? undefined,
+          escalation_role: selectedTicket.escalation_role ?? undefined,
+          claim_history:
+            typeof selectedTicket.claim_history === "string"
+              ? undefined
+              : selectedTicket.claim_history ?? undefined,
         }
       : null;
 
@@ -151,6 +214,12 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
     ? {
         ...ticketDetails,
         escalation_reason: ticketDetails.escalation_reason ?? undefined,
+        escalated_at: ticketDetails.escalated_at ?? undefined,
+        escalation_role: ticketDetails.escalation_role ?? undefined,
+        claim_history:
+          typeof ticketDetails.claim_history === "string"
+            ? undefined
+            : ticketDetails.claim_history ?? undefined,
       }
     : null;
 
@@ -256,10 +325,7 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
                         <TableCell className="table-cell border-none whitespace-nowrap">
                           <div className="space-y-2">
                             <p className="text-[#181818] text-[14px] font-[500]">
-                              {format(
-                                parseISO(ticket.created_at),
-                                "dd/MM/yyyy"
-                              )}
+                              {formatDisplayDate(ticket.created_at)}
                             </p>
                             <p className="text-[#9B9EA4] text-[12px]">
                               <span>{getRelativeTime(ticket.created_at)}</span>
@@ -290,6 +356,7 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
                             parentWidth={180}
                             onViewDetails={() => handleViewDetails(ticket)}
                             onViewMessage={() => handleViewMessage(ticket)}
+                            onDeleteTicket={() => handleDeleteTicket(ticket)}
                           />
                         </TableCell>
                       </TableRow>
@@ -305,7 +372,7 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
               <button
                 className="bg-[#EBECED] cursor-pointer rounded-[8px] px-[40px] py-[16px] flex items-center"
                 onClick={handleLoadMore}
-                disabled={isLoadingMore}
+                disabled={isLoadingMore || deleting}
               >
                 {isLoadingMore ? (
                   <div className="w-5 h-5 border-2 border-[#023E8A] border-t-transparent rounded-full animate-spin"></div>
@@ -330,13 +397,51 @@ export const TicketTabContent: React.FC<TicketTabContentProps> = ({
         ticketLoading={loadingTicket}
         onClose={handleChatModalClose}
       />
+
+      <Dialog
+        open={Boolean(pendingDeleteTicket)}
+        onOpenChange={(open) => {
+          if (!open && !deleting) {
+            setPendingDeleteTicket(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Ticket</DialogTitle>
+            <DialogDescription>
+              Delete this ticket? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700"
+              disabled={deleting}
+              onClick={() => setPendingDeleteTicket(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              disabled={deleting}
+              onClick={(event) => {
+                event.preventDefault();
+                confirmDeleteTicket();
+              }}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
 
 export function getRelativeTime(timestamp: string): string {
-  const date = parseISO(timestamp);
-  return formatDistanceToNow(date, { addSuffix: true });
+  return formatDisplayTime(timestamp);
 }
 
 const Skeleton = ({ rows = 5, columns = 4 }) => {

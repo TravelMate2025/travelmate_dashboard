@@ -11,13 +11,44 @@ type TAddFaq = {
   };
 };
 
+type TUpdateFaq = {
+  id: number;
+  payload: {
+    category?: number;
+    question?: string;
+    answer?: string;
+    is_active?: boolean;
+  };
+};
+
+type TAddFaqCategory = {
+  payload: {
+    name: "FLIGHTS" | "STAYS" | "CAR_RENTALS" | "ACCOUNT";
+    description?: string;
+    icon?: string;
+    order?: number;
+  };
+};
+
 class Service {
   getAllFaq() {
-    return instance.get(env.api.faq + "/categories/");
+    return instance.get(env.api.faqCategories);
   }
 
   addFaq({ payload }: TAddFaq) {
     return instance.post(env.api.faq + "/", payload);
+  }
+
+  updateFaq({ id, payload }: TUpdateFaq) {
+    return instance.put(env.api.faq + "/" + id + "/", payload);
+  }
+
+  patchFaq({ id, payload }: TUpdateFaq) {
+    return instance.patch(env.api.faq + "/" + id + "/", payload);
+  }
+
+  addFaqCategory({ payload }: TAddFaqCategory) {
+    return instance.post(env.api.faqCategories, payload);
   }
 
   deleteFaq({ id }: { id: number }) {

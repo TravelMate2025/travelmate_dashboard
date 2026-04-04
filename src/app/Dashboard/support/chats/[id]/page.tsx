@@ -3,9 +3,16 @@ import { MainChatComponents } from "@/components/molecues/support/Chats/MainChat
 import { getCookies } from "@/context/Auth-Cookies";
 import { getSingleRouteParam } from "@shared/lib/routeParams";
 
-const page = async ({ params }: { params: { id?: string; sessionId?: string } }) => {
+const page = async ({
+  params,
+}: {
+  params: Promise<{ id?: string; sessionId?: string }>;
+}) => {
   const { accessToken } = await getCookies();
-  const resolvedSessionId = getSingleRouteParam(params, "id") || getSingleRouteParam(params, "sessionId");
+  const resolvedParams = await params;
+  const resolvedSessionId =
+    getSingleRouteParam(resolvedParams, "id") ||
+    getSingleRouteParam(resolvedParams, "sessionId");
 
   return (
     <div className="">

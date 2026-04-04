@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { MessageProps } from '@/app/Dashboard/page';
 import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
@@ -11,10 +11,33 @@ const Chat = ({
   loading: boolean;
 }) => {
   const router = useRouter();
-  const getMeridian = (dateString: string) => {
-    const date = new Date(dateString);
-    const hour = date.getHours();
-    return hour >= 12 ? "PM" : "AM";
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const resolveMessageLink = (link?: string) => {
+    if (!link || typeof link !== "string") {
+      return "/Dashboard/support";
+    }
+
+    const trimmedLink = link.trim();
+    if (!trimmedLink) {
+      return "/Dashboard/support";
+    }
+
+    // Keep navigation inside the app when a relative path is returned.
+    if (trimmedLink.startsWith("/")) {
+      return trimmedLink;
+    }
+
+    try {
+      const parsed = new URL(trimmedLink);
+      return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/Dashboard/support";
+    } catch {
+      return "/Dashboard/support";
+    }
   };
   return (
     <div className="bg-[#fff] h-full px-4 py-[30px] rounded-[16px] overflow-y-auto">
@@ -46,6 +69,7 @@ const Chat = ({
                     ? ""
                     : "border-b-[2px] border-[#F5F5F5]"
                 }`}
+                onClick={() => router.push(resolveMessageLink(msg.link))}
               >
                 <img
                   src={
@@ -58,16 +82,22 @@ const Chat = ({
                 />
                 <div className="flex-1 justify-between flex items-center">
                   <p className="font-[400] text-sm text-[#181818] leading-[100%]">
-                    {msg.title.length > 15
-                      ? `${msg.title.slice(0, 20)}...`
-                      : `${msg.title} by ${msg.sender}`}
+                    {(() => {
+                      const senderName = msg.sender?.name || "Unknown sender";
+                      const titleText = msg.title || msg.content || "Message";
+                      const fullText = `${titleText} by ${senderName}`;
+                      return fullText.length > 20
+                        ? `${fullText.slice(0, 20)}...`
+                        : fullText;
+                    })()}
                   </p>
                   <span className="font-[400] text-[12px] text-[#9B9EA4] leading-[100%]">
-                    {new Date(msg.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    {getMeridian(msg.created_at)}
+                    {isMounted
+                      ? new Date(msg.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "--:--"}
                   </span>
                 </div>
               </div>

@@ -321,7 +321,11 @@ export type MessageProps = {
   created_at: string;
   id: string;
   link: string;
-  sender: null;
+  sender: {
+    id: number;
+    name: string;
+    email: string;
+  } | null;
   title: string;
   type: string;
 };

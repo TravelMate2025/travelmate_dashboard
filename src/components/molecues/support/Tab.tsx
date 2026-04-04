@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FaqSection } from "./Faq";
 import { TicketTabContent } from "./Tickets";
 import { Filter } from "./Reuseables";
@@ -10,6 +10,8 @@ import { MessageTabContent } from "./Chats/MessageChat";
 
 const TicketTable: React.FC = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabFromQuery = searchParams.get("tab");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOption, setSelectedOption] = useState("");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
@@ -26,15 +28,20 @@ const TicketTable: React.FC = () => {
   // Track active tab with localStorage persistence
   const [activeTab, setActiveTab] = useState<string>("ticket");
 
-  // Load saved tab from localStorage on the client side
+  // Query param has priority, then fall back to saved tab
   useEffect(() => {
+    if (tabFromQuery === "ticket" || tabFromQuery === "chat" || tabFromQuery === "faq") {
+      setActiveTab(tabFromQuery);
+      return;
+    }
+
     if (typeof window !== "undefined") {
       const savedTab = window.localStorage.getItem("activeTab");
       if (savedTab) {
         setActiveTab(savedTab);
       }
     }
-  }, []);
+  }, [tabFromQuery]);
 
   // Save the active tab to localStorage on change
   useEffect(() => {

@@ -1,6 +1,5 @@
 "use client";
 import React, { useState } from "react";
-import { SuccessModal } from "@/components/reuseables/SuccessModal";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +53,14 @@ export type FaqResponse = {
 
 const Page = () => {
   const router = useRouter();
+
+  const goToFaqTab = () => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("activeTab", "faq");
+    }
+    router.push("/Dashboard/support?tab=faq");
+  };
+
   const [selectedFaqId, setSelectedFaqId] = useState<number | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [refresh, setRefresh] = useState(false);
@@ -80,7 +87,7 @@ const Page = () => {
     <>
       <div className="space-y-6 py-4 px-6 rounded-[8px] bg-[#fff]">
         <button
-          onClick={() => router.back()}
+          onClick={goToFaqTab}
           className="inline-flex items-center mb-4 "
           aria-label="Go back"
         >
@@ -97,7 +104,6 @@ const Page = () => {
           />
         </div>
 
-        {/* Delete Button */}
         <Button
           variant="red"
           title="DELETE SELECTED"

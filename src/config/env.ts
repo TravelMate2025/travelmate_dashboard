@@ -6,7 +6,7 @@ const inProduction: boolean =
   process.env.NEXT_PUBLIC_ENVIRONMENT !== "production" ? false : true;
 
 const env = {
-  api: api({ inProduction }),
+  api: api(),
   auth: auth({ inProduction }),
   links: links({ inProduction }),
 };

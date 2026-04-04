@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   BarChart,
   Bar,
@@ -13,7 +13,6 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import instance from "@/hooks/initializers/useAxiosDefaults";
 import {
   ChevronDown,
   Download,
@@ -49,10 +48,10 @@ type Breakdown = {
   label: string;
   flight_bookings: number;
   car_bookings: number;
-  hotel_bookings?: number;
-  flight_revenue: number;
-  car_revenue: number;
-  hotel_revenue?: number;
+  stay_bookings?: number;
+  flight_revenue?: number;
+  car_revenue?: number;
+  stay_revenue?: number;
 };
 
 type Combined = {
@@ -64,6 +63,7 @@ type Combined = {
 export default function ReportsPage() {
   const APP_STATE = useAuthContext();
   const isSuperadmin = APP_STATE?.user?.isSuperuser;
+  const latestRequestIdRef = useRef(0);
 
   const [activeTab, setActiveTab] = useState("overview");
   const [isLoading, setIsLoading] = useState(true);
@@ -85,49 +85,56 @@ export default function ReportsPage() {
   }, []);
 
   const generateQueryParams = useCallback(() => {
-    const now = new Date();
-    const breakdownBaseUrl = `${env.api.admin}/reports/bookings/breakdown/?group_by=day`;
-    const combinedBaseUrl = `${env.api.admin}/reports/bookings/combined/?group_by=day`;
-    const summaryBaseUrl = `${env.api.admin}/reports/summary/?`;
+    const breakdownBaseUrl = env.api.reportBookingsBreakdown;
+    const combinedBaseUrl = env.api.reportBookingsCombined;
+    const summaryBaseUrl = env.api.reportSummary;
+    const toYMD = (date: Date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    };
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+    const startOfWeek = new Date(today);
+    const dayOfWeek = startOfWeek.getDay();
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    startOfWeek.setDate(startOfWeek.getDate() - diffToMonday);
+    const start = toYMD(startOfWeek);
+    const monthStart = toYMD(startOfMonth);
+    const yearStart = toYMD(startOfYear);
+    const end = toYMD(today);
 
     const params = { breakdown: "", combined: "", summary: "" };
 
     switch (selectedOption) {
       case "This Week": {
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay());
-        const start = startOfWeek.toISOString().split("T")[0];
-        const end = now.toISOString().split("T")[0];
-
-        params.breakdown = `${breakdownBaseUrl}&start=${start}&end=${end}&period=week`;
-        params.summary = `${summaryBaseUrl}&start=${start}&end=${end}&period=week`;
-        params.combined = `${combinedBaseUrl}&start=${start}&end=${end}&period=week`;
+        params.breakdown = `${breakdownBaseUrl}?start=${start}&end=${end}&group_by=day`;
+        params.summary = `${summaryBaseUrl}?start=${start}&end=${end}`;
+        params.combined = `${combinedBaseUrl}?start=${start}&end=${end}&group_by=day`;
         break;
       }
       case "This Month": {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const start = startOfMonth.toISOString().split("T")[0];
-        const end = now.toISOString().split("T")[0];
-
-        params.breakdown = `${breakdownBaseUrl}&start=${start}&end=${end}&period=month`;
-        params.summary = `${summaryBaseUrl}&start=${start}&end=${end}&period=month`;
-        params.combined = `${combinedBaseUrl}&start=${start}&end=${end}&period=month`;
+        params.breakdown = `${breakdownBaseUrl}?start=${monthStart}&end=${end}&group_by=day`;
+        params.summary = `${summaryBaseUrl}?start=${monthStart}&end=${end}`;
+        params.combined = `${combinedBaseUrl}?start=${monthStart}&end=${end}&group_by=day`;
         break;
       }
       case "Last 3 Months":
-        params.breakdown = `${breakdownBaseUrl}&months=3`;
-        params.summary = `${summaryBaseUrl}&months=3`;
-        params.combined = `${combinedBaseUrl}&months=3`;
+        params.breakdown = `${breakdownBaseUrl}?months=3`;
+        params.summary = `${summaryBaseUrl}?months=3`;
+        params.combined = `${combinedBaseUrl}?months=3`;
         break;
       case "This Year":
-        params.breakdown = `${breakdownBaseUrl}&period=year`;
-        params.summary = `${summaryBaseUrl}&period=year`;
-        params.combined = `${combinedBaseUrl}&period=year`;
+        params.breakdown = `${breakdownBaseUrl}?start=${yearStart}&end=${end}&group_by=month`;
+        params.summary = `${summaryBaseUrl}?start=${yearStart}&end=${end}`;
+        params.combined = `${combinedBaseUrl}?start=${yearStart}&end=${end}&group_by=month`;
         break;
       default:
-        params.breakdown = `${breakdownBaseUrl}&months=6`;
-        params.summary = `${summaryBaseUrl}&months=6`;
-        params.combined = `${combinedBaseUrl}&months=6`;
+        params.breakdown = `${breakdownBaseUrl}?months=6`;
+        params.summary = `${summaryBaseUrl}?months=6`;
+        params.combined = `${combinedBaseUrl}?months=6`;
         break;
     }
     return params;
@@ -136,6 +143,7 @@ export default function ReportsPage() {
   // 🔹 keep fetchAdminData same as you already have
 
   const fetchAdminData = useCallback(async () => {
+    const requestId = ++latestRequestIdRef.current;
     const { breakdown, summary, combined } = generateQueryParams();
     try {
       setIsLoading(true);
@@ -145,23 +153,34 @@ export default function ReportsPage() {
         summary: summaryResponse,
       } = await fetchReports({ breakdown, summary, combined });
 
+      if (requestId !== latestRequestIdRef.current) {
+        return;
+      }
+
       setRevenueBookingsData(bookingsCombined);
       setOverviewData(summaryResponse);
       setBookingTrendsData(bookingBreakdown);
     } catch (error: any) {
+      if (requestId !== latestRequestIdRef.current) {
+        return;
+      }
+
       console.error("Error fetching data:", error);
       showErrorToast({
         message: error?.response?.data?.message || "Error displaying data",
       });
     } finally {
-      setIsLoading(false);
+      if (requestId === latestRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
-  }, [generateQueryParams, APP_STATE?.accessToken]);
+  }, [generateQueryParams]);
 
   const exportData = useCallback(async () => {
     try {
       setIsLoadingExport(true);
-      const response = await exportStats();
+      const { summary } = generateQueryParams();
+      const response = await exportStats(summary.replace(env.api.reportSummary, ""));
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
@@ -181,7 +200,7 @@ export default function ReportsPage() {
     } finally {
       setIsLoadingExport(false);
     }
-  }, []);
+  }, [generateQueryParams]);
 
   const processedTrendsData = useMemo(() => {
     if (!bookingTrendsData?.length) return [];
@@ -190,11 +209,11 @@ export default function ReportsPage() {
       const total_bookings =
         (item.flight_bookings || 0) +
         (item.car_bookings || 0) +
-        (item.hotel_bookings || 0);
+        (item.stay_bookings || 0);
       const total_revenue =
         (item.flight_revenue || 0) +
         (item.car_revenue || 0) +
-        (item.hotel_revenue || 0);
+        (item.stay_revenue || 0);
 
       // Safely parse label and fallback if invalid
       let displayLabel = "";
@@ -575,12 +594,12 @@ export default function ReportsPage() {
                               strokeWidth={2}
                               dot={{ r: 4 }}
                             />
-                            {/* FIXED: Changed from car_bookings to hotel_bookings */}
+                            {/* Stay bookings from bookings breakdown API */}
                             <Line
                               type="monotone"
-                              dataKey="hotel_bookings"
+                              dataKey="stay_bookings"
                               stroke="#22c55e"
-                              name="Hotels"
+                              name="Stays"
                               strokeWidth={2}
                               dot={{ r: 4 }}
                             />
