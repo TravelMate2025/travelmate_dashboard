@@ -303,16 +303,18 @@ export function useClaimChat() {
 
   const onClaiming = async ({
     ChatId,
+    payload,
     successCallback,
   }: {
     ChatId: string;
+    payload?: { title?: string };
     successCallback?: () => void;
   }) => {
     setClaiming(true);
     setIsSuccess(false);
 
     try {
-      const res = await ChatService.claimChat({ id: ChatId });
+      const res = await ChatService.claimChat({ id: ChatId, payload });
       const message = res.data?.detail || "Chat claimed successfully";
       showSuccessToast({ message });
 
@@ -324,7 +326,8 @@ export function useClaimChat() {
     } catch (error: unknown) {
       const errorMessage =
         axios.isAxiosError(error)
-          ? error.response?.data?.message ||
+          ? error.response?.data?.detail ||
+            error.response?.data?.message ||
             "Unable to respond to claim at the moment!"
           :
         "Unable to respond to claim at the moment!";
@@ -335,4 +338,201 @@ export function useClaimChat() {
   };
 
   return { claiming, onClaiming, isSuccess };
+}
+
+export function useCloseChat() {
+  const [closing, setClosing] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const onCloseChat = async ({
+    ChatId,
+    payload,
+    successCallback,
+  }: {
+    ChatId: string | number;
+    payload?: { title?: string };
+    successCallback?: () => void;
+  }) => {
+    setClosing(true);
+    setIsSuccess(false);
+
+    try {
+      const res = await ChatService.closeChat({ id: ChatId, payload });
+      showSuccessToast({ message: "Chat closed successfully" });
+
+      if (successCallback) {
+        successCallback();
+      }
+
+      setIsSuccess(true);
+    } catch (error: unknown) {
+      const errorMessage =
+        axios.isAxiosError(error)
+          ? error.response?.data?.message || "Unable to close chat"
+          : "Unable to close chat";
+      showErrorToast({ message: errorMessage });
+    } finally {
+      setClosing(false);
+    }
+  };
+
+  return { closing, onCloseChat, isSuccess };
+}
+
+export function useDeleteChat() {
+  const [deleting, setDeleting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const onDeleteChat = async ({
+    ChatId,
+    successCallback,
+  }: {
+    ChatId: string | number;
+    successCallback?: () => void;
+  }) => {
+    setDeleting(true);
+    setIsSuccess(false);
+
+    try {
+      await ChatService.deleteChatSession({ id: ChatId });
+      showSuccessToast({ message: "Chat session deleted successfully" });
+
+      if (successCallback) {
+        successCallback();
+      }
+
+      setIsSuccess(true);
+    } catch (error: unknown) {
+      const errorMessage =
+        axios.isAxiosError(error)
+          ? error.response?.data?.message || "Unable to delete chat session"
+          : "Unable to delete chat session";
+      showErrorToast({ message: errorMessage });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return { deleting, onDeleteChat, isSuccess };
+}
+
+export function useExportChatPdf() {
+  const [exporting, setExporting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const onExportPdf = async ({
+    ChatId,
+    fileName,
+  }: {
+    ChatId: string | number;
+    fileName?: string;
+  }) => {
+    setExporting(true);
+    setIsSuccess(false);
+
+    try {
+      const response = await ChatService.exportChatPdf({ id: ChatId });
+      
+      // Create blob URL and trigger download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", fileName || `chat-${ChatId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      showSuccessToast({ message: "Chat exported as PDF" });
+      setIsSuccess(true);
+    } catch (error: unknown) {
+      const errorMessage =
+        axios.isAxiosError(error)
+          ? error.response?.data?.message || "Unable to export chat"
+          : "Unable to export chat";
+      showErrorToast({ message: errorMessage });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return { exporting, onExportPdf, isSuccess };
+}
+
+export function useMarkChatAsRead() {
+  const [marking, setMarking] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const onMarkAsRead = async ({
+    ChatId,
+    payload,
+    successCallback,
+  }: {
+    ChatId: string | number;
+    payload?: { title?: string };
+    successCallback?: () => void;
+  }) => {
+    setMarking(true);
+    setIsSuccess(false);
+
+    try {
+      await ChatService.markChatAsRead({ id: ChatId, payload });
+      showSuccessToast({ message: "Chat marked as read" });
+
+      if (successCallback) {
+        successCallback();
+      }
+
+      setIsSuccess(true);
+    } catch (error: unknown) {
+      const errorMessage =
+        axios.isAxiosError(error)
+          ? error.response?.data?.message || "Unable to mark chat as read"
+          : "Unable to mark chat as read";
+      showErrorToast({ message: errorMessage });
+    } finally {
+      setMarking(false);
+    }
+  };
+
+  return { marking, onMarkAsRead, isSuccess };
+}
+
+export function useUpdateChat() {
+  const [updating, setUpdating] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const onUpdateChat = async ({
+    ChatId,
+    payload,
+    successCallback,
+  }: {
+    ChatId: string | number;
+    payload: { title?: string };
+    successCallback?: (chat: Chat) => void;
+  }) => {
+    setUpdating(true);
+    setIsSuccess(false);
+
+    try {
+      const res = await ChatService.updateChat({ id: ChatId, payload });
+      showSuccessToast({ message: "Chat updated successfully" });
+
+      if (successCallback && res.data) {
+        successCallback(res.data);
+      }
+
+      setIsSuccess(true);
+    } catch (error: unknown) {
+      const errorMessage =
+        axios.isAxiosError(error)
+          ? error.response?.data?.message || "Unable to update chat"
+          : "Unable to update chat";
+      showErrorToast({ message: errorMessage });
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return { updating, onUpdateChat, isSuccess };
 }

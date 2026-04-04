@@ -11,6 +11,8 @@ import { useAuthContext } from "@/context/AuthContext";
 import { useMyRoles } from "@/hooks/api/roles";
 import { FileText, DownloadIcon, X } from "lucide-react";
 import { getSingleRouteParam } from "@shared/lib/routeParams";
+import axios from "axios";
+import { showErrorToast } from "@/utils/toasters";
 const Spinner = () => (
   <svg
     className="inline w-6 h-6 ml-2 animate-spin text-white"
@@ -283,9 +285,13 @@ export const MainChatComponents = ({ sessionId, accessToken }: MainChatProps) =>
       await ChatService.closeChat({ id: chatDetails.id });
       // Optionally, show a toast or notification
       router.push("/Dashboard/support/chats"); // Redirect after closing
-    } catch (error) {
-      // Optionally, show error toast
-      console.error(error);
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.detail ||
+          error.response?.data?.message ||
+          "Unable to close chat at the moment."
+        : "Unable to close chat at the moment.";
+      showErrorToast({ message });
     } finally {
       setClosing(false);
     }

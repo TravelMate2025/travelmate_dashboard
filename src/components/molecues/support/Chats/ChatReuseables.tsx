@@ -46,6 +46,8 @@ type ChatDetailsDialogProps = {
   chatDetails: ChatDetails | null;
   chatLoading: boolean;
   onClose: () => void;
+  onClaimChat?: () => void;
+  claimingChat?: boolean;
 };
 
 type ClaimedChatSectionProps = {
@@ -60,15 +62,30 @@ export const ChatTableDropdown = ({
   parentWidth,
   onViewDetails,
   onViewMessage,
+  onEditTitle,
+  onExportPdf,
+  onMarkAsRead,
+  onCloseChat,
+  onDeleteChat,
 }: {
   parentWidth: number;
   onViewDetails?: () => void;
   onViewMessage?: () => void;
+  onEditTitle?: () => void;
+  onExportPdf?: () => void;
+  onMarkAsRead?: () => void;
+  onCloseChat?: () => void;
+  onDeleteChat?: () => void;
 }) => {
   const options = [
-    { label: "Open Chat", action: onViewDetails },
     { label: "View Chat Details", action: onViewMessage },
-  ];
+    { label: "Claim Chat", action: onViewDetails },
+    { label: "Edit Chat Title", action: onEditTitle, visible: !!onEditTitle },
+    { label: "Export as PDF", action: onExportPdf, visible: !!onExportPdf },
+    { label: "Mark as Read", action: onMarkAsRead, visible: !!onMarkAsRead },
+    { label: "Close Chat", action: onCloseChat, visible: !!onCloseChat },
+    { label: "Delete Chat", action: onDeleteChat, visible: !!onDeleteChat },
+  ].filter((opt) => opt.visible !== false);
 
   return (
     <div className="relative overflow-visible">
@@ -80,7 +97,7 @@ export const ChatTableDropdown = ({
         <DropdownMenuContent
           side="bottom"
           align="end"
-          className="z-50 max-w-[180px] shadow-lg border border-gray-200 rounded-md bg-white"
+          className="z-50 max-w-[200px] shadow-lg border border-gray-200 rounded-md bg-white"
         >
           {options.map((option, index) => (
             <DropdownMenuItem
@@ -115,10 +132,16 @@ export const ChatDetailsDialog = ({
   chatDetails,
   chatLoading,
   onClose,
+  onClaimChat,
+  claimingChat,
 }: ChatDetailsDialogProps) => {
   const name = `${chatDetails?.user_info.first_name || "---"} ${
     chatDetails?.user_info.last_name || "---"
   }`;
+  const canClaimChat =
+    chatDetails?.status === "ACTIVE" &&
+    !chatDetails?.assigned_admin &&
+    !chatDetails?.claimed_admin;
 
   return (
     <div
@@ -239,6 +262,19 @@ export const ChatDetailsDialog = ({
               )}
             </div>
           </div>
+
+          {canClaimChat && onClaimChat && (
+            <div className="px-[16px] lg:px-[32px] pt-2 pb-4 flex justify-end">
+              <button
+                type="button"
+                className="rounded-[8px] bg-[#023E8A] px-4 py-2 text-white font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                onClick={onClaimChat}
+                disabled={Boolean(claimingChat) || chatLoading}
+              >
+                {claimingChat ? "Claiming..." : "Claim Chat"}
+              </button>
+            </div>
+          )}
         </div>
         <button
           className="absolute top-[16px] right-[16px] text-gray-500 cursor-pointer"

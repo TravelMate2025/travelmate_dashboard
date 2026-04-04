@@ -1,11 +1,38 @@
 const api = () => {
   const STAGING_BASE_URL = "https://travelmate-backend-knvd.onrender.com/api/";
   const LIVE_BASE_URL = "https://travelmate-backend-1-1lgj.onrender.com/api/";
+  const ALLOWED_BACKEND_HOSTS = new Set(
+    [STAGING_BASE_URL, LIVE_BASE_URL]
+      .map((value) => {
+        try {
+          return new URL(value).hostname.toLowerCase();
+        } catch {
+          return null;
+        }
+      })
+      .filter((hostname): hostname is string => Boolean(hostname))
+  );
 
   const environment =
     process.env.NEXT_PUBLIC_ENVIRONMENT?.trim().toLowerCase() || "staging";
 
-  const baseFromEnv = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  const envBaseCandidate = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  const baseFromEnv = (() => {
+    if (!envBaseCandidate) {
+      return undefined;
+    }
+
+    try {
+      const parsed = new URL(envBaseCandidate);
+      if (!ALLOWED_BACKEND_HOSTS.has(parsed.hostname.toLowerCase())) {
+        return undefined;
+      }
+    } catch {
+      return undefined;
+    }
+
+    return envBaseCandidate;
+  })();
   const defaultBaseUrl = environment === "production" ? LIVE_BASE_URL : STAGING_BASE_URL;
 
   const normalizedBaseUrl = (baseFromEnv || defaultBaseUrl).replace(/\/+$/, "");
@@ -25,6 +52,7 @@ const api = () => {
     usersMetadatas: API_BASE + "/users/metadatas/",
     bookings: API_BASE + "/admin/bookings",
     faq: API_BASE + "/admin/faqs",
+    faqCategories: API_BASE + "/admin/faqs/categories/",
     ticket: API_BASE + "/admin/tickets/",
     messae: API_BASE + "/admin/tickets/",
     escalation: API_BASE + "/admin/escalation-levels",

@@ -7,10 +7,16 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import Link from "next/link";
-import { formatDistanceToNow, parseISO } from "date-fns";
 import Button from "@/components/reuseables/Button";
 import { useRouter } from "next/navigation";
 import { useGetAllTicket } from "@/hooks/useGetAllTicket";
+
+const formatDisplayTime = (timestamp: string): string => {
+  const match = timestamp.match(/T(\d{2}):(\d{2})/);
+  if (!match) return "--:--";
+  const [, hour, minute] = match;
+  return `${hour}:${minute}`;
+};
 
 export const AllContent: React.FC = () => {
   const router = useRouter();
@@ -143,8 +149,7 @@ export const AllContent: React.FC = () => {
 };
 
 export function getRelativeTime(timestamp: string): string {
-  const date = parseISO(timestamp);
-  return formatDistanceToNow(date, { addSuffix: true });
+  return formatDisplayTime(timestamp);
 }
 
 const Skeleton = ({ rows = 5, columns = 4 }) => {

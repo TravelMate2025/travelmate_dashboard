@@ -4,7 +4,8 @@ import { useFormik } from "formik";
 import { SuccessModal } from "@/components/reuseables/SuccessModal";
 import { useParams } from "next/navigation";
 import {
-  useRespondToTicket,
+  useCreateTicketMessage,
+  useGetTicketMessages,
   useGetTicket,
   useClaimTicket,
 } from "@/hooks/api/ticket";
@@ -165,6 +166,7 @@ type TicketMessage = {
   id?: number | string;
   content?: string | null;
   attachment?: unknown;
+  attachment_url?: string | null;
   sender?: { id?: number | string };
   sender_id?: number | string;
   sender_info?: { id?: number | string };
@@ -192,6 +194,23 @@ const toMessageList = (
   return source
     .map((message) => toTicketMessage(message))
     .filter((message): message is TicketMessage => Boolean(message));
+};
+
+const normalizeThreadMessages = (value: unknown): TicketMessage[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => toTicketMessage(item)).filter((item): item is TicketMessage => Boolean(item));
+  }
+
+  if (value && typeof value === "object") {
+    const asObject = value as { results?: unknown[] };
+    if (Array.isArray(asObject.results)) {
+      return asObject.results
+        .map((item) => toTicketMessage(item))
+        .filter((item): item is TicketMessage => Boolean(item));
+    }
+  }
+
+  return [];
 };
 
 type MessageFormValues = {
@@ -363,6 +382,7 @@ const TicketRespondPage: React.FC = () => {
           loadingTicket={loadingTicket}
           isAdmin={isAdmin}
           currentUser={currentUser}
+          ticketId={id}
         />
       </div>
       {ticketDetails?.status !== "resolved" && (
@@ -443,15 +463,30 @@ type ChatProps = {
   loadingTicket: boolean;
   isAdmin: boolean;
   currentUser?: string | number;
+  ticketId?: string;
 };
 
-const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: ChatProps) => {
+const Chat = ({
+  ticket,
+  loadingTicket,
+  isAdmin,
+  currentUser,
+  ticketId,
+}: ChatProps) => {
   const { claiming, onClaiming } = useClaimTicket();
-  const { responding, onRespondToTicket } = useRespondToTicket();
+  const {
+    loading: messagesLoading,
+    data: ticketMessages,
+    fetchMessages,
+  } = useGetTicketMessages({
+    ticketPk: ticketId || (ticket?.id ? String(ticket.id) : undefined),
+    admin: true,
+    initialFetch: Boolean(ticketId || ticket?.id),
+  });
+  const { loading: sendingMessage, onCreateTicketMessage } =
+    useCreateTicketMessage();
 
-  const [messages, setMessages] = useState<TicketMessage[]>(
-    toMessageList(ticket?.messages)
-  );
+  const [messages, setMessages] = useState<TicketMessage[]>([]);
   const lastMessageRef = useRef<HTMLDivElement | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -463,8 +498,10 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: ChatProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    setMessages(toMessageList(ticket?.messages));
-  }, [ticket]);
+    const preferred = normalizeThreadMessages(ticketMessages?.results);
+    const fallback = toMessageList(ticket?.messages);
+    setMessages(preferred.length > 0 ? preferred : fallback);
+  }, [ticketMessages, ticket]);
 
   useEffect(() => {
     if (lastMessageRef.current) {
@@ -587,22 +624,15 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: ChatProps) => {
       setIsSubmitting(true);
 
       try {
-        // Create FormData payload with message and file
-        const payload = createMessagePayload(messageToSend, selectedFile);
-
         await Promise.resolve(
-          onRespondToTicket({
-            TicketId: ticketId,
-            payload,
-            successCallback: () => {
-              const newMessage: TicketMessage = {
-                id: new Date().toISOString(),
-                content: messageToSend || null,
-                attachment: selectedFile ? URL.createObjectURL(selectedFile) : null,
-                sender: { id: currentUser },
-                timestamp: new Date().toISOString(),
-              };
-              setMessages((prevMessages) => [...prevMessages, newMessage]);
+          onCreateTicketMessage({
+            ticketPk: ticketId,
+            payload: {
+              content: messageToSend,
+              attachment: selectedFile,
+            },
+            successCallback: async () => {
+              await fetchMessages();
               resetForm();
               removeSelectedFile();
               setIsSubmitting(false);
@@ -664,7 +694,7 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: ChatProps) => {
         <div className="hidden md:block w-[100px] lg:w-[220px] h-[1px] bg-[#181818]"></div>
       </div>
 
-      {loadingTicket ? (
+      {loadingTicket || messagesLoading ? (
         <MessageLoading />
       ) : (
         <div className="flex-1 overflow-auto p-4 space-y-2">
@@ -681,7 +711,7 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: ChatProps) => {
               String(customerId || "") !== "" &&
               String(senderId || "") !== "" &&
               String(customerId) === String(senderId);
-            const attachmentUrl = getAttachmentUrl(mes?.attachment);
+            const attachmentUrl = mes?.attachment_url || getAttachmentUrl(mes?.attachment);
             return (
               <div
                 key={mes.id ?? `${mes.created_at ?? "message"}-${index}`}
@@ -902,7 +932,7 @@ const Chat = ({ ticket, loadingTicket, isAdmin, currentUser }: ChatProps) => {
                         : "bg-[#023E8A] text-white"
                     }`}
                   >
-                    {responding ? (
+                    {sendingMessage ? (
                       <div className="w-5 h-5 border-4 border-gray-100 border-t-transparent rounded-full animate-spin"></div>
                     ) : (
                       <img src="/assets/icons/white-send.svg" alt="Send" />

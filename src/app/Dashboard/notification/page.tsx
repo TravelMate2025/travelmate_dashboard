@@ -1,7 +1,7 @@
 import { NotificationModule } from "@/components/molecues/notification/NotificationModule";
 import { getCookies } from "@/context/Auth-Cookies";
 
-const page = async ({ params }: { params: { sessionId: string } }) => {
+const page = async () => {
   const { accessToken } = await getCookies();
   return <NotificationModule accessToken={accessToken} />;
 };

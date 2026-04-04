@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { ActivityProps } from '@/app/Dashboard/page';
 import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
@@ -12,15 +12,16 @@ const Activity = ({
   loading: boolean;
 }) => {
   const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const NGNNaira = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "NGN",
   });
-  const getMeridian = (dateString: string) => {
-    const date = new Date(dateString);
-    const hour = date.getHours();
-    return hour >= 12 ? "PM" : "AM";
-  };
 
   return (
     <div className="bg-white h-full lg:p-6 rounded-2xl overflow-y-auto p-3">
@@ -68,11 +69,12 @@ const Activity = ({
                       {NGNNaira.format(act.amount)}
                     </p>
                     <p className="lg:text-sm text-xs text-[#9B9EA4]">
-                      {new Date(act.date).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}{" "}
-                      {getMeridian(act.date)}
+                      {isMounted
+                        ? new Date(act.date).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "--:--"}
                     </p>
                   </div>
                   <img

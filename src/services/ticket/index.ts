@@ -1,12 +1,36 @@
-import axios from "axios";
 import env from "@/config/env";
 import instance from "@/hooks/initializers/useAxiosDefaults";
 
+const buildQueryString = (
+  filters: Record<string, string | number | boolean | null | undefined>
+) => {
+  const queryEntries = Object.entries(filters).reduce<Array<[string, string]>>(
+    (acc, [key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        acc.push([key, String(value)]);
+      }
+      return acc;
+    },
+    []
+  );
+
+  return new URLSearchParams(queryEntries).toString();
+};
+
 type TEscalateTicket = {
-  escalation_level: number;
-  escalation_reason: number;
+  escalation_role: number;
+  escalation_reason: string;
   escalation_note: string;
   escalation_response_time: string;
+};
+type TResolveTicket = {
+  title?: string;
+  category?: string;
+  description?: string;
+  status?: string;
+  escalation_reason?: string;
+  escalation_response_time?: string;
+  escalation_note?: string;
 };
 type TEscalationPayload = {
   name: string;
@@ -24,23 +48,25 @@ class Service {
     filters?: Record<string, string | number | boolean | null | undefined>;
   }) {
     const endpoint = url || env.api.ticket;
-    const queryEntries = Object.entries(filters ?? {}).reduce<
-      Array<[string, string]>
-    >((acc, [key, value]) => {
-      if (value !== undefined && value !== null) {
-        acc.push([key, String(value)]);
-      }
-      return acc;
-    }, []);
-    const queryString = new URLSearchParams(queryEntries).toString();
+    const queryString = buildQueryString(filters ?? {});
     const fullUrl = queryString ? `${endpoint}?${queryString}` : endpoint;
     return instance.get(fullUrl);
   }
 
-  getTicketsStats = ({ days }: { days?: number }) => {
+  getTicketsStats = ({
+    days,
+    weeks,
+    months,
+    years,
+  }: {
+    days?: number;
+    weeks?: number;
+    months?: number;
+    years?: number;
+  }) => {
     const endpoint = `${env.api.ticket}all_stats/`;
-    const params = days ? `?days=${days}` : "";
-    return instance.get(`${endpoint}${params}`);
+    const queryString = buildQueryString({ days, weeks, months, years });
+    return instance.get(queryString ? `${endpoint}?${queryString}` : endpoint);
   };
 
   getTicket({ TicketId }: { TicketId?: string }) {
@@ -72,20 +98,71 @@ class Service {
     return instance.post(env.api.ticket + TicketId + "/escalate/", payload);
   }
 
-  respondToTicket({
-    TicketId,
-    payload,
+  getTicketMessages({
+    ticketPk,
+    admin = true,
+    page,
   }: {
-    TicketId: string;
-    payload: FormData;
+    ticketPk: string | number;
+    admin?: boolean;
+    page?: number;
   }) {
-    return instance.post(env.api.ticket + TicketId + "/messages/", payload, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const endpoint = admin
+      ? `${env.api.ticket}${ticketPk}/messages/`
+      : `${env.api.ticket.replace("/admin/tickets/", "/tickets/")}${ticketPk}/messages/`;
+    const queryString = buildQueryString({ page });
+    return instance.get(queryString ? `${endpoint}?${queryString}` : endpoint);
+  }
+
+  createTicketMessage({
+    ticketPk,
+    payload,
+    admin = true,
+  }: {
+    ticketPk: string | number;
+    payload: { content: string; attachment?: string | null };
+    admin?: boolean;
+  }) {
+    const endpoint = admin
+      ? `${env.api.ticket}${ticketPk}/messages/`
+      : `${env.api.ticket.replace("/admin/tickets/", "/tickets/")}${ticketPk}/messages/`;
+    return instance.post(endpoint, payload);
   }
 
   resolveTicket(TicketId: string) {
-    return instance.post(`${env.api.ticket}${TicketId}/resolve/`);
+    return instance.post(`${env.api.ticket}${TicketId}/resolve/`, {});
+  }
+
+  resolveTicketWithPayload(
+    TicketId: string,
+    payload?: TResolveTicket
+  ) {
+    return instance.post(`${env.api.ticket}${TicketId}/resolve/`, payload || {});
+  }
+
+  getEscalatedTickets({
+    url,
+    filters,
+  }: {
+    url?: string;
+    filters?: Record<string, string | number | boolean | null | undefined>;
+  }) {
+    const endpoint = url || `${env.api.ticket}escalated/`;
+    const queryEntries = Object.entries(filters ?? {}).reduce<
+      Array<[string, string]>
+    >((acc, [key, value]) => {
+      if (value !== undefined && value !== null) {
+        acc.push([key, String(value)]);
+      }
+      return acc;
+    }, []);
+    const queryString = new URLSearchParams(queryEntries).toString();
+    const fullUrl = queryString ? `${endpoint}?${queryString}` : endpoint;
+    return instance.get(fullUrl);
+  }
+
+  deleteTicket({ TicketId }: { TicketId: string }) {
+    return instance.delete(`${env.api.ticket}${TicketId}/`);
   }
 }
 

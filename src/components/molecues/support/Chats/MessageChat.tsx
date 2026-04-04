@@ -7,15 +7,45 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { useState, useEffect } from "react";
-import { formatDistanceToNow, parseISO, format, addDays } from "date-fns";
-import { useGetAllChat, useGetChat, useClaimChat } from "@/hooks/api/chat";
+import {
+  useGetAllChat,
+  useGetChat,
+  useClaimChat,
+  useCloseChat,
+  useDeleteChat,
+  useExportChatPdf,
+  useMarkChatAsRead,
+  useUpdateChat,
+} from "@/hooks/api/chat";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   ChatDetailsDialog,
   ChatTableDropdown,
   ClaimedChatSection,
 } from "./ChatReuseables";
+
+const formatDisplayDate = (timestamp: string): string => {
+  const match = timestamp.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return "--/--/----";
+  const [, year, month, day] = match;
+  return `${day}/${month}/${year}`;
+};
+
+const formatDisplayTime = (timestamp: string): string => {
+  const match = timestamp.match(/T(\d{2}):(\d{2})/);
+  if (!match) return "--:--";
+  const [, hour, minute] = match;
+  return `${hour}:${minute}`;
+};
 
 type MessageTabContentProps = {
   selectedOption?: string;
@@ -63,6 +93,8 @@ export const MessageTabContent: React.FC<MessageTabContentProps> = ({
   );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [editingChat, setEditingChat] = useState<ChatItem | null>(null);
+  const [editedTitle, setEditedTitle] = useState("");
 
   // Add state to track previous values for comparison
   const [prevSearchTerm, setPrevSearchTerm] = useState(searchTerm);
@@ -89,6 +121,88 @@ export const MessageTabContent: React.FC<MessageTabContentProps> = ({
   });
 
   const { claiming, onClaiming } = useClaimChat();
+  const { closing, onCloseChat: performCloseChat } = useCloseChat();
+  const { deleting, onDeleteChat: performDeleteChat } = useDeleteChat();
+  const { exporting, onExportPdf } = useExportChatPdf();
+  const { marking, onMarkAsRead: performMarkAsRead } = useMarkChatAsRead();
+  const { updating, onUpdateChat } = useUpdateChat();
+
+  // Execute row actions against the clicked chat row directly.
+  const handleCloseChat = (chat: ChatItem) => {
+    performCloseChat({
+      ChatId: chat.id,
+      successCallback: () => {
+        triggerFullReload();
+      },
+    });
+  };
+
+  const handleDeleteChat = (chat: ChatItem) => {
+    performDeleteChat({
+      ChatId: chat.id,
+      successCallback: () => {
+        triggerFullReload();
+      },
+    });
+  };
+
+  const handleExportChat = (chat: ChatItem) => {
+    onExportPdf({
+      ChatId: chat.id,
+      fileName: `chat-${chat.title || chat.id}.pdf`,
+    });
+  };
+
+  const handleMarkChatAsRead = (chat: ChatItem) => {
+    performMarkAsRead({
+      ChatId: chat.id,
+      successCallback: () => {
+        triggerFullReload();
+      },
+    });
+  };
+
+  const handleOpenEditTitle = (chat: ChatItem) => {
+    setEditingChat(chat);
+    setEditedTitle(chat.title || "");
+  };
+
+  const handleOpenChatDetails = (chat: ChatItem) => {
+    setSelectedTicket(chat);
+    setTicketId(chat.id);
+    setActiveModal("details");
+  };
+
+  const handleUpdateTitle = () => {
+    if (!editingChat?.id || !editedTitle.trim()) {
+      return;
+    }
+
+    onUpdateChat({
+      ChatId: editingChat.id,
+      payload: { title: editedTitle.trim() },
+      successCallback: (updatedChat) => {
+        const updatedTitle = String(
+          (updatedChat as { title?: unknown })?.title || editedTitle.trim()
+        );
+
+        setChats((prev) =>
+          prev.map((item) =>
+            String(item.id) === String(editingChat.id)
+              ? { ...item, title: updatedTitle }
+              : item
+          )
+        );
+
+        if (selectedTicket && String(selectedTicket.id) === String(editingChat.id)) {
+          setSelectedTicket({ ...selectedTicket, title: updatedTitle });
+        }
+
+        setEditingChat(null);
+        setEditedTitle("");
+      },
+    });
+  };
 
   // Function to trigger full reload
   const triggerFullReload = () => {
@@ -146,8 +260,8 @@ export const MessageTabContent: React.FC<MessageTabContentProps> = ({
   ]);
 
   useEffect(() => {
-    if (fetchedChats && fetchedChats.length > 0) {
-      setChats(fetchedChats);
+    if (fetchedChats) {
+      setChats(fetchedChats as ChatItem[]);
       setIsLoadingMore(false);
       setIsInitialLoad(false);
     }
@@ -302,7 +416,7 @@ export const MessageTabContent: React.FC<MessageTabContentProps> = ({
                         <TableCell className="table-cell border-none whitespace-nowrap">
                           <div className="space-y-2">
                             <p className="text-[#181818] text-[14px] font-[500]">
-                              {format(parseISO(chat.created_at), "dd/MM/yyyy")}
+                              {formatDisplayDate(chat.created_at)}
                             </p>
                             <p className="text-[#9B9EA4] text-[12px]">
                               <span>{getRelativeTime(chat.created_at)}</span>
@@ -316,19 +430,24 @@ export const MessageTabContent: React.FC<MessageTabContentProps> = ({
                                 ? "bg-[#CCD8E8] text-[#181818]"
                                 : chat.status === "ACTIVE"
                                 ? "bg-[#EFB60880]/50  text-[#181818]"
-                                : chat.status === "resolved"
+                                : chat.status === "CLOSED"
                                 ? "bg-[#2D9C5E80]/50  text-[#181818]"
                                 : "bg-gray-100 text-gray-600"
                             }`}
                           >
-                            {chat.status.replace("_", " ").toUpperCase()}
+                            {(chat.status || "UNKNOWN").replace("_", " ").toUpperCase()}
                           </span>
                         </TableCell>
                         <TableCell className="border-none whitespace-nowrap">
                           <ChatTableDropdown
                             parentWidth={180}
                             onViewDetails={() => handleOpenClaimModal(chat)}
-                            onViewMessage={() => handleViewDetails(chat)}
+                            onViewMessage={() => handleOpenChatDetails(chat)}
+                            onEditTitle={() => handleOpenEditTitle(chat)}
+                            onExportPdf={() => handleExportChat(chat)}
+                            onMarkAsRead={() => handleMarkChatAsRead(chat)}
+                            onCloseChat={() => handleCloseChat(chat)}
+                            onDeleteChat={() => handleDeleteChat(chat)}
                           />
                         </TableCell>
                       </TableRow>
@@ -363,6 +482,10 @@ export const MessageTabContent: React.FC<MessageTabContentProps> = ({
           chatDetails={chatDetails}
           chatLoading={loadingChat}
           onClose={closeModal}
+          onClaimChat={
+            selectedTicket ? () => handleOpenClaimModal(selectedTicket) : undefined
+          }
+          claimingChat={claiming}
         />
       )}
 
@@ -374,13 +497,64 @@ export const MessageTabContent: React.FC<MessageTabContentProps> = ({
           onClose={closeModal}
         />
       )}
+
+      <Dialog
+        open={Boolean(editingChat)}
+        onOpenChange={(open) => {
+          if (!open && !updating) {
+            setEditingChat(null);
+            setEditedTitle("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Chat Title</DialogTitle>
+            <DialogDescription>
+              Update the title for chat #{editingChat?.id}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <input
+            type="text"
+            value={editedTitle}
+            onChange={(event) => setEditedTitle(event.target.value)}
+            className="w-full rounded-md border border-[#CDCED1] px-3 py-2 text-sm"
+            placeholder="Enter chat title"
+            disabled={updating}
+          />
+
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded-md border border-[#CDCED1] px-4 py-2 text-sm"
+              onClick={() => {
+                if (!updating) {
+                  setEditingChat(null);
+                  setEditedTitle("");
+                }
+              }}
+              disabled={updating}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-[#023E8A] px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleUpdateTitle}
+              disabled={updating || !editedTitle.trim()}
+            >
+              {updating ? "Saving..." : "Save"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
 
 export function getRelativeTime(timestamp: string): string {
-  const date = parseISO(timestamp);
-  return formatDistanceToNow(date, { addSuffix: true });
+  return formatDisplayTime(timestamp);
 }
 
 const Skeleton = ({ rows = 5, columns = 4 }) => {

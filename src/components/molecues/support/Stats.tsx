@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -9,21 +9,21 @@ import {
 import { useGetAllTicketStats } from "@/hooks/api/ticket";
 
 const Stats = () => {
-  const [days, setDays] = useState<number>(1); // Default filter is "Today"
+  const [selectedPeriod, setSelectedPeriod] = useState("Today");
 
-  const { loading, data, updateDays } = useGetAllTicketStats({
+  const { loading, data, updateFilters } = useGetAllTicketStats({
     initialFetch: true,
-    defaultDays: days,
+    defaultFilters: { days: 1 },
   });
-
-  useEffect(() => {
-    updateDays(days); // Update stats whenever `days` changes
-  }, [days]);
 
   return (
     <div className="space-y-6 mt-[10] ">
       <div className="">
-        <TimeFilterDropdown setDays={setDays} />
+        <TimeFilterDropdown
+          selectedPeriod={selectedPeriod}
+          setSelectedPeriod={setSelectedPeriod}
+          updateFilters={updateFilters}
+        />
       </div>
       <>
         {loading ? (
@@ -32,8 +32,8 @@ const Stats = () => {
           <div className="flex lg:space-x-6 items-center flex-col lg:flex-row space-y-6 lg:space-y-0">
             <StatCard
               icon="/assets/icons/airplane_ticket.svg"
-              label="Open Tickets"
-              value={data?.open_tickets?.count ?? "N/A"}
+              label="Pending Tickets"
+              value={data?.pending_tickets?.count ?? "N/A"}
             />
             <StatCard
               icon="/assets/icons/access_time.svg"
@@ -42,8 +42,13 @@ const Stats = () => {
             />
             <StatCard
               icon="/assets/icons/card-escalate.svg"
-              label="Escalated Issues"
-              value={data?.escalated_issues?.count ?? "N/A"}
+              label="Unresolved Escalated"
+              value={data?.unresolved_escalated?.count ?? "N/A"}
+            />
+            <StatCard
+              icon="/assets/icons/airplane_ticket.svg"
+              label="Resolved Tickets"
+              value={data?.resolved_tickets?.count ?? "N/A"}
             />
           </div>
         )}
@@ -53,22 +58,29 @@ const Stats = () => {
 };
 
 const TimeFilterDropdown = ({
-  setDays,
+  selectedPeriod,
+  setSelectedPeriod,
+  updateFilters,
 }: {
-  setDays: (days: number) => void;
+  selectedPeriod: string;
+  setSelectedPeriod: (period: string) => void;
+  updateFilters: (filters: {
+    days?: number;
+    weeks?: number;
+    months?: number;
+    years?: number;
+  }) => void;
 }) => {
-  const [selectedOption, setSelectedOption] = useState("Today"); // Default is "Today"
-
   const options = [
-    { label: "Today", days: 1 },
-    { label: "This week", days: 7 },
-    { label: "This month", days: 30 },
-    { label: "This year", days: 365 },
+    { label: "Today", filters: { days: 1 } },
+    { label: "This week", filters: { weeks: 1 } },
+    { label: "This month", filters: { months: 1 } },
+    { label: "This year", filters: { years: 1 } },
   ];
 
   const handleSelect = (option: (typeof options)[0]) => {
-    setSelectedOption(option.label);
-    setDays(option.days);
+    setSelectedPeriod(option.label);
+    updateFilters(option.filters);
   };
 
   return (
@@ -77,7 +89,7 @@ const TimeFilterDropdown = ({
         <DropdownMenuTrigger asChild>
           <div className="flex items-center space-x-2 cursor-pointer px-3 py-2">
             <p className="text-sm lg:text-base font-semibold text-[#181818]">
-              {selectedOption}
+              {selectedPeriod}
             </p>
             <img
               src="/assets/icons/chevron-down.svg"
@@ -95,7 +107,7 @@ const TimeFilterDropdown = ({
               key={option.label}
               onClick={() => handleSelect(option)}
               className={`px-3 py-2 ${
-                selectedOption === option.label
+                selectedPeriod === option.label
                   ? "font-bold text-[#181818] bg-gray-100"
                   : "text-gray-700"
               }`}

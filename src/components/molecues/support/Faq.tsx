@@ -123,6 +123,14 @@ export const FaqTabContent: React.FC<FaqTabContentProps> = ({
 
         {/* Buttons Section */}
         <div className="lg:px-10 flex justify-between lg:space-x-6 space-y-6 lg:space-y-0 flex-col lg:flex-row">
+          <Link href="/Dashboard/support/faq/edit-faq" className="w-full">
+            <Button
+              variant="orange-deep"
+              title="EDIT FAQ"
+              icon="/assets/icons/mode_edit.svg"
+              full
+            />
+          </Link>
           <Link href="/Dashboard/support/faq/delete-faq" className="w-full">
             <Button
               variant="light-red"

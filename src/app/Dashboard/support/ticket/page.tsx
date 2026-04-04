@@ -27,7 +27,7 @@ const Page = () => {
         </div>
 
         <div
-          className="bg-[#023E8A] rounded-[8px] p-4 text-[20px] font-[500] cursor-pointer text-[#fff]"
+          className="bg-[#023E8A] rounded-[8px] px-4 py-3 text-[16px] font-[500] cursor-pointer text-[#fff]"
           onClick={() => router.push("/Dashboard/support/ticket/escalates")}
         >
           All Escalated tickets

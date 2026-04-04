@@ -81,7 +81,7 @@ export const useGetUsers = () => {
   const [dateJoinedAfter, setDateJoinedAfter] = useState<string | null>(null);
   const [dateJoinedBefore, setDateJoinedBefore] = useState<string | null>(null);
 
-  const hasFetchedInitial = useRef(false);
+  const requestIdRef = useRef(0);
 
   const buildUrl = () => {
     const params = new URLSearchParams();
@@ -94,6 +94,8 @@ export const useGetUsers = () => {
   };
 
   const fetchUsers = async (url?: string, reset = false) => {
+    const requestId = ++requestIdRef.current;
+
     try {
       setLoading(true);
       setError(null);
@@ -102,25 +104,23 @@ export const useGetUsers = () => {
       const response = await instance.get(endpoint);
       const data: UsersResponse = response.data;
 
+      if (requestId !== requestIdRef.current) return;
+
       setUsers((prev) => (reset ? data.results : [...prev, ...data.results]));
       setNextPageUrl(data.next);
       setPreviousPageUrl(data.previous);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred."
       );
     } finally {
+      if (requestId !== requestIdRef.current) return;
+
       setLoading(false);
     }
   };
-
-  // Fetch initial data once
-  useEffect(() => {
-    if (!hasFetchedInitial.current) {
-      fetchUsers(undefined, true);
-      hasFetchedInitial.current = true;
-    }
-  }, []);
 
   // Refetch when filters change
   useEffect(() => {
@@ -167,7 +167,7 @@ export const useGetDeletedUsers = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isActive, setIsActive] = useState<string | null>(null);
 
-  const hasFetchedInitial = useRef(false);
+  const requestIdRef = useRef(0);
 
   const buildUrl = () => {
     const params = new URLSearchParams();
@@ -178,6 +178,8 @@ export const useGetDeletedUsers = () => {
   };
 
   const fetchUsers = async (url?: string, reset = false) => {
+    const requestId = ++requestIdRef.current;
+
     try {
       setLoading(true);
       setError(null);
@@ -186,26 +188,24 @@ export const useGetDeletedUsers = () => {
       const response = await instance.get(endpoint);
       const data: UsersResponse = response.data;
 
+      if (requestId !== requestIdRef.current) return;
+
       // Replace the users list if reset === true, else append
       setUsers(reset ? data.results : [...users, ...data.results]);
       setNextPageUrl(data.next);
       setPreviousPageUrl(data.previous);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred."
       );
     } finally {
+      if (requestId !== requestIdRef.current) return;
+
       setLoading(false);
     }
   };
-
-  // Fetch initial data once
-  useEffect(() => {
-    if (!hasFetchedInitial.current) {
-      fetchUsers(undefined, true);
-      hasFetchedInitial.current = true;
-    }
-  }, []);
 
   // Refetch when searchTerm or isActive changes
   useEffect(() => {

@@ -43,16 +43,55 @@ class Service {
     });
   }
 
-  claimChat({ id }: { id: string | number }) {
-    return instance.post(env.api.chat + id + "/claim/");
+  claimChat({
+    id,
+    payload,
+  }: {
+    id: string | number;
+    payload?: { title?: string };
+  }) {
+    return instance.post(env.api.chat + id + "/claim/", payload || {});
   }
 
-  closeChat({ id }: { id: string | number }) {
-    return instance.post(env.api.chat  + id + "/close/");
+  closeChat({
+    id,
+    payload,
+  }: {
+    id: string | number;
+    payload?: { title?: string };
+  }) {
+    return instance.post(env.api.chat + id + "/close/", payload || {});
   }
 
-  deleteFaq({ id }: { id: number }) {
-    return instance.delete(env.api.faq + "/" + id);
+
+  deleteChatSession({ id }: { id: string | number }) {
+    return instance.delete(env.api.chat + id + "/delete_session/");
+  }
+
+  updateChat({
+    id,
+    payload,
+  }: {
+    id: string | number;
+    payload: { title?: string };
+  }) {
+    return instance.put(env.api.chat + id + "/", payload);
+  }
+
+  exportChatPdf({ id }: { id: string | number }) {
+    return instance.get(env.api.chat + id + "/export_pdf/", {
+      responseType: "blob",
+    });
+  }
+
+  markChatAsRead({
+    id,
+    payload,
+  }: {
+    id: string | number;
+    payload?: { title?: string };
+  }) {
+    return instance.post(env.api.chat + id + "/mark_as_read/", payload || {});
   }
 
   uploadAttachment(file: File) {

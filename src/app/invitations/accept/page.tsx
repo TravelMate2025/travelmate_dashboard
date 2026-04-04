@@ -12,8 +12,8 @@ type AcceptInviteFormValues = {
   password2: string;
 };
 
-const INVITE_VALIDATE_PATH = "/api/admin/invitations/validate/";
-const INVITE_ACCEPT_PATH = "/api/admin/invitations/accept/";
+const INVITE_VALIDATE_PATH = "/api/proxy/admin/invitations/validate/";
+const INVITE_ACCEPT_PATH = "/api/proxy/admin/invitations/accept/";
 
 const page = () => (
   <Suspense
@@ -43,7 +43,7 @@ const validationSchema = Yup.object().shape({
 const LoginComponent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const rawToken = searchParams.get("token");
+  const rawToken = searchParams.get("token") || searchParams.get("invitation_token");
   const token = useMemo(() => {
     if (!rawToken) {
       return null;
@@ -102,6 +102,10 @@ const LoginComponent = () => {
         try {
           setLoading(true);
           const response = await validateInvite(token);
+          if (response?.data?.error) {
+            throw new Error(response?.data?.message || "Invalid or expired token.");
+          }
+
           const invitedEmail = response?.data?.email;
           if (!invitedEmail) {
             throw new Error("Invitation email missing");
@@ -155,7 +159,6 @@ const LoginComponent = () => {
       showErrorToast({
         message: getErrorMessage(error, defaultMessage),
       });
-      console.log(getErrorMessage(error, "Something went wrong"));
     } finally {
       setLoading(false);
     }
