@@ -259,9 +259,11 @@ const Form = ({
 }) => {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [overridePolicy, setOverridePolicy] = useState(false);
   const [adminNote, setAdminNote] = useState("");
   const [workingMessage, setWorkingMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { processCancellation, loading } = useProcessBookingCancellation();
   const { requestCancellation, loading: requesting } =
     useRequestBookingCancellation();
@@ -303,10 +305,14 @@ const Form = ({
   const effectiveBookingType = bookingTypeFromData || routeBookingType;
 
   const handleProcessCancellation = async () => {
+    setErrorMessage(null);
     let cancellationRequestId = processTargetId;
 
     if (!cancellationRequestId) {
-      if (!bookingIdFromRoute) return;
+      if (!bookingIdFromRoute) {
+        setErrorMessage("Booking ID is required to process cancellation.");
+        return;
+      }
 
       setWorkingMessage("Creating cancellation request...");
       const cancellationRequestResult = await requestCancellation({
@@ -314,6 +320,9 @@ const Form = ({
         bookingType: effectiveBookingType,
         reason: "Cancellation requested by admin",
         adminRemark: adminNote,
+        errorCallback: ({ message, description }) => {
+          setErrorMessage(`${message}${description ? ": " + description : ""}`);
+        },
       });
 
       cancellationRequestId = normalizeId(
@@ -322,6 +331,7 @@ const Form = ({
     }
 
     if (!cancellationRequestId) {
+      setErrorMessage("Failed to create cancellation request. Please try again.");
       setWorkingMessage(null);
       return;
     }
@@ -342,6 +352,13 @@ const Form = ({
         note: adminNote,
         override_policy: overridePolicy,
       },
+      successCallback: () => {
+        setWorkingMessage(null);
+        router.push("/Dashboard/bookings");
+      },
+      errorCallback: ({ message, description }) => {
+        setErrorMessage(`${message}${description ? ": " + description : ""}`);
+      },
     });
 
     setWorkingMessage(null);
@@ -360,6 +377,12 @@ const Form = ({
           <div className="borde-[1px] border-[#ACAEB3] border-b "></div>
           <FlexValues title="Expected Customer Refund" value="₦80,000" />
         </div>
+
+        {errorMessage && (
+          <div className="bg-[#D726381A] border border-[#D72638] rounded-[8px] p-[12px]">
+            <p className="text-[#D72638] text-[14px] font-[400]">{errorMessage}</p>
+          </div>
+        )}
 
         <div className="flex justify-between items-center bg-[#DEDFE126] rounded-[12px] p-[12px]">
           <div className="flex items-center space-x-1">
@@ -400,8 +423,10 @@ const Form = ({
             className="w-full bg-[#023E8A] p-[16px] rounded-[8px] text-[#ffff] text-[20px] font-[500] text-center disabled:bg-gray-400"
             title={!bookingIdFromRoute ? "Booking ID is required before processing." : undefined}
           >
-            {loading || requesting
-              ? workingMessage || "Processing..."
+            {workingMessage
+              ? workingMessage
+              : loading || requesting
+              ? "Processing..."
               : "Process Cancellation and refund"}
           </button>
         </div>

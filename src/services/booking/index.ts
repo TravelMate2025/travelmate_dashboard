@@ -196,6 +196,16 @@ class Service {
       payload
     );
   }
+
+  exportAsCSV(params?: Record<string, unknown>) {
+    return instance.get(env.api.reportExport, {
+      params: {
+        ...params,
+        format: "csv",
+      },
+      responseType: "blob",
+    });
+  }
 }
 const BookingService = new Service();
 export default BookingService;

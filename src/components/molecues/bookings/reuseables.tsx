@@ -2,7 +2,7 @@
 
 import { DatePairDialog } from "@/components/reuseables/DateDialog";
 import { FilterDropdown } from "@/components/reuseables/FilterDropdown";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Label } from "recharts";
 import {
   DropdownMenu,
@@ -199,25 +199,49 @@ export const Filter: React.FC<FilterProps> = ({
   setSelectedEndDate,
 }) => {
   const [inputValue, setInputValue] = useState("");
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync inputValue with searchTerm
   useEffect(() => {
     setInputValue(searchTerm);
   }, [searchTerm]);
 
-  // Handle search input
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Handle search input with debounced real-time search
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setInputValue(val);
 
-    // Debounce search or trigger immediately if empty
+    // Clear existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Trigger search immediately if empty, otherwise debounce
     if (val === "") {
       setSearchTerm("");
+    } else {
+      // Debounce: search after 500ms of user stopping typing
+      debounceTimeoutRef.current = setTimeout(() => {
+        setSearchTerm(val);
+      }, 500);
     }
   };
 
   const handleSearchEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
+      // Clear pending debounce and search immediately
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
       setSearchTerm(inputValue);
     }
   };
@@ -239,6 +263,11 @@ export const Filter: React.FC<FilterProps> = ({
         value: "pending",
       },
       {
+        id: 2,
+        label: "Completed",
+        value: "completed",
+      },
+      {
         id: 6,
         label: "Cancelled",
         value: "cancelled",
@@ -251,6 +280,14 @@ export const Filter: React.FC<FilterProps> = ({
     ];
   };
 
+  const handleSearchClick = () => {
+    // Clear pending debounce and search immediately
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    setSearchTerm(inputValue);
+  };
+
   return (
     <div className="w-full px-4 lg:px-0">
       <div className="flex justify-between items-center gap-4 flex-col lg:flex-row w-full lg:space-x-12">
@@ -259,7 +296,8 @@ export const Filter: React.FC<FilterProps> = ({
           <img
             src="/assets/icons/search.svg"
             alt="Search Icon"
-            className="w-4 h-4 flex-shrink-0"
+            className="w-4 h-4 flex-shrink-0 cursor-pointer"
+            onClick={handleSearchClick}
           />
 
           <input
@@ -269,7 +307,13 @@ export const Filter: React.FC<FilterProps> = ({
             value={inputValue}
             onChange={handleSearchChange}
             onKeyDown={handleSearchEnter}
-            onBlur={() => setSearchTerm(inputValue)}
+            onBlur={() => {
+              // Clear pending debounce and search immediately on blur
+              if (debounceTimeoutRef.current) {
+                clearTimeout(debounceTimeoutRef.current);
+              }
+              setSearchTerm(inputValue);
+            }}
           />
         </div>
 

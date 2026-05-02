@@ -187,7 +187,7 @@ export const useRequestBookingCancellation = () => {
     adminRemark?: string;
     successCallback?: (result: { cancellationRequestId?: string }) => void;
     errorCallback?: (props: { message?: string; description?: string }) => void;
-  }) => {
+  }): Promise<{ cancellationRequestId?: string }> => {
     setLoading(true);
     try {
       const payload: BookingCancellationRequestPayload = {
@@ -264,11 +264,11 @@ export const useRequestBookingCancellation = () => {
         message,
         description: details.description,
       });
+
+      return { cancellationRequestId: undefined };
     } finally {
       setLoading(false);
     }
-
-    return { cancellationRequestId: undefined };
   };
 
   return { requestCancellation, loading };
@@ -287,7 +287,7 @@ export const useProcessBookingCancellation = () => {
     payload: BookingCancellationProcessPayload;
     successCallback?: () => void;
     errorCallback?: (props: { message?: string; description?: string }) => void;
-  }) => {
+  }): Promise<void> => {
     setLoading(true);
     try {
       const res = await BookingService.processCancellation({ id, payload });
@@ -317,4 +317,40 @@ export const useProcessBookingCancellation = () => {
   };
 
   return { processCancellation, loading };
+};
+
+export const useExportBookingsCSV = () => {
+  const [loading, setLoading] = useState(false);
+
+  const exportAsCSV = async (params?: Record<string, unknown>) => {
+    setLoading(true);
+    try {
+      const response = await BookingService.exportAsCSV(params);
+      
+      // Create a blob from the response
+      const blob = new Blob([response.data], { type: "text/csv;charset=utf-8;" });
+      
+      // Create a temporary link and trigger download
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `bookings-${new Date().toISOString().split("T")[0]}.csv`);
+      link.style.visibility = "hidden";
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showSuccessToast({ message: "Bookings exported successfully" });
+    } catch (error: unknown) {
+      const details = getErrorDetails(error);
+      const message = details.message || "Unable to export bookings at the moment";
+      
+      showErrorToast({ message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { exportAsCSV, loading };
 };
