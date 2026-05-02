@@ -5,7 +5,7 @@ import { Filter } from "@/components/molecues/bookings/reuseables";
 import BookingTable from "@/components/molecues/bookings/BookingTable";
 import CarBookingTable from "@/components/molecues/bookings/CarsBooking";
 import FlightBookings from "@/components/molecues/bookings/FlightBookings";
-import { useGetAllBookings } from "@/hooks/api/bookings";
+import { useGetAllBookings, useExportBookingsCSV } from "@/hooks/api/bookings";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -33,6 +33,9 @@ const BookingTab: React.FC = () => {
   const [selectedEndDate, setSelectedEndDate] = useState<string>();
   const [currency, setCurrency] = useState("NGN");
   const [statusTabFilter, setStatusTabFilter] = useState("all");
+
+  // Export hook
+  const { exportAsCSV, loading: exporting } = useExportBookingsCSV();
 
   const normalizeApiDate = (value?: string) => {
     if (!value) return undefined;
@@ -79,6 +82,7 @@ const BookingTab: React.FC = () => {
 
     if (!normalized || normalized === "all") return "all";
     if (normalized === "paid" || normalized === "ongoing") return "ongoing";
+    if (normalized === "completed") return "completed";
     if (normalized === "cancelled") return "cancelled";
     if (normalized === "pending" || normalized === "pending refund") {
       return "pending";
@@ -233,10 +237,20 @@ const BookingTab: React.FC = () => {
 
             <div
               className="flex items-center space-x-2 py-4 px-6 bg-[#FF6F1E] rounded-[8px] cursor-pointer p-[6px] justify-center w-full md:w-auto"
-              onClick={() => null}
+              onClick={() => {
+                exportAsCSV({
+                  booking_type: mapBookingType(activeTab),
+                  search: searchTerm || undefined,
+                  from_date: normalizeApiDate(selectedStartDate),
+                  to_date: normalizeApiDate(selectedEndDate),
+                  currency,
+                })
+              }}
             >
               <img src="/assets/icons/orange-download.svg" alt="" className=" lg:w-auto" />
-              <span className="font-[600] text-[16px] lg:text-[16px] text-[#fff]">Export as CSV file</span>
+              <span className="font-[600] text-[16px] lg:text-[16px] text-[#fff]">
+                {exporting ? "Exporting..." : "Export as CSV file"}
+              </span>
             </div>
           </div>
         </div>

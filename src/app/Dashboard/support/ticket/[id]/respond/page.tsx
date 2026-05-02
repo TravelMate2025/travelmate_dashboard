@@ -933,7 +933,7 @@ const Chat = ({
                     }`}
                   >
                     {sendingMessage ? (
-                      <div className="w-5 h-5 border-4 border-gray-100 border-t-transparent rounded-full animate-spin"></div>
+                        <div className="w-5 h-5 border-4 border-gray-100 border-t-transparent rounded-full animate-spin"></div>
                     ) : (
                       <img src="/assets/icons/white-send.svg" alt="Send" />
                     )}
