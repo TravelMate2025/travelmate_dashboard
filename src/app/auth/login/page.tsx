@@ -6,7 +6,6 @@ import Button from "@/components/reuseables/Button";
 import Link from "next/link";
 import { Formik, Form, useField } from "formik";
 import { authInitialValues, authSchema } from "@/lib/auth/yupAuthSchema";
-import { useRouter } from "next/navigation";
 import { useLoginUser } from "@/hooks/api/auth";
 import AuthService from "@/services/auth";
 
@@ -19,7 +18,6 @@ const page = () => {
 };
 
 const LoginComponent = () => {
-  const router = useRouter();
   const { loading, onLogin, redirecting } = useLoginUser({
     Service: AuthService,
   });
@@ -28,7 +26,10 @@ const LoginComponent = () => {
     await onLogin({
       payload: values,
       successCallback: () => {
-        router.push("/Dashboard");
+        // After login we depend on freshly-written httpOnly cookies for
+        // middleware-gated dashboard routes, so a full navigation is more
+        // reliable than an in-app transition here.
+        window.location.assign("/Dashboard");
       },
     });
   };

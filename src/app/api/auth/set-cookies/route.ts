@@ -1,26 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  accessTokenCookieOptions,
+  refreshTokenCookieOptions,
+  roleCookieOptions,
+} from "@/lib/auth-cookies";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { accessToken, refreshToken } = body;
+  const { accessToken, refreshToken, isAdmin, isSuperuser } = body;
 
   const response = NextResponse.json({ message: "Cookies set successfully" });
 
-  // Set the access token cookie
-  response.cookies.set("accessToken", accessToken, {
-    httpOnly: true,
-    secure: true,
-    path: "/",
-    maxAge: 60 * 60, // 1 hour
-  });
+  response.cookies.set("accessToken", accessToken, accessTokenCookieOptions);
 
-  // Set the refresh token cookie
-  response.cookies.set("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: true,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  response.cookies.set("refreshToken", refreshToken, refreshTokenCookieOptions);
+
+  response.cookies.set("dashboardIsAdmin", String(Boolean(isAdmin)), roleCookieOptions);
+  response.cookies.set(
+    "dashboardIsSuperuser",
+    String(Boolean(isSuperuser)),
+    roleCookieOptions
+  );
 
   return response;
 }

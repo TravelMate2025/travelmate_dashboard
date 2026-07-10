@@ -130,7 +130,59 @@ export const useGetAllBookings = (filters: BookingFilters = {}) => {
     loadPrevious,
     hasNext: Boolean(nextPageUrl),
     hasPrevious: Boolean(previousPageUrl),
+    refetch: () => fetchBookings(),
   };
+};
+
+// Separate from useGetAllBookings on purpose: `booking_type=all` returns a
+// different shape ({ stays, transfers, flights, total_count }, unpaginated)
+// than every other booking_type ({ results: { results, next, previous } }),
+// and useGetAllBookings is tightly coupled to (and every other tab depends
+// on) that single-type paginated shape.
+export const useGetAllBookingsCombined = (
+  filters: BookingFilters = {},
+  enabled: boolean = true
+) => {
+  const BASE_URL = env.api.bookingAdminList;
+
+  const [stays, setStays] = useState<BookingListItem[]>([]);
+  const [transfers, setTransfers] = useState<BookingListItem[]>([]);
+  const [flights, setFlights] = useState<BookingListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cleanedFilters = Object.entries(filters).reduce<BookingFilters>((acc, [key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+
+  const fetchAll = useCallback(async () => {
+    if (!enabled) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await instance.get(BASE_URL, {
+        params: { ...cleanedFilters, booking_type: "all" },
+      });
+      setStays(response?.data?.stays || []);
+      setTransfers(response?.data?.transfers || []);
+      setFlights(response?.data?.flights || []);
+    } catch (err: unknown) {
+      setError(getErrorDetails(err).message);
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [BASE_URL, enabled, JSON.stringify(cleanedFilters)]);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  return { stays, transfers, flights, loading, error, refetch: fetchAll };
 };
 
 export function useGetBooking({

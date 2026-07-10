@@ -63,6 +63,11 @@ type UIChatMessage = {
   attachment_name?: string;
   attachment_type?: string;
   uploading?: boolean;
+  // Present on a live `session_update` broadcast (see
+  // core/applications/chat/signals.py's notify_session_update). Only
+  // ever {id, first_name, last_name, profile_pics} — never `email`,
+  // unlike the REST-fetched assigned_admin_info shape.
+  assigned_admin?: { first_name?: string; last_name?: string } | null;
 };
 
 type ChatSession = {
@@ -390,6 +395,31 @@ export const Session = ({
     [liveMessages]
   );
 
+  // `chat` is only ever fetched once, on mount (useGetChat's effect keys
+  // off `ChatId`, which doesn't change just because someone claimed the
+  // chat) — so claiming a chat while already viewing its detail page (the
+  // most common flow: an admin sees a new chat in the list and claims it
+  // right there while it's also open/selected) never updates `chat`, and
+  // the "No admin claimed" header sticks around even after a successful
+  // claim. `notify_session_update` (backend) already broadcasts a live
+  // `session_update` event with `assigned_admin` on every claim — this
+  // reads that as a fallback source of truth, same pattern already used
+  // for the customer-facing "admin joined" indicator on web/mobile.
+  const [liveAssignedAdmin, setLiveAssignedAdmin] = useState<{
+    first_name?: string;
+    last_name?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    for (let i = liveMessagesList.length - 1; i >= 0; i--) {
+      const msg = liveMessagesList[i];
+      if (msg.type === "session_update" && msg.assigned_admin) {
+        setLiveAssignedAdmin(msg.assigned_admin);
+        break;
+      }
+    }
+  }, [liveMessagesList]);
+
   const handleDownload = () => {
     if (!modalImage) return;
     fetch(modalImage)
@@ -566,14 +596,18 @@ export const Session = ({
             ) : (
               <div className=" text-[12px] lg:text-sm">
                 {chat?.claimed_by_info?.first_name ||
-                chat?.assigned_admin_info?.email ? (
+                chat?.claimed_by_info?.email ||
+                chat?.assigned_admin_info?.first_name ||
+                chat?.assigned_admin_info?.email ||
+                liveAssignedAdmin ? (
                   <>
                     Responding:{" "}
                     {chat?.claimed_by_info?.first_name ||
                       chat?.claimed_by_info?.email ||
                       chat?.assigned_admin_info?.first_name ||
                       chat?.assigned_admin_info?.email ||
-                      "---"}
+                      liveAssignedAdmin?.first_name?.trim() ||
+                      (liveAssignedAdmin ? "An admin" : "---")}
                   </>
                 ) : (
                   "No admin claimed"

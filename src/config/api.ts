@@ -99,6 +99,7 @@ const api = () => {
     bookingAdminMyBookings: API_BASE + "/bookings/admin/my-bookings/",
     bookingAdminProcessCancellation: API_BASE + "/bookings/admin/",
     bookingAdminRequestCancellation: API_BASE + "/bookings/admin/request-cancellation/",
+    bookingAdminResync: API_BASE + "/bookings/admin/resync/",
     bookingMyList: API_BASE + "/bookings/my/",
     bookingMyById: API_BASE + "/bookings/my/",
     bookingMyAdvancedSearch: API_BASE + "/bookings/my/advanced-search/",

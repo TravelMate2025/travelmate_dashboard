@@ -90,11 +90,16 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
       const paymentStatus = normalizeStatus(item.payment_status as string);
 
       if (activeStatusTab === "ongoing") {
-        return bookingStatus === "ongoing";
+        // "ongoing" was never a real booking_status value — the backend
+        // only ever sets 'confirmed'/'cancelled'/'completed'
+        // (BookingLifecycleStatus, shared across all booking types), so
+        // this check could never match anything and the tab was
+        // permanently empty regardless of real data.
+        return bookingStatus === "confirmed";
       }
 
       if (activeStatusTab === "completed") {
-        return bookingStatus === "completed" || bookingStatus === "confirmed";
+        return bookingStatus === "completed";
       }
 
       if (activeStatusTab === "pending") {

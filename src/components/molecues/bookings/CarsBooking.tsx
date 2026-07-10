@@ -49,6 +49,7 @@ interface CarBookingsProps {
   hasMore: boolean;
   activeStatusTab: string;
   onStatusTabChange?: (status: string) => void;
+  onResynced?: () => void;
 }
 
 const CarBookings: React.FC<CarBookingsProps> = ({
@@ -60,6 +61,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
   hasMore,
   activeStatusTab,
   onStatusTabChange,
+  onResynced,
 }) => {
 
   const styling =
@@ -82,11 +84,16 @@ const CarBookings: React.FC<CarBookingsProps> = ({
       const paymentStatus = normalizeStatus(item.payment_status);
 
       if (activeStatusTab === "ongoing") {
-        return bookingStatus === "ongoing";
+        // "ongoing" was never a real booking_status value — the backend
+        // only ever sets 'confirmed'/'cancelled'/'completed'
+        // (BookingLifecycleStatus, shared across all booking types), so
+        // this check could never match anything and the tab was
+        // permanently empty regardless of real data.
+        return bookingStatus === "confirmed";
       }
 
       if (activeStatusTab === "completed") {
-        return bookingStatus === "completed" || bookingStatus === "confirmed";
+        return bookingStatus === "completed";
       }
 
       if (activeStatusTab === "pending") {
@@ -293,6 +300,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                         <BookingTableDropdown
                           bookingId={item.booking_id || item.booking_reference || item.id}
                           bookingType="transfers"
+                          onResynced={onResynced}
                         />
                       </TableCell>
                     </TableRow>

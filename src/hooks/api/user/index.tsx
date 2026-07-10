@@ -85,6 +85,7 @@ export const useGetUsers = () => {
 
   const buildUrl = () => {
     const params = new URLSearchParams();
+    params.append("ordering", "-date_joined");
     if (searchTerm) params.append("search", searchTerm);
     if (isActive !== null) params.append("is_active", isActive);
     if (dateJoinedAfter) params.append("date_joined_after", dateJoinedAfter);

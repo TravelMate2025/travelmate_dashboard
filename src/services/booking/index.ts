@@ -190,6 +190,12 @@ class Service {
     });
   }
 
+  resyncBooking({ bookingId }: { bookingId: string }) {
+    return instance.post<BookingDetailResponse>(
+      `${env.api.bookingAdminResync}${bookingId}/`
+    );
+  }
+
   updateBooking({ bookingId, payload }: { bookingId?: string; payload?: Record<string, unknown> }) {
     return instance.post(
       env.api.bookings + "/" + bookingId + "/update_booking/",

@@ -11,6 +11,9 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import BookingService from "@/services/booking";
+import { showErrorToast, showSuccessToast } from "@/utils/toasters";
+import axios from "axios";
 
 interface GridValuesProps {
   title: string;
@@ -74,11 +77,14 @@ export const Policy = ({ List }: PolicyProps) => {
 export const BookingTableDropdown = ({
   bookingId,
   bookingType,
+  onResynced,
 }: {
   bookingId?: string | number;
   bookingType?: "stays" | "flights" | "transfers";
+  onResynced?: () => void;
 }) => {
   const router = useRouter();
+  const [resyncing, setResyncing] = useState(false);
   const resolvedBookingId =
     bookingId !== undefined && bookingId !== null ? String(bookingId) : "";
 
@@ -96,6 +102,30 @@ export const BookingTableDropdown = ({
     router.push(`/Dashboard/bookings/${resolvedBookingId}/process-cancel${bookingTypeQuery}`);
   };
 
+  // Only stays and transfers sync from the partner (the periodic
+  // mark_ended_stays_checked_out_task / on-demand BookingViewSet.list sync
+  // never upserts flights), so a resync request for a flight booking would
+  // 404 — don't offer it there.
+  const canResync = resolvedBookingId && (bookingType === "stays" || bookingType === "transfers");
+
+  const handleResync = async () => {
+    if (!resolvedBookingId || resyncing) return;
+    setResyncing(true);
+    try {
+      await BookingService.resyncBooking({ bookingId: resolvedBookingId });
+      showSuccessToast({ message: "Booking resynced from partner" });
+      onResynced?.();
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data as { error?: string })?.error ||
+          "Unable to resync this booking from the partner"
+        : "Unable to resync this booking from the partner";
+      showErrorToast({ message });
+    } finally {
+      setResyncing(false);
+    }
+  };
+
   const options = [
     { id: 1, label: "View Details", disabled: !resolvedBookingId },
     {
@@ -103,7 +133,22 @@ export const BookingTableDropdown = ({
       label: "Cancel Booking",
       disabled: !resolvedBookingId,
     },
+    ...(canResync
+      ? [
+          {
+            id: 3,
+            label: resyncing ? "Resyncing..." : "Resync from Partner",
+            disabled: resyncing,
+          },
+        ]
+      : []),
   ];
+
+  const handleOptionClick = (id: number) => {
+    if (id === 1) return handleViewDetails();
+    if (id === 2) return handleCancelBooking();
+    return handleResync();
+  };
 
   return (
     <div className="relative overflow-visible">
@@ -120,7 +165,7 @@ export const BookingTableDropdown = ({
           {options.map((option) => (
             <DropdownMenuItem
               key={option.id}
-              onClick={option.id === 1 ? handleViewDetails : handleCancelBooking}
+              onClick={() => handleOptionClick(option.id)}
               disabled={option.disabled}
               className={`cursor-pointer select-none ${
                 option.label === "Cancel Booking"
