@@ -128,11 +128,9 @@ const BookingTable: React.FC<BookingTableProps> = ({
 
   const formatAmount = (amount: string | number) => {
     const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
-    if (filterProps.currency === "USD") {
-      return `$${numAmount.toFixed(2)}`;
-    }
-    // Convert USD to NGN roughly for demo purposes
-    return `₦${(numAmount * 1500).toLocaleString()}`;
+    return filterProps.currency === "USD"
+      ? `$${numAmount.toFixed(2)}`
+      : `₦${numAmount.toLocaleString()}`;
   };
 
   /**

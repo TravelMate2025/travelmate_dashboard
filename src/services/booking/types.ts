@@ -63,7 +63,13 @@ export type BookingCancellationApiResponse = {
     status?: string;
     created_at?: string;
     admin_remark?: string;
-    refund_amount?: string;
+    refund_amount?: string | number | null;
+    processing_fee?: string | number | null;
+    cancellation_fee?: string | number | null;
+    payment_method?: string | null;
+    transaction_id?: string | null;
+    original_payment?: string | number | null;
+    cancellation_policy?: unknown;
     [key: string]: unknown;
   };
 };

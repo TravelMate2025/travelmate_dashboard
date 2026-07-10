@@ -14,6 +14,7 @@ import {
   useGetUser,
   useBulkDeleteUser,
 } from "@/hooks/api/user";
+import { useAuthContext } from "@/context/AuthContext";
 import {
   Table,
   TableBody,
@@ -25,9 +26,6 @@ import {
 import { format } from "date-fns";
 import { useMyRoles } from "@/hooks/api/roles";
 import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
-
-const normalizeRoleName = (value?: string | null) =>
-  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 
 const BulkDeleteConfirmationDialog = ({
   isOpen,
@@ -43,10 +41,7 @@ const BulkDeleteConfirmationDialog = ({
   deleting: boolean;
 }) => {
   const { loading, data } = useMyRoles({ modalVisible: isOpen });
-  const roleData = (data || null) as { name?: string; is_superuser?: boolean } | null;
-  const canViewMessage =
-    Boolean(roleData?.is_superuser) ||
-    normalizeRoleName(roleData?.name) === "super admin";
+  const canViewMessage = Boolean(data?.is_superuser);
 
   return (
     <Dialog open={isOpen} onOpenChange={onCancel}>
@@ -129,7 +124,10 @@ export const DeletedUsersTable = ({
     setIsActive,
     nextPageUrl,
     previousPageUrl,
+    refetch,
   } = useGetDeletedUsers();
+  const APP_STATE = useAuthContext();
+  const isSuperuser = Boolean(APP_STATE?.user?.isSuperuser);
 
   const [selectedUser, setSelectedUser] = useState<DeletedUserItem | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -141,7 +139,7 @@ export const DeletedUsersTable = ({
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
   // Bulk delete hook
-  const { deleting, onBulkDeleteUser, isSuccess } = useBulkDeleteUser();
+  const { deleting, onBulkDeleteUser } = useBulkDeleteUser();
 
   const { data: userDetails, loading: userLoading } = useGetUser({
     UserId: userId as string,
@@ -174,8 +172,8 @@ export const DeletedUsersTable = ({
       await onBulkDeleteUser({
         userIds,
         successCallback: () => {
-          console.log("Users deleted successfully");
           setSelectedUserIds([]);
+          refetch();
         },
       });
     } catch (error) {
@@ -228,7 +226,7 @@ export const DeletedUsersTable = ({
 
   return (
     <div className="relative w-full">
-      {selectedUserIds.length > 0 && (
+      {isSuperuser && selectedUserIds.length > 0 && (
         <div className="flex justify-end mb-4">
           <button
             className={`text-white text-[14px] font-[400] py-2 px-4 rounded-[8px] transition duration-200 ${
@@ -269,21 +267,22 @@ export const DeletedUsersTable = ({
                   <Table className="w-full min-w-[800px]">
                     <TableHeader className="bg-gray-100">
                       <TableRow>
-                        <TableHead className="py-4 px-6 text-sm font-semibold text-gray-700 text-left w-1/12">
-                          <input
-                            type="checkbox"
-                            className="w-5 h-5 rounded border-gray-300 text-red-500 focus:ring-red-400"
-                            title="Select all users"
-                            aria-label="Select all users"
-                            onChange={(e) => handleSelectAll(e.target.checked)}
-                            checked={
-                              users.length > 0 &&
-                              selectedUserIds.length === users.length
-                            }
-                            // React doesn't support indeterminate attribute on input directly,
-                            // so you'd handle it via ref if needed — omitted for brevity
-                          />
-                        </TableHead>
+                        {isSuperuser && (
+                          <TableHead className="py-4 px-6 text-sm font-semibold text-gray-700 text-left w-1/12">
+                            <input
+                              type="checkbox"
+                              className="w-5 h-5 rounded border-gray-300 text-red-500 focus:ring-red-400"
+                              title="Select all users"
+                              aria-label="Select all users"
+                              onChange={(e) => handleSelectAll(e.target.checked)}
+                              checked={
+                                users.length > 0 &&
+                                selectedUserIds.length === users.length
+                              }
+                              disabled={deleting}
+                            />
+                          </TableHead>
+                        )}
                         <TableHead className="py-4 px-6 text-sm font-semibold text-gray-700 text-left">
                           User ID
                         </TableHead>
@@ -313,17 +312,19 @@ export const DeletedUsersTable = ({
                           key={user.id}
                           className="bg-white hover:bg-gray-50 transition duration-200 cursor-pointer"
                         >
-                          <TableCell className="py-4 px-6 text-[14px] font-[400] text-[#181818]">
-                            <input
-                              type="checkbox"
-                              className="w-5 h-5 rounded border-gray-300 text-red-500 focus:ring-red-400"
-                              title={`Select ${user.name || user.email}`}
-                              aria-label={`Select ${user.name || user.email}`}
-                              checked={selectedUserIds.includes(user.id)}
-                              onChange={() => toggleSelectUser(user.id)}
-                              disabled={deleting}
-                            />
-                          </TableCell>
+                          {isSuperuser && (
+                            <TableCell className="py-4 px-6 text-[14px] font-[400] text-[#181818]">
+                              <input
+                                type="checkbox"
+                                className="w-5 h-5 rounded border-gray-300 text-red-500 focus:ring-red-400"
+                                title={`Select ${user.name || user.email}`}
+                                aria-label={`Select ${user.name || user.email}`}
+                                checked={selectedUserIds.includes(user.id)}
+                                onChange={() => toggleSelectUser(user.id)}
+                                disabled={deleting}
+                              />
+                            </TableCell>
+                          )}
                           <TableCell className="py-4 px-6 text-[14px] font-[400] text-[#181818]">
                             {user.id}
                           </TableCell>
@@ -348,8 +349,10 @@ export const DeletedUsersTable = ({
                           </TableCell>
                           <TableCell className="py-4 px-6 text-center">
                             <UserDropdown
+                              parentWidth={180}
                               onViewDetails={() => handleViewDetails(user)}
                               onDeactivate={() => handleDeactivateUser(user)}
+                              canDelete={isSuperuser}
                             />
                           </TableCell>
                         </TableRow>
@@ -378,6 +381,7 @@ export const DeletedUsersTable = ({
           isOpen={isDeactivateDialogOpen}
           deactivatingUser={deactivatingUser}
           onCancel={cancelDeactivation}
+          refetch={refetch}
         />
       )}
 

@@ -17,12 +17,12 @@ type InviteSupes = {
     email: string,
     name: string,
     transfer_action: string,
-    new_role_id: string,
+    new_role_id?: string,
 }
 type TransferSupes = {
     email: string
     transfer_action: string
-    new_role_id: string
+    new_role_id?: string
 }
 
 export const fetchPermission = () =>

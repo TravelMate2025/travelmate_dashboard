@@ -3,6 +3,7 @@ export type NavigationItem = {
   label: string;
   href: string;
   iconActive: string;
+  requiresSuperuser?: boolean;
 };
 
 export const navItems: NavigationItem[] = [
@@ -53,5 +54,6 @@ export const navItems: NavigationItem[] = [
     label: "Admin Roles",
     href: "/Dashboard/admin",
     iconActive: "/assets/icons/a-sidebar-role.svg",
+    requiresSuperuser: true,
   },
 ];

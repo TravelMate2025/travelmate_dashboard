@@ -40,8 +40,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { onLogout } = useLogout();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const hasLoggedOutRef = React.useRef(false);
+  const APP_STATE = useAuthContext();
+  const isSuperuser = Boolean(APP_STATE?.user?.isSuperuser);
+  const visibleNavItems = useMemo(
+    () =>
+      navItems.filter(
+        (item) => !item.requiresSuperuser || isSuperuser
+      ),
+    [isSuperuser]
+  );
 
-  const currentNavItem = navItems.find(
+  const currentNavItem = visibleNavItems.find(
     (item) =>
       pathname === item.href ||
       (pathname.startsWith(`${item.href}/`) && item.href !== "/Dashboard")
@@ -119,7 +128,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </Link>
         </div>
         <nav className="flex-1 px-4 space-y-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive =
               pathname === item.href ||
               (pathname.startsWith(`${item.href}/`) &&
@@ -196,7 +205,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
 
               <nav className="space-y-2">
-                {navItems.map((item) => {
+                {visibleNavItems.map((item) => {
                   const isActive =
                     pathname === item.href ||
                     (pathname.startsWith(`${item.href}/`) &&

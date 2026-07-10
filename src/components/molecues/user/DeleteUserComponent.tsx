@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useMyRoles } from "@/hooks/api/roles";
-import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 
 import {
@@ -147,17 +146,16 @@ export const UserDeleteDialog = ({
   deactivatingUser,
   isOpen,
   onCancel,
+  refetch,
 }: {
   deactivatingUser: { id: string } | null;
   isOpen: boolean;
   onCancel: () => void;
+  refetch?: () => void;
 }) => {
   const { deleting, onDeleteUser } = useDeleteUser();
   const { loading, data } = useMyRoles({ modalVisible: isOpen });
-  const canViewMessage = hasPermission(
-    data?.current_permission_group_slugs,
-    "user-management"
-  );
+  const canViewMessage = Boolean(data?.is_superuser);
 
   const handleConfirm = () => {
     if (!deactivatingUser?.id) return;
@@ -166,6 +164,7 @@ export const UserDeleteDialog = ({
       userId: deactivatingUser.id,
       successCallback: () => {
         onCancel();
+        refetch?.();
       },
     });
   };
@@ -209,7 +208,7 @@ export const UserDeleteDialog = ({
             </div>
           </>
         ) : (
-          <NotAuthorizedModal ticketDetails={deactivatingUser} />
+          <NotAuthorizedModal />
         )}
       </DialogContent>
     </Dialog>
@@ -217,15 +216,14 @@ export const UserDeleteDialog = ({
 };
 
 export const NotAuthorizedModal = () => {
-  const router = useRouter();
   return (
     <div className="text-center p-6 flex flex-col space-y-2 items-center justify-center min-h-[400px]">
       <AlertTriangle className="w-20 h-20 mx-auto text-red-500" />
       <h1 className="mt-4 text-[#181818] text-[20px] font-semibold">
-        You cannot view this message.
+        You cannot delete this account.
       </h1>
       <p className="mt-4 text-gray-600">
-        You don't have the Authorization to delete an account. <br /> Please
+        You need super admin access to permanently delete an account. <br /> Please
         contact your administrator for assistance.
       </p>
     </div>
@@ -236,15 +234,18 @@ export const UserDropdown = ({
   parentWidth,
   onViewDetails,
   onDeactivate,
+  canDelete = true,
 }: {
   parentWidth: number;
   onViewDetails: () => void;
   onDeactivate: () => void;
+  canDelete?: boolean;
 }) => {
-  const options = [
-    { label: "View Details", action: onViewDetails },
-    { label: "Delete", action: onDeactivate },
-  ];
+  const options = [{ label: "View Details", action: onViewDetails }];
+
+  if (canDelete) {
+    options.push({ label: "Delete", action: onDeactivate });
+  }
 
   return (
     <div className="relative">

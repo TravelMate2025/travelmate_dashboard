@@ -7,8 +7,16 @@ import {
   useGetBooking,
   useProcessBookingCancellation,
   useRequestBookingCancellation,
+  CancellationRequestPreview,
 } from "@/hooks/api/bookings";
 import { getSingleRouteParam } from "@shared/lib/routeParams";
+
+const formatMoney = (value?: string | number | null) => {
+  if (value === undefined || value === null || value === "") return "—";
+  const numeric = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(numeric)) return "—";
+  return `₦${numeric.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 type SupportedBookingType = "stays" | "flights" | "transfers";
 
@@ -212,6 +220,15 @@ const CancellationGrid = ({
   additionalDetails: string;
   policyList: string[];
 }) => {
+  // Real transaction/refund figures only exist once a CancellationRequest has
+  // been created (request-cancellation) or resolved (process-cancellation) —
+  // the backend doesn't expose a read-only "preview" endpoint. Populated by
+  // Form's handleProcessCancellation as soon as either call resolves, so
+  // these panels show "—" rather than fabricated placeholder values before
+  // that happens.
+  const [cancellationPreview, setCancellationPreview] =
+    useState<CancellationRequestPreview | null>(null);
+
   return (
     <div className="grid grid-cols-2 gap-[24px]">
       <div className="space-y-6">
@@ -233,8 +250,14 @@ const CancellationGrid = ({
               Transaction Details
             </h1>
             <div className="space-y-4">
-              <FlexValues title="Payment Method" value="Paypal" />
-              <FlexValues title="Transaction ID" value="TXN789456123" />
+              <FlexValues
+                title="Payment Method"
+                value={cancellationPreview?.payment_method || "—"}
+              />
+              <FlexValues
+                title="Transaction ID"
+                value={cancellationPreview?.transaction_id || "—"}
+              />
             </div>
           </div>
         </div>
@@ -243,6 +266,8 @@ const CancellationGrid = ({
         booking={booking}
         bookingId={bookingId}
         routeBookingType={routeBookingType}
+        cancellationPreview={cancellationPreview}
+        onCancellationPreview={setCancellationPreview}
       />
     </div>
   );
@@ -252,10 +277,14 @@ const Form = ({
   booking,
   bookingId,
   routeBookingType,
+  cancellationPreview,
+  onCancellationPreview,
 }: {
   booking?: CancellationBooking | null;
   bookingId?: string;
   routeBookingType?: SupportedBookingType;
+  cancellationPreview: CancellationRequestPreview | null;
+  onCancellationPreview: (preview: CancellationRequestPreview) => void;
 }) => {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -328,6 +357,9 @@ const Form = ({
       cancellationRequestId = normalizeId(
         cancellationRequestResult?.cancellationRequestId
       );
+      if (cancellationRequestResult?.cancellationRequest) {
+        onCancellationPreview(cancellationRequestResult.cancellationRequest);
+      }
     }
 
     if (!cancellationRequestId) {
@@ -352,7 +384,10 @@ const Form = ({
         note: adminNote,
         override_policy: overridePolicy,
       },
-      successCallback: () => {
+      successCallback: ({ cancellationRequest }) => {
+        if (cancellationRequest) {
+          onCancellationPreview(cancellationRequest);
+        }
         setWorkingMessage(null);
         router.push("/Dashboard/bookings");
       },
@@ -371,11 +406,33 @@ const Form = ({
           Cancellation and Refunds
         </h1>
         <div className="space-y-4">
-          <FlexValues title="Original Payment" value="₦80,000" />
-          <FlexValues title="Payment Processing fee" value="-₦3500" red />
-          <FlexValues title="Cancellation fee" value="-₦0" red />
+          <FlexValues
+            title="Original Payment"
+            value={formatMoney(cancellationPreview?.original_payment)}
+          />
+          <FlexValues
+            title="Payment Processing fee"
+            value={
+              cancellationPreview?.processing_fee
+                ? `-${formatMoney(cancellationPreview.processing_fee)}`
+                : "—"
+            }
+            red
+          />
+          <FlexValues
+            title="Cancellation fee"
+            value={
+              cancellationPreview?.cancellation_fee
+                ? `-${formatMoney(cancellationPreview.cancellation_fee)}`
+                : "—"
+            }
+            red
+          />
           <div className="borde-[1px] border-[#ACAEB3] border-b "></div>
-          <FlexValues title="Expected Customer Refund" value="₦80,000" />
+          <FlexValues
+            title="Expected Customer Refund"
+            value={formatMoney(cancellationPreview?.refund_amount)}
+          />
         </div>
 
         {errorMessage && (

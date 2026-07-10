@@ -18,6 +18,7 @@ import { SearchIcon, X } from "lucide-react";
 import Loading from "../../loading";
 import { showErrorToast } from "@/utils/toasters";
 import { assignUserToRole, fetchRoles, removeUsersFromRole } from "@/services/admin";
+import { getRoleDisplayName } from "@/utils/roles";
 
 type AssignedUser = {
   id: number;
@@ -28,6 +29,7 @@ type Roles = {
   id: string;
   name: string;
   assigned_users: AssignedUser[];
+  is_superuser?: boolean;
 };
 
 type AssignableUser = AssignedUser & { roleName: string };
@@ -136,11 +138,29 @@ const ManageUsers = () => {
       .map((user) => user.email.trim());
     try {
       setIsLoadAdd(true);
-      await assignUserToRole(roleId, { email: emailsToAdd.join(",") });
-      setShowConfirmModal(false);
-      setShowSuccessModal(true);
-      setSelectedUserIds([]);
+      const failures: string[] = [];
+
+      for (const email of emailsToAdd) {
+        try {
+          await assignUserToRole(roleId, { email });
+        } catch (error: any) {
+          failures.push(error?.response?.data?.message || `Failed to add ${email}.`);
+        }
+      }
+
       await fetchRole();
+      setShowConfirmModal(false);
+      setSelectedUserIds([]);
+      if (failures.length === 0) {
+        setShowSuccessModal(true);
+      } else {
+        showErrorToast({
+          message:
+            failures.length === emailsToAdd.length
+              ? failures[0]
+              : `${emailsToAdd.length - failures.length} user(s) added, ${failures.length} failed. ${failures[0]}`,
+        });
+      }
     } catch (error: any) {
       console.log(error);
       showErrorToast({
@@ -161,11 +181,31 @@ const ManageUsers = () => {
       );
     try {
       setIsLoadRemove(true);
-      await removeUsersFromRole(roleId, { email: emailsToRemove.join(",") });
-      setShowConfirmRemoveModal(false);
-      setShowSuccessRemoveModal(true);
-      setSelectedUserIdRemove([]);
+      const failures: string[] = [];
+
+      for (const email of emailsToRemove) {
+        try {
+          await removeUsersFromRole(roleId, { email });
+        } catch (error: any) {
+          failures.push(
+            error?.response?.data?.message || `Failed to remove ${email}.`
+          );
+        }
+      }
+
       await fetchRole();
+      setShowConfirmRemoveModal(false);
+      setSelectedUserIdRemove([]);
+      if (failures.length === 0) {
+        setShowSuccessRemoveModal(true);
+      } else {
+        showErrorToast({
+          message:
+            failures.length === emailsToRemove.length
+              ? failures[0]
+              : `${emailsToRemove.length - failures.length} user(s) removed, ${failures.length} failed. ${failures[0]}`,
+        });
+      }
     } catch (error: any) {
       console.log(error);
       showErrorToast({
@@ -469,7 +509,7 @@ const ManageUsers = () => {
               </DialogHeader>
               <DialogDescription className="lg:text-base text-[12px] text-gray-700 text-left px-4 font-[500]">
                 You are about to remove the selected users from{" "}
-                {currentRole?.name} role. They will no longer have access to
+                {getRoleDisplayName(currentRole)} role. They will no longer have access to
                 these role permissions. Do you want to proceed?
               </DialogDescription>
             </div>

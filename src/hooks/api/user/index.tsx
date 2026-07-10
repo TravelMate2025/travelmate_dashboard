@@ -93,7 +93,7 @@ export const useGetUsers = () => {
     return `${BASE_URL}${params.toString() ? `?${params.toString()}` : ""}`;
   };
 
-  const fetchUsers = async (url?: string, reset = false) => {
+  const fetchUsers = async (url?: string) => {
     const requestId = ++requestIdRef.current;
 
     try {
@@ -106,7 +106,7 @@ export const useGetUsers = () => {
 
       if (requestId !== requestIdRef.current) return;
 
-      setUsers((prev) => (reset ? data.results : [...prev, ...data.results]));
+      setUsers(data.results);
       setNextPageUrl(data.next);
       setPreviousPageUrl(data.previous);
     } catch (err) {
@@ -124,19 +124,19 @@ export const useGetUsers = () => {
 
   // Refetch when filters change
   useEffect(() => {
-    fetchUsers(undefined, true);
+    fetchUsers();
   }, [searchTerm, isActive, dateJoinedAfter, dateJoinedBefore]);
 
   const loadNext = () => {
-    if (nextPageUrl) fetchUsers(nextPageUrl, false);
+    if (nextPageUrl) fetchUsers(nextPageUrl);
   };
 
   const loadPrevious = () => {
-    if (previousPageUrl) fetchUsers(previousPageUrl, false);
+    if (previousPageUrl) fetchUsers(previousPageUrl);
   };
 
   const refetch = () => {
-    fetchUsers(undefined, true);
+    fetchUsers();
   };
 
   return {
@@ -177,7 +177,7 @@ export const useGetDeletedUsers = () => {
     return `${BASE_URL}${params.toString() ? `?${params.toString()}` : ""}`;
   };
 
-  const fetchUsers = async (url?: string, reset = false) => {
+  const fetchUsers = async (url?: string) => {
     const requestId = ++requestIdRef.current;
 
     try {
@@ -190,8 +190,7 @@ export const useGetDeletedUsers = () => {
 
       if (requestId !== requestIdRef.current) return;
 
-      // Replace the users list if reset === true, else append
-      setUsers(reset ? data.results : [...users, ...data.results]);
+      setUsers(data.results);
       setNextPageUrl(data.next);
       setPreviousPageUrl(data.previous);
     } catch (err) {
@@ -209,17 +208,19 @@ export const useGetDeletedUsers = () => {
 
   // Refetch when searchTerm or isActive changes
   useEffect(() => {
-    fetchUsers(undefined, true);
+    fetchUsers();
   }, [searchTerm, isActive]);
 
-  // Load next page and replace user list
   const loadNext = () => {
-    if (nextPageUrl) fetchUsers(nextPageUrl, true);
+    if (nextPageUrl) fetchUsers(nextPageUrl);
   };
 
-  // Load previous page and replace user list
   const loadPrevious = () => {
-    if (previousPageUrl) fetchUsers(previousPageUrl, true);
+    if (previousPageUrl) fetchUsers(previousPageUrl);
+  };
+
+  const refetch = () => {
+    fetchUsers();
   };
 
   return {
@@ -232,7 +233,51 @@ export const useGetDeletedUsers = () => {
     previousPageUrl,
     setSearchTerm,
     setIsActive,
+    refetch,
   };
+};
+
+const getActionMessage = ({
+  responseData,
+  fallback,
+}: {
+  responseData?: { message?: string; Message?: string; detail?: string; description?: string };
+  fallback: string;
+}) =>
+  responseData?.message ||
+  responseData?.Message ||
+  responseData?.detail ||
+  responseData?.description ||
+  fallback;
+
+const getErrorMessage = (
+  error: unknown,
+  fallback: string
+) => {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    typeof (error as { response?: unknown }).response === "object"
+  ) {
+    const response = (error as {
+      response?: {
+        data?: {
+          message?: string;
+          Message?: string;
+          detail?: string;
+          description?: string;
+        };
+      };
+    }).response;
+
+    return getActionMessage({
+      responseData: response?.data,
+      fallback,
+    });
+  }
+
+  return error instanceof Error ? error.message : fallback;
 };
 
 export const useDeactivateUser = () => {
@@ -258,10 +303,11 @@ export const useDeactivateUser = () => {
 
     try {
       const res = await UserService.deactivateUser({ userId, data });
-      const {
-        message = res.data.Message || "🚀 User Deactivated successfully",
-        description = "",
-      } = res.data || {};
+      const message = getActionMessage({
+        responseData: res.data,
+        fallback: "User has been deactivated",
+      });
+      const description = res.data?.description || "";
 
       showSuccessToast({ message, description });
 
@@ -274,7 +320,10 @@ export const useDeactivateUser = () => {
       setIsSuccess(true);
     } catch (error: unknown) {
       showErrorToast({
-        message: "unable to deactivate user at the moment",
+        message: getErrorMessage(
+          error,
+          "Unable to deactivate user at the moment."
+        ),
       });
     } finally {
       setLoading(false);
@@ -307,10 +356,11 @@ export const useReactivateUser = () => {
 
     try {
       const res = await UserService.reactivateUser({ userId, data });
-      const {
-        message = res.data.Message || "🚀 User Reactivated successfully",
-        description = "",
-      } = res.data || {};
+      const message = getActionMessage({
+        responseData: res.data,
+        fallback: "User has been activated",
+      });
+      const description = res.data?.description || "";
 
       showSuccessToast({ message, description });
 
@@ -323,7 +373,10 @@ export const useReactivateUser = () => {
       setIsSuccess(true);
     } catch (error: unknown) {
       showErrorToast({
-        message: "unable to deactivate user at the moment",
+        message: getErrorMessage(
+          error,
+          "Unable to reactivate user at the moment."
+        ),
       });
     } finally {
       setLoading(false);
@@ -363,14 +416,14 @@ export const useExportCSV = () => {
       setIsSuccess(true);
 
       showSuccessToast({
-        message: "CSV Export Successful",
+        message: "CSV export successful",
         description: "The user data has been exported to CSV format.",
       });
     } catch (error: unknown) {
       console.error("Error exporting CSV:", error);
 
       showErrorToast({
-        message: "Export Failed",
+        message: getErrorMessage(error, "Export failed"),
         description: "An error occurred while exporting the CSV.",
       });
 
@@ -399,10 +452,11 @@ export const useDeleteUser = () => {
 
     try {
       const res = await UserService.deleteUser({ userId });
-      const {
-        message = res.data.Message || "🚀 User Deleted successfully",
-        description = "",
-      } = res.data || {};
+      const message = getActionMessage({
+        responseData: res.data,
+        fallback: "User deleted successfully",
+      });
+      const description = res.data?.description || "";
 
       showSuccessToast({ message, description });
 
@@ -415,7 +469,10 @@ export const useDeleteUser = () => {
       setIsSuccess(true);
     } catch (error: unknown) {
       showErrorToast({
-        message: "unable to deactivate user at the moment",
+        message: getErrorMessage(
+          error,
+          "Unable to delete user at the moment."
+        ),
       });
     } finally {
       setLoading(false);
@@ -441,10 +498,11 @@ export const useBulkDeleteUser = () => {
 
     try {
       const res = await UserService.bulkDeleteUser({ userIds });
-      const {
-        message = res.data.Message || "🚀 Users deleted successfully",
-        description = "",
-      } = res.data || {};
+      const message = getActionMessage({
+        responseData: res.data,
+        fallback: "Users deleted successfully",
+      });
+      const description = res.data?.description || "";
 
       showSuccessToast({ message, description });
 
@@ -457,7 +515,10 @@ export const useBulkDeleteUser = () => {
       setIsSuccess(true);
     } catch (error: unknown) {
       showErrorToast({
-        message: "Unable to delete users at the moment",
+        message: getErrorMessage(
+          error,
+          "Unable to delete users at the moment."
+        ),
       });
     } finally {
       setLoading(false);

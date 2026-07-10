@@ -6,10 +6,17 @@ import { GridValues, FlexValues, Policy } from "../../reuseables";
 type StayRoom = {
   room_type?: string;
   room_name?: string;
+  // Partner-shaped fields (as returned in the hold response's
+  // `roomSelections` and now persisted directly on `rooms`) — the partner
+  // calls this field `name`, not `room_type`/`room_name`.
+  name?: string;
+  roomName?: string;
   adults?: number;
   children?: number;
+  occupancy?: number;
   quantity?: number;
   price?: number;
+  baseRate?: number;
 };
 
 type StayCustomerDetails = {
@@ -34,7 +41,8 @@ type StayBookingData = {
   currency?: string;
   hotel_name?: string;
   hotel_code?: string | number;
-  total_amount?: number;
+  // DRF DecimalField serializes as a string (e.g. "490000.00"), not a JSON number.
+  total_amount?: number | string;
   payment_reference?: string;
   payment_transaction_id?: string;
   session_id?: string;
@@ -64,8 +72,9 @@ const toStatusClass = (status?: string) => {
   return "text-[#EFB608] border-[#EFB608] bg-[#EFB60833]";
 };
 
-const formatAmount = (amount?: number, currency?: string) => {
-  if (typeof amount !== "number") return "N/A";
+const formatAmount = (amount?: number | string, currency?: string) => {
+  const numericAmount = typeof amount === "string" ? Number(amount) : amount;
+  if (typeof numericAmount !== "number" || Number.isNaN(numericAmount)) return "N/A";
   const safeCurrency = (currency || "USD").toUpperCase();
 
   try {
@@ -74,9 +83,9 @@ const formatAmount = (amount?: number, currency?: string) => {
       currency: safeCurrency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(numericAmount);
   } catch {
-    return `${safeCurrency} ${amount.toFixed(2)}`;
+    return `${safeCurrency} ${numericAmount.toFixed(2)}`;
   }
 };
 
@@ -138,7 +147,7 @@ export const GridDetails = ({ data }: { data?: StayBookingData }) => {
   const customer = data?.customer_details;
   const fullName = [customer?.name, customer?.surname].filter(Boolean).join(" ") || customer?.name || "N/A";
   const room = data?.rooms?.[0];
-  const roomType = room?.room_type || room?.room_name || "N/A";
+  const roomType = room?.room_type || room?.room_name || room?.name || room?.roomName || "N/A";
   const roomQuantity = room?.quantity || (data?.rooms?.length ? data.rooms.length : 1);
 
   const policyList = Array.isArray(data?.cancellation_policy) && data?.cancellation_policy.length

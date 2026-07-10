@@ -18,11 +18,7 @@ import {
 import Button from "@/components/reuseables/Button";
 import { useParams } from "next/navigation";
 import { useGetAllEscalationLevel } from "@/hooks/api/roles";
-import {
-  useGetTicket,
-  useGetAllEscalationReasons,
-  useEscalateTicket,
-} from "@/hooks/api/ticket";
+import { useGetTicket, useEscalateTicket } from "@/hooks/api/ticket";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 

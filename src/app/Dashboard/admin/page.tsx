@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,34 +34,20 @@ import {
   revokeInvites,
   updateRoles,
 } from "@/services/admin";
-
-interface User {
-  id?: number;
-  name?: string;
-  email?: string;
-  [key: string]: unknown;
-}
-
-interface Role {
-  id: string;
-  name: string;
-  description: string;
-  assigned_users: User[];
-  current_permission_group_slugs: string[];
-  is_superuser: boolean;
-  created_by: string;
-  invited_users: User[];
-}
+import { useAuthContext } from "@/context/AuthContext";
+import type { DashboardRole as Role } from "@/utils/roles";
+import { isSuperAdminRole } from "@/utils/roles";
 
 type Permissions = {
   slug: string;
   name: string;
 };
 
-const normalizeRoleName = (value?: string | null) =>
-  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
-
 const AdminRolesPage: React.FC = () => {
+  const router = useRouter();
+  const APP_STATE = useAuthContext();
+  const isSuperuser = Boolean(APP_STATE?.user?.isSuperuser);
+  const [accessResolved, setAccessResolved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isPermissionLoading, setIsPermissionLoading] = useState(true);
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
@@ -114,13 +101,29 @@ const AdminRolesPage: React.FC = () => {
   });
 
   const admins = adminDetails.filter(
-    (admin) => normalizeRoleName(admin.name) !== "super admin"
+    (admin) => !isSuperAdminRole(admin)
   );
   const departmentOptions = admins.length > 0 ? admins : adminDetails;
   const selectedDepartmentName =
     departmentOptions.find((role) => String(role.id) === selectedDepartmentId)
       ?.name ||
     "";
+
+  useEffect(() => {
+    if (!APP_STATE?.user) {
+      return;
+    }
+
+    if (!isSuperuser) {
+      showErrorToast({
+        message: "Only Super Admins can access Admin Roles.",
+      });
+      router.replace("/Dashboard");
+      return;
+    }
+
+    setAccessResolved(true);
+  }, [APP_STATE?.user, isSuperuser, router]);
 
   // FETCH PERMISSIONS TO CREATE NEW ROLE
   const fetchPermissions = async () => {
@@ -212,21 +215,7 @@ const AdminRolesPage: React.FC = () => {
           updatedRole.current_permission_group_slugs ?? [],
       };
       const response = await updateRoles(roleId, payload);
-      setAdminDetails((prev) =>
-        prev.map((role) =>
-          role.id === roleId
-            ? {
-                ...role,
-                name: response.data.name,
-                description: response.data.description,
-                current_permission_group_slugs:
-                  response.data.current_permission_group_slugs || [],
-                assigned_users: response.data.assigned_users || [],
-                invited_users: response.data.invited_users || [],
-              }
-            : role
-        )
-      );
+      await fetchAllRoles();
       setRoleDetails((prev) => ({
         ...prev,
         permissions: response.data.current_permission_group_slugs || [],
@@ -278,8 +267,8 @@ const AdminRolesPage: React.FC = () => {
           permission_group_slugs: roleDetails.permissions,
         };
         setIsSaveLoading(true);
-        const response = await addRRoles(payload);
-        setAdminDetails((prev) => [...prev, response.data]);
+        await addRRoles(payload);
+        await fetchAllRoles();
         showSuccessToast({
           message: "Created new role successfully!",
         });
@@ -297,9 +286,17 @@ const AdminRolesPage: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!accessResolved) {
+      return;
+    }
+
     fetchPermissions();
     fetchAllRoles();
-  }, []);
+  }, [accessResolved]);
+
+  if (!accessResolved) {
+    return <Loading />;
+  }
 
   // Handle role details input changes
   const handleChangeRoleDetails = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,9 +342,7 @@ const AdminRolesPage: React.FC = () => {
     try {
       setIsDeleteLoading(true);
       await deleteRoles(roleToDelete);
-      setAdminDetails((prev) =>
-        prev.filter((role) => role.id !== roleToDelete)
-      );
+      await fetchAllRoles();
       setShowConfirmModal(false);
       setSuccessDeleteModal(true);
       showSuccessToast({ message: "Role deleted successfully!" });
@@ -377,22 +372,10 @@ const AdminRolesPage: React.FC = () => {
 
       setIsInviteLoading(true);
       await inviteMembers(id, payload);
+      await fetchAllRoles();
       setLastInvitedEmail(newMember.email);
       setIsAddMemberOpen(false);
       setSuccessModal(true);
-      setAdminDetails((prev) =>
-        prev.map((role) =>
-          String(role.id) === id
-            ? {
-                ...role,
-                invited_users: [
-                  ...role.invited_users,
-                  { name: newMember.name, email: newMember.email },
-                ],
-              }
-            : role
-        )
-      );
       setIsInvited(true);
     } catch (error: any) {
       console.log(error);
@@ -409,18 +392,7 @@ const AdminRolesPage: React.FC = () => {
   const revokeInvite = async (id: string, email: string) => {
     try {
       await revokeInvites(id, email);
-      setAdminDetails((prev) =>
-        prev.map((role) =>
-          role.id === id
-            ? {
-                ...role,
-                invited_users: role.invited_users.filter(
-                  (user) => user.email !== email
-                ),
-              }
-            : role
-        )
-      );
+      await fetchAllRoles();
     } catch (error: any) {
       console.log("error revoking invite", error);
       showErrorToast({
@@ -522,7 +494,7 @@ const AdminRolesPage: React.FC = () => {
                     isLoading={isLoading}
                     onAddMemberOpen={() => setIsAddMemberOpen(true)}
                     revokeInvite={revokeInvite}
-                    setAdminDetails={setAdminDetails}
+                    refreshRoles={fetchAllRoles}
                   />
                 </TabsContent>
               </Tabs>

@@ -527,6 +527,7 @@ export const Session = ({
       (live) =>
         live.type !== "session_info" &&
         live.type !== "error" &&
+        live.type !== "session_update" &&
         !history.some((msg) => msg.id === live.id)
     );
     return [...history, ...live, ...uploadingMessages];

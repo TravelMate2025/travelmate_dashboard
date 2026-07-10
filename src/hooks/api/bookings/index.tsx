@@ -9,10 +9,15 @@ import {
   BookingDetailResponse,
   BookingListApiResponse,
   BookingListItem,
+  BookingCancellationApiResponse,
   BookingCancellationErrorResponse,
   BookingCancellationRequestPayload,
   BookingCancellationProcessPayload,
 } from "@/services/booking/types";
+
+export type CancellationRequestPreview = NonNullable<
+  BookingCancellationApiResponse["cancellation_request"]
+>;
 
 type BookingFilters = Record<string, string | number | boolean | null | undefined>;
 
@@ -185,9 +190,15 @@ export const useRequestBookingCancellation = () => {
     bookingType?: "flights" | "stays" | "transfers";
     reason?: string;
     adminRemark?: string;
-    successCallback?: (result: { cancellationRequestId?: string }) => void;
+    successCallback?: (result: {
+      cancellationRequestId?: string;
+      cancellationRequest?: CancellationRequestPreview;
+    }) => void;
     errorCallback?: (props: { message?: string; description?: string }) => void;
-  }): Promise<{ cancellationRequestId?: string }> => {
+  }): Promise<{
+    cancellationRequestId?: string;
+    cancellationRequest?: CancellationRequestPreview;
+  }> => {
     setLoading(true);
     try {
       const payload: BookingCancellationRequestPayload = {
@@ -205,27 +216,25 @@ export const useRequestBookingCancellation = () => {
       });
       const message =
         res?.data?.message || "Cancellation request submitted successfully";
-      const responseData = res?.data as {
+      const responseData = res?.data as BookingCancellationApiResponse & {
         cancellation_id?: string | number;
-        cancellation_request?: { id?: string | number };
       };
+      const cancellationRequest = responseData?.cancellation_request;
       const cancellationRequestId =
-        responseData?.cancellation_request?.id ?? responseData?.cancellation_id;
+        cancellationRequest?.id ?? responseData?.cancellation_id;
+
+      const result = {
+        cancellationRequestId:
+          cancellationRequestId !== undefined && cancellationRequestId !== null
+            ? String(cancellationRequestId)
+            : undefined,
+        cancellationRequest,
+      };
 
       showSuccessToast({ message });
-      successCallback?.({
-        cancellationRequestId:
-          cancellationRequestId !== undefined && cancellationRequestId !== null
-            ? String(cancellationRequestId)
-            : undefined,
-      });
+      successCallback?.(result);
 
-      return {
-        cancellationRequestId:
-          cancellationRequestId !== undefined && cancellationRequestId !== null
-            ? String(cancellationRequestId)
-            : undefined,
-      };
+      return result;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         const responseData = error.response?.data;
@@ -285,7 +294,9 @@ export const useProcessBookingCancellation = () => {
   }: {
     id: string;
     payload: BookingCancellationProcessPayload;
-    successCallback?: () => void;
+    successCallback?: (result: {
+      cancellationRequest?: CancellationRequestPreview;
+    }) => void;
     errorCallback?: (props: { message?: string; description?: string }) => void;
   }): Promise<void> => {
     setLoading(true);
@@ -295,7 +306,7 @@ export const useProcessBookingCancellation = () => {
         res?.data?.message || "Cancellation processed successfully";
 
       showSuccessToast({ message });
-      successCallback?.();
+      successCallback?.({ cancellationRequest: res?.data?.cancellation_request });
     } catch (error: unknown) {
       const maybeError = error as {
         response?: { data?: BookingCancellationErrorResponse };
