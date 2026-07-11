@@ -20,7 +20,6 @@ export interface Ticket {
   category: string;
   description: string;
   status: string;
-  priority: string;
   created_at: string;
   updated_at: string;
   user: User;
@@ -236,64 +235,6 @@ export function useGetTicket({
   return { loadingTicket, ticket };
 }
 
-export function useGetAllEscalationLevel({
-  initalFetch = true,
-  refresh = false,
-}: {
-  initalFetch?: boolean;
-  refresh?: boolean;
-}) {
-  const [Levelloading, setLoading] = useState(false);
-  const [Leveldata, setData] = useState<unknown | null>(null);
-
-  const onEscalationLevel = async () => {
-    setLoading(true);
-    try {
-      const res = await TicketService.getEscalationLevel();
-      setData(res.data);
-    } catch (error) {
-      console.error("Error fetching escalation levels:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (initalFetch || refresh) onEscalationLevel();
-  }, [initalFetch, refresh]);
-
-  return { Levelloading, Leveldata };
-}
-
-export function useGetAllEscalationReasons({
-  initalFetch = true,
-  refresh = false,
-}: {
-  initalFetch?: boolean;
-  refresh?: boolean;
-}) {
-  const [Reasonsloading, setLoading] = useState(false);
-  const [Reasonsdata, setData] = useState<unknown | null>(null);
-
-  const onEscalationReason = async () => {
-    setLoading(true);
-    try {
-      const res = await TicketService.getEscalationReasons();
-      setData(res.data);
-    } catch (error) {
-      console.error("Error fetching escalation levels:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (initalFetch || refresh) onEscalationReason();
-  }, [initalFetch, refresh]);
-
-  return { Reasonsloading, Reasonsdata };
-}
-
 type TEscalate = {
   escalation_role: number;
   escalation_reason: string;
@@ -343,51 +284,6 @@ export const useEscalateTicket = () => {
   };
 
   return { escalating, onEscalateTicket, isSuccess };
-};
-
-export type TEscalationPayload = {
-  name: string;
-  description: string;
-  email: string;
-};
-
-export const useCreateEscalationLevel = () => {
-  const [loading, setLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-
-  const onEsccalationLevel = async ({
-    TicketId,
-    payload,
-    successCallback,
-  }: {
-    TicketId: string;
-    payload: TEscalationPayload;
-    successCallback?: () => void;
-  }) => {
-    setLoading(true);
-    setIsSuccess(false);
-    try {
-      const res = await TicketService.createEscalationLevel({ payload });
-      const message = res.data.detail || "Escalation level added successfully.";
-
-      showSuccessToast({ message });
-
-      successCallback?.();
-      setIsSuccess(true);
-    } catch (error: unknown) {
-      const errorMessage =
-        axios.isAxiosError(error)
-          ? error.response?.data?.message ||
-            "Unable to add escalation level at the moment.!"
-          :
-        "Unable to add escalation level at the moment.!";
-      showErrorToast({ message: errorMessage });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return { loading, onEsccalationLevel, isSuccess };
 };
 
 export function useGetAllTicketStats({

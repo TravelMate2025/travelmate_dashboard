@@ -47,11 +47,11 @@ type Summary = {
 type Breakdown = {
   label: string;
   flight_bookings: number;
-  car_bookings: number;
   stay_bookings?: number;
+  transfer_bookings?: number;
   flight_revenue?: number;
-  car_revenue?: number;
   stay_revenue?: number;
+  transfer_revenue?: number;
 };
 
 type Combined = {
@@ -208,11 +208,11 @@ export default function ReportsPage() {
     const processed = bookingTrendsData.map((item) => {
       const total_bookings =
         (item.flight_bookings || 0) +
-        (item.car_bookings || 0) +
+        (item.transfer_bookings || 0) +
         (item.stay_bookings || 0);
       const total_revenue =
         (item.flight_revenue || 0) +
-        (item.car_revenue || 0) +
+        (item.transfer_revenue || 0) +
         (item.stay_revenue || 0);
 
       // Safely parse label and fallback if invalid
@@ -605,9 +605,9 @@ export default function ReportsPage() {
                             />
                             <Line
                               type="monotone"
-                              dataKey="car_bookings"
+                              dataKey="transfer_bookings"
                               stroke="#1e40af"
-                              name="Cars"
+                              name="Transfers"
                               strokeWidth={2}
                               dot={{ r: 4 }}
                             />

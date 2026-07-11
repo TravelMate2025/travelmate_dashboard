@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import { useUpdateAuthContext } from "@/context/AuthContext";
+import { clearAuthSession, syncAuthSession } from "@/lib/auth-session";
 import env from "@/config/env";
 import axios, { AxiosError } from "axios";
 import { AuthInterface } from "@/services/auth/types";
@@ -46,24 +47,14 @@ export const useLoginUser = ({ Service }: { Service: AuthInterface }) => {
         isAdmin: res.data.is_admin,
       };
 
-      // ✅ Store tokens securely in cookies (server handles httpOnly)
-      await fetch("/api/auth/set-cookies", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          accessToken: res.data.access,
-          refreshToken: res.data.refresh,
-        }),
-      });
-
-
-      updateAppState({
+      const nextState = {
         accessToken: res.data.access,
         refreshToken: res.data.refresh,
-        user, // tokens will be read later from cookies
-      });
+        user,
+      };
+
+      await syncAuthSession(nextState);
+      updateAppState(nextState);
 
       showSuccessToast({
         message: res.data.message || "🚀 Login success!",
@@ -143,17 +134,13 @@ export function useLogout() {
     try {
       await instance.post(env.api.usersLogout).catch(() => null);
 
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-
       const INITIAL_APP_STATE = {
         accessToken: undefined,
         refreshToken: undefined,
         user: undefined,
       };
 
+      await clearAuthSession().catch(() => null);
       updateAppState(INITIAL_APP_STATE);
 
       // Redirect to login

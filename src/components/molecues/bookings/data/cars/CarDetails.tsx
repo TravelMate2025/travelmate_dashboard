@@ -2,6 +2,12 @@ import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
 import { parseISO, format, formatDate } from "date-fns";
 
+type CancellationPolicyEntry = {
+  from?: string;
+  amount?: number | string;
+  currency?: string;
+};
+
 type CarBookingData = {
   booking_reference?: string;
   date_booked?: string;
@@ -17,6 +23,42 @@ type CarBookingData = {
   contact_phone?: string;
   transfer_type?: string;
   total_amount?: number;
+  passenger_capacity?: number;
+  luggage_capacity?: number;
+  provider_name?: string;
+  payment_transaction_id?: string;
+  estimated_duration_minutes?: number;
+  cancellation_policy?: CancellationPolicyEntry[] | null;
+};
+
+const formatCancellationPolicy = (
+  policy?: CancellationPolicyEntry[] | null
+): string[] => {
+  if (!Array.isArray(policy) || policy.length === 0) {
+    return ["Cancellation policy is not provided by the supplier for this booking."];
+  }
+  return policy.map((entry) => {
+    const dateLabel = entry?.from ? new Date(entry.from).toLocaleDateString("en-GB") : null;
+    const amountLabel =
+      entry?.amount !== undefined && entry?.amount !== null
+        ? `${entry.currency || ""} ${entry.amount}`.trim()
+        : null;
+    if (dateLabel && amountLabel) {
+      return `From ${dateLabel}: ${amountLabel} cancellation fee applies.`;
+    }
+    if (amountLabel) return `${amountLabel} cancellation fee applies.`;
+    if (dateLabel) return `Cancellation terms apply from ${dateLabel}.`;
+    return "Cancellation terms apply.";
+  });
+};
+
+const formatDuration = (minutes?: number): string => {
+  if (!minutes || minutes <= 0) return "—";
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours && mins) return `${hours}h ${mins}m`;
+  if (hours) return `${hours}h`;
+  return `${mins}m`;
 };
 
 const CarDetails = ({ data }: { data: CarBookingData }) => {
@@ -103,12 +145,7 @@ export const GridDetails = ({ data }: { data: CarBookingData }) => {
     const parsedDate = parseISO(dateString);
     return format(parsedDate, "MMM d, yyyy");
   };
-  const List = [
-    "Full refund if cancelled 4+ hours before scheduled pickup time. Processing fee of ₦3500 applies.",
-    "25% cancellation fee applies when cancelled between 2-4 hours before pickup.",
-    "50% cancellation fee applies when cancelled less than 2 hours before pickup.",
-    "No refund for no-shows or same-hour cancellations.",
-  ];
+  const List = formatCancellationPolicy(data?.cancellation_policy);
   return (
     <div className="grid grid-cols-2 gap-[24px]">
       <div className="space-y-6">
@@ -133,7 +170,7 @@ export const GridDetails = ({ data }: { data: CarBookingData }) => {
               />
               <FlexValues
                 title="Estimated Duration"
-                value={data?.booking_status}
+                value={formatDuration(data?.estimated_duration_minutes)}
               />
             </div>
           </div>
@@ -165,9 +202,15 @@ export const GridDetails = ({ data }: { data: CarBookingData }) => {
             </h1>
             <div className="space-y-4">
               <FlexValues title="Type" value={data.transfer_type} />
-              <FlexValues title="Seats" value="3 Seats" />
-              <FlexValues title="Luggage" value="Up to 4 bags" />
-              <FlexValues title="Provider" value="Holiday Taxis" />
+              <FlexValues
+                title="Seats"
+                value={data?.passenger_capacity ? `${data.passenger_capacity} Seats` : "—"}
+              />
+              <FlexValues
+                title="Luggage"
+                value={data?.luggage_capacity ? `Up to ${data.luggage_capacity} bags` : "—"}
+              />
+              <FlexValues title="Provider" value={data?.provider_name || "—"} />
             </div>
           </div>
         </div>
@@ -180,8 +223,11 @@ export const GridDetails = ({ data }: { data: CarBookingData }) => {
               Transaction Details
             </h1>
             <div className="space-y-4">
-              <FlexValues title="Payment Method" value="Paypal" />
-              <FlexValues title="Transaction ID" value="TXN789456123" />
+              <FlexValues title="Payment Method" value="—" />
+              <FlexValues
+                title="Transaction ID"
+                value={data?.payment_transaction_id || "—"}
+              />
             </div>
           </div>
         </div>

@@ -8,9 +8,7 @@ import {
   UserActivationDialog,
 } from "@/components/molecues/user/AllUserComponents";
 
-import { useGetUsers, useExportCSV, useGetUser } from "@/hooks/api/user";
-import Button from "@/components/reuseables/Button";
-import { useRouter } from "next/navigation";
+import { useGetUsers, useGetUser } from "@/hooks/api/user";
 import {
   Table,
   TableBody,
@@ -20,6 +18,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
+import { useMyRoles } from "@/hooks/api/roles";
+
+const normalizePermissionSlug = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "-");
+
+const hasPermission = (slugs: unknown, target: string) => {
+  if (!Array.isArray(slugs)) return false;
+
+  const normalizedTarget = normalizePermissionSlug(target);
+  const normalizedSet = new Set(
+    slugs.map((slug) => normalizePermissionSlug(String(slug)))
+  );
+
+  return normalizedSet.has(normalizedTarget);
+};
 
 type UsersTableProps = {
   searchTerm: string;
@@ -43,8 +59,6 @@ export const UsersTable = ({
   selectedEndDate,
   selectedStartDate,
 }: UsersTableProps) => {
-  const router = useRouter();
-
   const {
     users,
     loadNext,
@@ -59,6 +73,10 @@ export const UsersTable = ({
     setDateJoinedBefore,
     refetch,
   } = useGetUsers();
+  const { data: roleData } = useMyRoles({ modalVisible: true });
+  const canManageUsers =
+    Boolean(roleData?.is_superuser) ||
+    hasPermission(roleData?.current_permission_group_slugs, "user-management");
 
   useEffect(() => {
     setSearchTerm(searchTerm);
@@ -232,6 +250,7 @@ export const UsersTable = ({
                                   }
                                   onActivate={() => handleReactivateUser(user)}
                                   status={user.is_active}
+                                  canManageUsers={canManageUsers}
                                 />
                               </TableCell>
                             </TableRow>

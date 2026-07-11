@@ -1,5 +1,16 @@
-const STAGING_BASE_URL = "https://travelmate-backend-knvd.onrender.com/api";
-const LIVE_BASE_URL = "https://travelmate-backend-1-1lgj.onrender.com/api";
+// Same backend for both staging and production dashboard environments —
+// travelmate_web also points at this one. travelmate-backend-knvd (the old
+// STAGING_BASE_URL) was a bare service with no database, never actually
+// functional; travelmate-backend-1-1lgj (the old LIVE_BASE_URL) is a
+// separate, unrelated backend not used here.
+const STAGING_BASE_URL = "https://travelmate-backend-staging.onrender.com/api";
+const LIVE_BASE_URL = "https://travelmate-backend-staging.onrender.com/api";
+
+// Dev-only: lets NEXT_PUBLIC_API_BASE_URL point at a local `travelmate_backend`
+// (e.g. http://localhost:8000/api via run_local.sh) for local testing.
+// Gated on NODE_ENV so this never opens up in a production build.
+const isLocalBackendAllowed = process.env.NODE_ENV !== "production";
+const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1"];
 
 const ALLOWED_BACKEND_HOSTS = new Set(
   [STAGING_BASE_URL, LIVE_BASE_URL]
@@ -11,6 +22,7 @@ const ALLOWED_BACKEND_HOSTS = new Set(
       }
     })
     .filter((hostname): hostname is string => Boolean(hostname))
+    .concat(isLocalBackendAllowed ? LOCAL_HOSTNAMES : [])
 );
 
 export const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
