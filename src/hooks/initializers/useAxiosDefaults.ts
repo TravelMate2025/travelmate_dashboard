@@ -1,6 +1,6 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
 import env from "@/config/env";
-import { knownBackendApiBases } from "@/lib/backend-api";
+import { knownBackendApiBases, isTrustedBackendHost } from "@/lib/backend-api";
 import {
   clearAuthSession,
   readStoredAuthState,
@@ -48,8 +48,11 @@ const knownBackendOrigins = new Set(
 
 const isAbsoluteHttpUrl = (value: string) => /^https?:\/\//i.test(value);
 
-const isTravelmateBackendHost = (hostname: string) =>
-  /^travelmate-backend(-[a-z0-9]+)?\.onrender\.com$/i.test(hostname);
+// isTrustedBackendHost (from lib/backend-api.ts) is the same check
+// resolveBackendApiBase uses to decide whether to honor
+// NEXT_PUBLIC_API_BASE_URL — kept as one shared implementation instead of
+// each file inventing its own copy of "what counts as our backend."
+const isTravelmateBackendHost = isTrustedBackendHost;
 
 const ensureEndpointTrailingSlash = (path: string) => {
   if (!path || path === "/") {
