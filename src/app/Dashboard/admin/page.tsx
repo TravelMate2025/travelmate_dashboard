@@ -103,7 +103,15 @@ const AdminRolesPage: React.FC = () => {
   const admins = adminDetails.filter(
     (admin) => !isSuperAdminRole(admin)
   );
-  const departmentOptions = admins.length > 0 ? admins : adminDetails;
+  // Deliberately no fallback to the unfiltered adminDetails when admins is
+  // empty (e.g. a fresh account with no custom roles yet, only the
+  // auto-created Super Admin one) — that fallback used to defeat the
+  // filter exactly when it mattered most, surfacing "Super Admin" as an
+  // invite target even though the backend rejects inviting into it
+  // (invite_admin explicitly requires the dedicated superadmin-invite
+  // endpoint instead). An empty list here means "create a role first,"
+  // not "fall back to the one role you can't actually invite into."
+  const departmentOptions = admins;
   const selectedDepartmentName =
     departmentOptions.find((role) => String(role.id) === selectedDepartmentId)
       ?.name ||
@@ -651,21 +659,33 @@ const AdminRolesPage: React.FC = () => {
                         align="start"
                         className="w-[var(--radix-popper-anchor-width)] min-w-[var(--radix-popper-anchor-width)] cursor-pointer"
                       >
-                        {departmentOptions.map((department) => (
+                        {departmentOptions.length > 0 ? (
+                          departmentOptions.map((department) => (
+                            <DropdownMenuItem
+                              key={String(department.id)}
+                              className="w-full text-center px-4 py-2 hover:bg-gray-200"
+                              onClick={() => {
+                                setSelectedDepartmentId(String(department.id));
+                                setNewMember((prev) => ({
+                                  ...prev,
+                                  role: department.name,
+                                }));
+                              }}
+                            >
+                              {department.name}
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
                           <DropdownMenuItem
-                            key={String(department.id)}
-                            className="w-full text-center px-4 py-2 hover:bg-gray-200"
+                            className="w-full text-center px-4 py-2 hover:bg-gray-200 text-[#023E8A]"
                             onClick={() => {
-                              setSelectedDepartmentId(String(department.id));
-                              setNewMember((prev) => ({
-                                ...prev,
-                                role: department.name,
-                              }));
+                              setIsAddMemberOpen(false);
+                              setIsCreateRoleOpen(true);
                             }}
                           >
-                            {department.name}
+                            No roles yet — create one first
                           </DropdownMenuItem>
-                        ))}
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
