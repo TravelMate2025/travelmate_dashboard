@@ -1,6 +1,11 @@
 const api = () => {
-  const STAGING_BASE_URL = "https://travelmate-backend-knvd.onrender.com/api/";
-  const LIVE_BASE_URL = "https://travelmate-backend-1-1lgj.onrender.com/api/";
+  // Same backend for both staging and production dashboard environments —
+  // travelmate_web also points at this one. travelmate-backend-knvd (the
+  // old STAGING_BASE_URL) was a bare service with no database, never
+  // actually functional; travelmate-backend-1-1lgj (the old LIVE_BASE_URL)
+  // is a separate, unrelated backend not used here.
+  const STAGING_BASE_URL = "https://travelmate-backend-staging.onrender.com/api/";
+  const LIVE_BASE_URL = "https://travelmate-backend-staging.onrender.com/api/";
 
   // Dev-only: lets NEXT_PUBLIC_API_BASE_URL point at a local `travelmate_backend`
   // (e.g. http://localhost:8000/api via run_local.sh) for local testing.
