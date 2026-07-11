@@ -1,57 +1,11 @@
+import { resolveBackendApiBase } from "@/lib/backend-api";
+
 const api = () => {
-  // Same backend for both staging and production dashboard environments —
-  // travelmate_web also points at this one. travelmate-backend-knvd (the
-  // old STAGING_BASE_URL) was a bare service with no database, never
-  // actually functional; travelmate-backend-1-1lgj (the old LIVE_BASE_URL)
-  // is a separate, unrelated backend not used here.
-  const STAGING_BASE_URL = "https://travelmate-backend-staging.onrender.com/api/";
-  const LIVE_BASE_URL = "https://travelmate-backend-staging.onrender.com/api/";
-
-  // Dev-only: lets NEXT_PUBLIC_API_BASE_URL point at a local `travelmate_backend`
-  // (e.g. http://localhost:8000/api via run_local.sh) for local testing.
-  // Gated on NODE_ENV so this never opens up in a production build.
-  const isLocalBackendAllowed = process.env.NODE_ENV !== "production";
-  const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1"];
-
-  const ALLOWED_BACKEND_HOSTS = new Set(
-    [STAGING_BASE_URL, LIVE_BASE_URL]
-      .map((value) => {
-        try {
-          return new URL(value).hostname.toLowerCase();
-        } catch {
-          return null;
-        }
-      })
-      .filter((hostname): hostname is string => Boolean(hostname))
-      .concat(isLocalBackendAllowed ? LOCAL_HOSTNAMES : [])
-  );
-
-  const environment =
-    process.env.NEXT_PUBLIC_ENVIRONMENT?.trim().toLowerCase() || "staging";
-
-  const envBaseCandidate = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-  const baseFromEnv = (() => {
-    if (!envBaseCandidate) {
-      return undefined;
-    }
-
-    try {
-      const parsed = new URL(envBaseCandidate);
-      if (!ALLOWED_BACKEND_HOSTS.has(parsed.hostname.toLowerCase())) {
-        return undefined;
-      }
-    } catch {
-      return undefined;
-    }
-
-    return envBaseCandidate;
-  })();
-  const defaultBaseUrl = environment === "production" ? LIVE_BASE_URL : STAGING_BASE_URL;
-
-  const normalizedBaseUrl = (baseFromEnv || defaultBaseUrl).replace(/\/+$/, "");
-  const API_BASE = normalizedBaseUrl.endsWith("/api")
-    ? normalizedBaseUrl
-    : `${normalizedBaseUrl}/api`;
+  // Single source of truth for the backend URL — see resolveBackendApiBase
+  // in src/lib/backend-api.ts for the env var / trusted-host logic. Kept
+  // here as its own import (rather than each call site importing directly)
+  // so every endpoint below stays defined in one place, unchanged.
+  const API_BASE = resolveBackendApiBase();
 
   return {
     auth: API_BASE + "/auth/",
