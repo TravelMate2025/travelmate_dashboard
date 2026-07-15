@@ -527,6 +527,11 @@ const AdminRolesPage: React.FC = () => {
                   <DialogTitle>
                     {isEditing ? "Edit Role" : "Create New Role"}
                   </DialogTitle>
+                  <DialogDescription>
+                    {isEditing
+                      ? "Update this role's name, description, and permissions."
+                      : "Set a name, description, and permissions for the new role."}
+                  </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={saveRole}>
                   <div className="space-y-4">
@@ -615,6 +620,9 @@ const AdminRolesPage: React.FC = () => {
                   <DialogTitle className="text-center">
                     Invite New Member
                   </DialogTitle>
+                  <DialogDescription className="text-center">
+                    Send a role invitation to a new team member by email.
+                  </DialogDescription>
                 </DialogHeader>
                 <form className="flex flex-col gap-4" onSubmit={inviteMember}>
                   <div className="flex flex-col gap-3">
