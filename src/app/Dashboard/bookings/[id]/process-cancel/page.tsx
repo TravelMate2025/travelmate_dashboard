@@ -67,6 +67,8 @@ interface CancellationBooking {
   updated_at?: string;
   created_at?: string;
   result?: CancellationResult;
+  refund_percent?: number | null;
+  cancellation_preview?: CancellationRequestPreview["cancellation_preview"];
 }
 
 interface CancelDetailsProps {
@@ -288,6 +290,22 @@ const CancellationGrid = ({
           </div>
         </div>
         <Policy List={policyList} />
+        {(booking?.cancellation_preview || booking?.refund_percent != null) && (
+          <div className="bg-[#EEF3FF] border border-[#023E8A33] rounded-[12px] p-[24px] space-y-4">
+            <h2 className="text-[20px] font-[600] text-[#181818]">Policy Snapshot</h2>
+            <FlexValues
+              title="Refund percentage"
+              value={booking?.refund_percent != null ? `${booking.refund_percent}%` : "—"}
+            />
+            <FlexValues
+              title="Estimated refund"
+              value={formatMoney(booking?.cancellation_preview?.refundAmount)}
+            />
+            <p className="text-xs text-[#4E4F52]">
+              {booking?.cancellation_preview?.message || "Use this server-calculated amount when reviewing the request."}
+            </p>
+          </div>
+        )}
         <div className="bg-[#fff] space-y-[22px] p-[24px] rounded-[12px]">
           <div className="space-y-4">
             <h1 className="text-[20px] font-[600] text-[#181818]">

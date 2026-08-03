@@ -111,6 +111,15 @@ export type BookingCancellationApiResponse = {
     transaction_id?: string | null;
     original_payment?: string | number | null;
     cancellation_policy?: unknown;
+    refund_percent?: number | null;
+    cancellation_preview?: {
+      cancellable?: boolean;
+      refundPercent?: number | null;
+      refundAmount?: string | number | null;
+      cancellationFee?: string | number | null;
+      currency?: string | null;
+      message?: string | null;
+    } | null;
     [key: string]: unknown;
   };
 };
