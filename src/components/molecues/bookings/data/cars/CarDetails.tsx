@@ -1,5 +1,6 @@
 import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
+import CancellationFinancials, { CancellationFinancialData } from "../../CancellationFinancials";
 import { parseISO, format, formatDate } from "date-fns";
 
 type CancellationPolicyEntry = {
@@ -29,6 +30,13 @@ type CarBookingData = {
   payment_transaction_id?: string;
   estimated_duration_minutes?: number;
   cancellation_policy?: CancellationPolicyEntry[] | null;
+  currency?: string;
+  refund_amount?: number | string | null;
+  cancellation_fee?: number | string | null;
+  refund_percent?: number | null;
+  refund_status?: string | null;
+  cancellation_response?: Record<string, unknown> | null;
+  cancellation_preview?: CancellationFinancialData["cancellation_preview"];
 };
 
 const formatCancellationPolicy = (
@@ -66,6 +74,7 @@ const CarDetails = ({ data }: { data: CarBookingData }) => {
     <div className="space-y-[24px]">
       <BookingDetails data={data} />
       <GridDetails data={data} />
+      <CancellationFinancials data={data} />
     </div>
   );
 };

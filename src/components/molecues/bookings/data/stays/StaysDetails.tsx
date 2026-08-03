@@ -2,6 +2,7 @@
 
 import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
+import CancellationFinancials, { CancellationFinancialData } from "../../CancellationFinancials";
 
 type StayRoom = {
   room_type?: string;
@@ -49,6 +50,12 @@ type StayBookingData = {
   customer_details?: StayCustomerDetails;
   rooms?: StayRoom[];
   cancellation_policy?: string[] | null;
+  refund_amount?: number | string | null;
+  cancellation_fee?: number | string | null;
+  refund_percent?: number | null;
+  refund_status?: string | null;
+  cancellation_response?: Record<string, unknown> | null;
+  cancellation_preview?: CancellationFinancialData["cancellation_preview"];
 };
 
 const toDisplayDate = (value?: string) => {
@@ -103,6 +110,7 @@ export default function StayDetails({ data }: { data?: StayBookingData }) {
     <div className="space-y-[24px]">
       <BookingDetails data={data} />
       <GridDetails data={data} />
+      <CancellationFinancials data={data} />
     </div>
   );
 }

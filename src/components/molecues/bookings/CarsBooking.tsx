@@ -35,6 +35,9 @@ interface CarBooking {
   payment_status?: string;
   booking_status?: string;
   status?: string;
+  refund_percent?: number | null;
+  refund_amount?: number | string | null;
+  refund_status?: string | null;
   created_at?: string;
   date_booked?: string;
   [key: string]: unknown;
@@ -209,6 +212,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                   "Booked On",
                   "Car Type",
                   "Total Amount",
+                  "Refund",
                   "Payment Status",
                   "Booking Status",
                   "Actions",
@@ -229,7 +233,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                 // Loading Skeleton
                 Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={`skeleton-${index}`}>
-                    {Array.from({ length: 11 }).map((_, cellIndex) => (
+                    {Array.from({ length: 12 }).map((_, cellIndex) => (
                       <TableCell
                         key={cellIndex}
                         className="py-3 px-4"
@@ -278,6 +282,11 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                           ? formatAmount(item.total_amount)
                           : "N/A"}
                       </TableCell>
+                      <TableCell className="py-5 px-4 text-sm text-[#181818]">
+                        {item.refund_percent != null
+                          ? `${item.refund_percent}%${item.refund_status ? ` · ${item.refund_status}` : ""}`
+                          : "—"}
+                      </TableCell>
                       <TableCell className="py-5 px-4">
                         <div
                           className={`border-[1px] rounded-[12px] text-[14px] font-[400] p-[10px] w-fit ${getStatusStyling(
@@ -308,7 +317,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
 
                   {hasMore && !loading && (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-4">
+                    <TableCell colSpan={12} className="text-center py-4">
                         <button
                           onClick={onLoadMore}
                           disabled={loading}
@@ -323,7 +332,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={11}
+                    colSpan={12}
                     className="text-center py-8 text-[#4E4F52]"
                   >
                     No car bookings found matching your criteria

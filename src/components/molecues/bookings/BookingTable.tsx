@@ -32,6 +32,9 @@ interface BookingItem {
   total_amount?: string | number;
   check_in?: string;
   check_out?: string;
+  refund_percent?: number | null;
+  refund_amount?: number | string | null;
+  refund_status?: string | null;
   rooms?: Array<{ room_type?: string }>;
   customer_details?: {
     name?: string;
@@ -234,6 +237,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
                   "Nights",
                   "Room Type",
                   "Total Amount",
+                  "Refund",
                   "Payment Status",
                   "Booking Status",
                   "Actions",
@@ -254,7 +258,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
               {loading ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <TableRow key={`skeleton-${index}`}>
-                    {Array.from({ length: 11 }).map((_, cellIndex) => (
+                    {Array.from({ length: 12 }).map((_, cellIndex) => (
                       <TableCell
                         key={cellIndex}
                         className="py-3 px-4"
@@ -303,6 +307,11 @@ const BookingTable: React.FC<BookingTableProps> = ({
                           ? formatAmount(item.total_amount)
                           : "N/A"}
                       </TableCell>
+                      <TableCell className="py-3 px-4 text-sm text-[#181818]">
+                        {item.refund_percent != null
+                          ? `${item.refund_percent}%${item.refund_status ? ` · ${item.refund_status}` : ""}`
+                          : "—"}
+                      </TableCell>
                       <TableCell className="py-3 px-4">
                         <div
                           className={`border rounded-[12px] text-[14px] font-[400] p-[8px] w-fit ${getStatusStyling(
@@ -335,7 +344,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
                   {/* Load More Button */}
                   {hasMore && !loading && (
                     <TableRow>
-                      <TableCell colSpan={11} className="text-center py-4">
+                      <TableCell colSpan={12} className="text-center py-4">
                         <button
                           onClick={onLoadMore}
                           disabled={loading}
@@ -350,7 +359,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={11}
+                    colSpan={12}
                     className="text-center py-8 text-[#4E4F52]"
                   >
                     No bookings found matching your criteria
