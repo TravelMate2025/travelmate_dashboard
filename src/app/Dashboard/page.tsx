@@ -35,7 +35,7 @@ const page = () => {
       day,
       flight: 0,
       hotel: 0,
-      car: 0,
+      transfer: 0,
       total_amount: 0,
     }));
 
@@ -54,8 +54,8 @@ const page = () => {
         target.flight += item.total_amount;
       } else if (item.booking_type === "hotel") {
         target.hotel += item.total_amount;
-      } else if (item.booking_type === "car") {
-        target.car += item.total_amount;
+      } else if (item.booking_type === "transfer" || item.booking_type === "transfers") {
+        target.transfer += item.total_amount;
       }
       target.total_amount += item.total_amount;
     });
@@ -332,7 +332,7 @@ export type MessageProps = {
 
 export type RevenueProps = {
   total_revenue: number;
-  car_revenue: number;
+  transfer_revenue: number;
   flight_revenue: number;
   currency: string;
 };
@@ -346,7 +346,7 @@ export type Bookings = {
 };
 
 export type BookingsProps = {
-  booking_type: "flight" | "hotel" | "car";
+  booking_type: "flight" | "stay" | "stays" | "hotel" | "transfer" | "transfers";
   created_at: string;
   details: {
     arrival?: string;
@@ -366,6 +366,6 @@ export type WeeklyDataPoint = {
   day: string;
   flight: number;
   hotel: number;
-  car: number;
+  transfer: number;
   total_amount: number;
 };

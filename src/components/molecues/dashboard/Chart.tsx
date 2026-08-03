@@ -69,7 +69,7 @@ const Chart = ({ weeklyData }: { weeklyData: WeeklyDataPoint[] }) => {
             />
             <Line
               type="monotone"
-              dataKey="car"
+              dataKey="transfer"
               stroke="#2962FF"
               strokeWidth={2}
               dot={{ r: 4 }}
@@ -104,7 +104,7 @@ export const Legend = () => {
       <div className="flex space-x-1 items-center cursor-pointer ">
         <img src="/assets/icons/ana-car.svg" alt="" className="" />
         <span className="text-[12px] font-[500] leading-[100%] text-[#181818]  ">
-          Car
+          Transfer
         </span>
       </div>
     </div>

@@ -13,7 +13,7 @@ type DashboardUsers = {
 
 type DashboardRevenue = {
   total_revenue: number;
-  car_revenue: number;
+  transfer_revenue: number;
   flight_revenue: number;
   currency: string;
 };
@@ -248,7 +248,7 @@ export async function fetchDashboardData(
     if (isSuperadmin) {
       setRevenue({
         total_revenue: toNumber((revenueData as { total_revenue?: unknown })?.total_revenue),
-        car_revenue: toNumber((revenueData as { car_revenue?: unknown })?.car_revenue),
+        transfer_revenue: toNumber((revenueData as { transfer_revenue?: unknown })?.transfer_revenue),
         flight_revenue: toNumber((revenueData as { flight_revenue?: unknown })?.flight_revenue),
         currency: toStringValue((revenueData as { currency?: unknown })?.currency) || "NGN",
       });
