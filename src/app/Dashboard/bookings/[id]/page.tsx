@@ -200,22 +200,20 @@ export default function BookingDetailsPage() {
   }
 
   return (
-    <div className="space-y-[24px]">
-      <div className="flex justify-between items-center">
-        <div className="flex space-x-4 items-center">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 rounded-xl border border-[#dfe7f0] bg-white px-5 py-4 shadow-[0_8px_24px_rgba(16,42,67,0.04)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
           <img
             src="/assets/icons/arrow-back.svg"
             alt="Go back"
             className="cursor-pointer"
             onClick={() => router.back()}
           />
-          <h1 className="text-[28px] font-semibold text-[#181818]">
-            Booking Details
-          </h1>
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#023E8A]">Operations</p><h1 className="text-[22px] font-semibold text-[#18202b]">Booking details</h1></div>
         </div>
 
         <button
-          className="rounded-[8px] p-[12px] bg-[#D72638] text-[#fff] text-[14px] font-[400] cursor-pointer"
+          className="rounded-lg bg-[#d72638] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#b91f2f] disabled:cursor-wait disabled:opacity-60"
           onClick={handleRequestCancellation}
           disabled={requestingCancellation}
         >
