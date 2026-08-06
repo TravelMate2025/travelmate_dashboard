@@ -6,6 +6,8 @@ import { useGetBooking, useRequestBookingCancellation } from "@/hooks/api/bookin
 import StayDetails from "@/components/molecues/bookings/data/stays/StaysDetails";
 import CarDetails from "@/components/molecues/bookings/data/cars/CarDetails";
 import FlightDetails from "@/components/molecues/bookings/data/flight/FlightDetails";
+import BookingService from "@/services/booking";
+import type { RefundOperations as RefundOperationsData } from "@/services/booking/types";
 
 export default function BookingDetailsPage() {
   const { id }: { id: string } = useParams();
@@ -45,12 +47,6 @@ export default function BookingDetailsPage() {
     successCallback: () => {},
   });
 
-  const bookingComponents: Record<string, React.ReactNode> = {
-    stays: <StayDetails data={booking?.result} />,
-    transfers: <CarDetails data={booking?.result} />,
-    flights: <FlightDetails data={booking?.result} />,
-  };
-
   const currentType = booking?.booking_type?.toLowerCase() ?? "";
   const resolvedBookingType =
     currentType === "flights" ||
@@ -58,6 +54,28 @@ export default function BookingDetailsPage() {
     currentType === "transfers"
       ? currentType
       : undefined;
+
+  const reconcileRefund = async (): Promise<RefundOperationsData | null> => {
+    const refundId = String(
+      (booking?.result as { refund_operations?: { id?: string | null } } | undefined)
+        ?.refund_operations?.id || "",
+    );
+    if (!refundId) return null;
+    const idempotencyKey = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `dashboard-reconcile-${Date.now()}`;
+    const response = await BookingService.reconcileRefund({
+      refundId,
+      idempotencyKey,
+    });
+    return (response.data?.refund || null) as RefundOperationsData | null;
+  };
+
+  const bookingComponents: Record<string, React.ReactNode> = {
+    stays: <StayDetails data={booking?.result} onReconcile={reconcileRefund} />,
+    transfers: <CarDetails data={booking?.result} onReconcile={reconcileRefund} />,
+    flights: <FlightDetails data={booking?.result} onReconcile={reconcileRefund} />,
+  };
 
   const handleRequestCancellation = async () => {
     if (!id) return;

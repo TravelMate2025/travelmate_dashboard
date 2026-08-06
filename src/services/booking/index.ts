@@ -196,6 +196,14 @@ class Service {
     );
   }
 
+  reconcileRefund({ refundId, idempotencyKey }: { refundId: string; idempotencyKey: string }) {
+    return instance.post(
+      `${env.api.bookingAdminReconcileRefund}${refundId}/`,
+      {},
+      { headers: { "Idempotency-Key": idempotencyKey } },
+    );
+  }
+
   updateBooking({ bookingId, payload }: { bookingId?: string; payload?: Record<string, unknown> }) {
     return instance.post(
       env.api.bookings + "/" + bookingId + "/update_booking/",

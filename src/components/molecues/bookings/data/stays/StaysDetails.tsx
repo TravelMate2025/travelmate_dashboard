@@ -3,6 +3,8 @@
 import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
 import CancellationFinancials, { CancellationFinancialData } from "../../CancellationFinancials";
+import RefundOperations from "../../RefundOperations";
+import type { RefundOperations as RefundOperationsData } from "@/services/booking/types";
 
 type StayRoom = {
   room_type?: string;
@@ -56,6 +58,7 @@ type StayBookingData = {
   refund_status?: string | null;
   cancellation_response?: Record<string, unknown> | null;
   cancellation_preview?: CancellationFinancialData["cancellation_preview"];
+  refund_operations?: RefundOperationsData | null;
 };
 
 const toDisplayDate = (value?: string) => {
@@ -105,12 +108,13 @@ const getNights = (checkIn?: string, checkOut?: string) => {
   return diff > 0 ? `${diff} night${diff > 1 ? "s" : ""}` : "N/A";
 };
 
-export default function StayDetails({ data }: { data?: StayBookingData }) {
+export default function StayDetails({ data, onReconcile }: { data?: StayBookingData; onReconcile?: () => Promise<RefundOperationsData | null> }) {
   return (
     <div className="space-y-[24px]">
       <BookingDetails data={data} />
       <GridDetails data={data} />
       <CancellationFinancials data={data} />
+      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} />
     </div>
   );
 }
