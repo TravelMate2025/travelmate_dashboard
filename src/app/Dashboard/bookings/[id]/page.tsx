@@ -48,6 +48,13 @@ export default function BookingDetailsPage() {
   });
 
   const currentType = booking?.booking_type?.toLowerCase() ?? "";
+  const resultStatus = String(
+    (booking?.result as { booking_status?: string; status?: string } | undefined)?.booking_status ||
+    (booking?.result as { status?: string } | undefined)?.status ||
+    booking?.booking_status ||
+    "",
+  ).toLowerCase();
+  const isTerminalBooking = ["cancelled", "canceled", "refunded", "completed", "failed", "payment_failed"].includes(resultStatus);
   const resolvedBookingType =
     currentType === "flights" ||
     currentType === "stays" ||
@@ -212,13 +219,13 @@ export default function BookingDetailsPage() {
           <div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#023E8A]">Operations</p><h1 className="text-[22px] font-semibold text-[#18202b]">Booking details</h1></div>
         </div>
 
-        <button
+        {!isTerminalBooking && <button
           className="rounded-lg bg-[#d72638] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#b91f2f] disabled:cursor-wait disabled:opacity-60"
           onClick={handleRequestCancellation}
           disabled={requestingCancellation}
         >
           {requestingCancellation ? "Requesting..." : "Cancel Booking"}
-        </button>
+        </button>}
       </div>
 
       {bookingComponents[currentType] || (

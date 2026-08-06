@@ -29,10 +29,31 @@ const formatDisplayDate = (value?: string) => {
   return date.toLocaleDateString("en-GB");
 };
 
+const normalizePolicyList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") {
+        const record = item as Record<string, unknown>;
+        return String(record.terms || record.policyCopy || record.label || "");
+      }
+      return "";
+    }).filter(Boolean);
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const text = record.policyCopy || record.terms || record.label;
+    return typeof text === "string" && text.trim() ? [text] : [];
+  }
+  return [];
+};
+
 interface CancellationResult {
   cancellation_reason?: string;
   cancellation_note?: string;
-  cancellation_policy?: string[];
+  cancellation_policy?: unknown;
+  booking_status?: string;
+  status?: string;
 }
 
 interface CancellationBooking {
@@ -93,6 +114,11 @@ const page = () => {
     initalFetch: Boolean(bookingId),
   });
 
+  const loadedBookingStatus = String(
+    booking?.result?.booking_status || booking?.result?.status || booking?.booking_status || "",
+  ).toLowerCase();
+  const isTerminalBooking = ["cancelled", "canceled", "refunded", "completed", "failed", "payment_failed"].includes(loadedBookingStatus);
+
   // if (!booking) {
   //   return (
   //     <div className="flex items-center justify-center h-full">
@@ -100,6 +126,24 @@ const page = () => {
   //     </div>
   //   );
   // }
+
+  if (!loadingBooking && !booking) {
+    return (
+      <div className="space-y-5">
+        <button type="button" className="text-sm font-medium text-[#023E8A]" onClick={() => router.back()}>← Back to booking</button>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">This booking could not be loaded. Cancellation was not started.</div>
+      </div>
+    );
+  }
+
+  if (!loadingBooking && isTerminalBooking) {
+    return (
+      <div className="space-y-5">
+        <button type="button" className="text-sm font-medium text-[#023E8A]" onClick={() => router.back()}>← Back to booking</button>
+        <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-sm"><h1 className="text-lg font-semibold text-[#18202b]">Cancellation unavailable</h1><p className="mt-2 text-sm text-[#687382]">This booking is already {loadedBookingStatus}. No new cancellation request can be created.</p></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-[24px]">
@@ -146,7 +190,8 @@ const CancelDetails = ({
   const additionalDetails =
     booking?.cancellation_note || booking?.result?.cancellation_note || "--";
 
-  const policyList = booking?.result?.cancellation_policy || [
+  const policyList = normalizePolicyList(booking?.result?.cancellation_policy);
+  const safePolicyList = policyList.length ? policyList : [
     "Cancellation charges may apply based on fare rules.",
     "Refund timelines depend on provider and payment method.",
     "Processed cancellations are final once confirmed.",
@@ -199,7 +244,7 @@ const CancelDetails = ({
         routeBookingType={routeBookingType}
         reason={reason}
         additionalDetails={additionalDetails}
-        policyList={policyList}
+        policyList={safePolicyList}
       />
     </div>
   );

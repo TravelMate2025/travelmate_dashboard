@@ -308,6 +308,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                         <BookingTableDropdown
                           bookingId={item.booking_id || item.booking_reference || item.id}
                           bookingType="transfers"
+                          bookingStatus={item.booking_status || item.status}
                           onResynced={onResynced}
                         />
                       </TableCell>

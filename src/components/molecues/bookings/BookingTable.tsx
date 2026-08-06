@@ -333,6 +333,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
                         <BookingTableDropdown
                           bookingId={item.id}
                           bookingType="stays"
+                          bookingStatus={item.booking_status || item.status}
                           onResynced={onResynced}
                         />
                       </TableCell>

@@ -314,7 +314,7 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
                         </div>
                       </TableCell>
                       <TableCell className="py-3 px-4 cursor-pointer">
-                        <BookingTableDropdown bookingId={item.id} bookingType="flights" />
+                        <BookingTableDropdown bookingId={item.id} bookingType="flights" bookingStatus={item.booking_status || item.status} />
                       </TableCell>
                     </TableRow>
                   ))}
