@@ -80,7 +80,7 @@ type FlightBookingData = {
 
 const FlightDetails = ({ data, onReconcile }: { data: FlightBookingData; onReconcile?: () => Promise<RefundOperationsData | null> }) => {
   return (
-    <div className="space-y-[24px]">
+    <div className="space-y-5">
       <BookingDetails data={data} />
       <GridDetails data={data} />
       <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} />
@@ -114,34 +114,26 @@ const BookingDetails = ({ data }: { data: FlightBookingData }) => {
 
   return (
     <div className="space-y-[24px]">
-      <div className="bg-[#fff] p-[24px] space-y-[20px] rounded-[12px] w-full ">
-        <h1 className="font-[600] text-[20px] text-[#181818] ">
-          Confirmation Details
-        </h1>
+      <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-[0_8px_24px_rgba(16,42,67,0.04)]">
+        <div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#023E8A]">Booking record</p><h1 className="mt-1 text-[18px] font-semibold text-[#18202b]">Confirmation details</h1></div><span className="text-xs text-[#8994a3]">Flight</span></div>
 
-        <div className="flex justify-between items-center">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <GridValues title="Booking Refrence" value={data.booking_reference} />
           <GridValues title="E- ticket Number" value="123456" />
           <GridValues title="Booked On" value={formatDate(data.date_booked)} />
 
-          <div className="flex flex-col items-start space-y-3">
-            <h1 className="text-[16px] font-[500] text-[#4E4F52] whitespace-nowrap">
-              Payment Status{" "}
-            </h1>
-            <div
-              className={`border rounded-[12px] text-[14px] font-[400] p-[8px] w-fit ${getStatusStyling(
+          <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b8491]">Payment status</p>
+            <div className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusStyling(
                 data.payment_status
               )}`}
             >
               {data.payment_status || "PENDING"}
             </div>
           </div>
-          <div className="flex flex-col items-start space-y-3">
-            <h1 className="text-[16px] font-[500] text-[#4E4F52] whitespace-nowrap">
-              Booking Status
-            </h1>
-            <div
-              className={`border rounded-[12px] text-[14px] font-[400] p-[8px] w-fit ${getStatusStyling(
+          <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b8491]">Booking status</p>
+            <div className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusStyling(
                 data.booking_status
               )}`}
             >
@@ -280,7 +272,7 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
   };
 
   return (
-    <div className="grid grid-cols-2 gap-[24px]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
       <div className="space-y-6 lg:sticky lg:top-4 self-start">
         <div className="bg-white p-[24px] space-y-5 rounded-[12px]">
           <h1 className="text-[16px] font-semibold text-[#181818]">

@@ -32,25 +32,25 @@ interface PolicyProps {
 
 export const GridValues = ({ title, value }: GridValuesProps) => {
   return (
-    <div className="space-y-2">
-      <h1 className="text-[16px] font-[500] text-[#4E4F52]">{title}</h1>
-      <p className="text-[16px] font-[500] text-[#181818]">{value}</p>
+    <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
+      <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b8491]">{title}</p>
+      <p className="break-words text-[14px] font-semibold leading-5 text-[#18202b]">{value || "—"}</p>
     </div>
   );
 };
 
 export const FlexValues = ({ title, value, red }: FlexValuesProps) => {
   return (
-    <div className="flex justify-between">
-      <h1 className="text-[16px] font-[500] text-[#4E4F52]">{title}</h1>
+    <div className="flex items-start justify-between gap-6 border-b border-[#edf1f6] py-2.5 last:border-b-0">
+      <p className="text-[13px] font-medium text-[#687382]">{title}</p>
       <p
         className={
           red
-            ? "text-[16px] font-[500] text-[#D72638] text-end"
-            : "text-[#181818]"
+            ? "max-w-[62%] text-end text-[13px] font-semibold text-[#D72638]"
+            : "max-w-[62%] text-end text-[13px] font-semibold text-[#18202b]"
         }
       >
-        {value}
+        {value || "—"}
       </p>
     </div>
   );
@@ -58,14 +58,15 @@ export const FlexValues = ({ title, value, red }: FlexValuesProps) => {
 
 export const Policy = ({ List }: PolicyProps) => {
   return (
-    <div className="bg-[#fff] p-[24px] rounded-[12px]">
-      <h1 className="text-[20px] font-[600] text-[#181818] mb-[16px]">
+    <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-[0_8px_24px_rgba(16,42,67,0.04)]">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#023E8A]">Terms</p>
+      <h2 className="mb-4 mt-1 text-[17px] font-semibold text-[#18202b]">
         Cancellation Policy
-      </h1>
+      </h2>
 
-      <ul className="space-y-[12px] list-disc pl-3 list-disc:bg-[#181818] ">
+      <ul className="space-y-2.5 pl-4">
         {List.map((item, index) => (
-          <li key={index} className="text-[16px] font-[400] text-[#4E4F52]">
+          <li key={index} className="text-[13px] leading-5 text-[#687382]">
             {item}
           </li>
         ))}
@@ -194,22 +195,22 @@ export const LocationTag = ({
   arrivalLabel?: string;
 }) => {
   return (
-    <div className="">
-      <div className="flex justify-center items-center space-x-4 border-[1px] border-[#9B9EA4] py-[16px] rounded-[12px] space-y-[8px] ">
+    <div>
+      <div className="flex items-center justify-center gap-4 rounded-xl border border-[#dfe7f0] bg-[#fbfcfe] px-3 py-4">
         <div className="text-center w-[40%] p-2">
-          <p className="text-[18px] font-[600] text-[#181818] ">
+          <p className="text-[17px] font-semibold text-[#18202b]">
             {departureTime}
           </p>
-          <p className="text-[14px] font-[600] text-[#67696D] ">
+          <p className="text-[12px] font-medium text-[#687382]">
             {departureLabel}
           </p>
         </div>
-        <div className="text-center text-gray-500 text-xlw-[150%] p-1">{"------->"}</div>
+        <div className="text-center text-lg text-[#9aa7b5]">→</div>
         <div className="text-center space-y-[8px] w-[40%] p-2">
-          <p className="text-[18px] font-[600] text-[#181818] ">
+          <p className="text-[17px] font-semibold text-[#18202b]">
             {arrivalTime}
           </p>
-          <p className="text-[14px] font-[600] text-[#67696D]">
+          <p className="text-[12px] font-medium text-[#687382]">
             {arrivalLabel}
           </p>
         </div>
