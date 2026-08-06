@@ -2,7 +2,9 @@
 
 import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
-import RefundSummary from "../../RefundSummary";
+import CancellationFinancials, { CancellationFinancialData } from "../../CancellationFinancials";
+import RefundOperations from "../../RefundOperations";
+import type { RefundOperations as RefundOperationsData } from "@/services/booking/types";
 
 type StayRoom = {
   room_type?: string;
@@ -50,9 +52,13 @@ type StayBookingData = {
   customer_details?: StayCustomerDetails;
   rooms?: StayRoom[];
   cancellation_policy?: string[] | null;
+  refund_amount?: number | string | null;
+  cancellation_fee?: number | string | null;
+  refund_percent?: number | null;
   refund_status?: string | null;
-  refund?: React.ComponentProps<typeof RefundSummary>["refund"];
-  refund_operations?: React.ComponentProps<typeof RefundSummary>["refund_operations"];
+  cancellation_response?: Record<string, unknown> | null;
+  cancellation_preview?: CancellationFinancialData["cancellation_preview"];
+  refund_operations?: RefundOperationsData | null;
 };
 
 const toDisplayDate = (value?: string) => {
@@ -102,12 +108,13 @@ const getNights = (checkIn?: string, checkOut?: string) => {
   return diff > 0 ? `${diff} night${diff > 1 ? "s" : ""}` : "N/A";
 };
 
-export default function StayDetails({ data }: { data?: StayBookingData }) {
+export default function StayDetails({ data, onReconcile }: { data?: StayBookingData; onReconcile?: () => Promise<RefundOperationsData | null> }) {
   return (
     <div className="space-y-[24px]">
       <BookingDetails data={data} />
       <GridDetails data={data} />
-      <RefundSummary refund={data?.refund} refund_operations={data?.refund_operations} refund_status={data?.refund_status} />
+      <CancellationFinancials data={data} />
+      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} />
     </div>
   );
 }

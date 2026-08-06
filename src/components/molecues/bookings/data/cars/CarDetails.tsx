@@ -1,7 +1,9 @@
 import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
+import CancellationFinancials, { CancellationFinancialData } from "../../CancellationFinancials";
+import RefundOperations from "../../RefundOperations";
+import type { RefundOperations as RefundOperationsData } from "@/services/booking/types";
 import { parseISO, format, formatDate } from "date-fns";
-import RefundSummary from "../../RefundSummary";
 
 type CancellationPolicyEntry = {
   from?: string;
@@ -30,9 +32,14 @@ type CarBookingData = {
   payment_transaction_id?: string;
   estimated_duration_minutes?: number;
   cancellation_policy?: CancellationPolicyEntry[] | null;
+  currency?: string;
+  refund_amount?: number | string | null;
+  cancellation_fee?: number | string | null;
+  refund_percent?: number | null;
   refund_status?: string | null;
-  refund?: React.ComponentProps<typeof RefundSummary>["refund"];
-  refund_operations?: React.ComponentProps<typeof RefundSummary>["refund_operations"];
+  cancellation_response?: Record<string, unknown> | null;
+  cancellation_preview?: CancellationFinancialData["cancellation_preview"];
+  refund_operations?: RefundOperationsData | null;
 };
 
 const formatCancellationPolicy = (
@@ -65,12 +72,13 @@ const formatDuration = (minutes?: number): string => {
   return `${mins}m`;
 };
 
-const CarDetails = ({ data }: { data: CarBookingData }) => {
+const CarDetails = ({ data, onReconcile }: { data: CarBookingData; onReconcile?: () => Promise<RefundOperationsData | null> }) => {
   return (
     <div className="space-y-[24px]">
       <BookingDetails data={data} />
       <GridDetails data={data} />
-      <RefundSummary refund={data.refund} refund_operations={data.refund_operations} refund_status={data.refund_status} />
+      <CancellationFinancials data={data} />
+      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} />
     </div>
   );
 };

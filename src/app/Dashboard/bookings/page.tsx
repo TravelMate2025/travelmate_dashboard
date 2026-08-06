@@ -100,7 +100,7 @@ const BookingTab: React.FC = () => {
 
   const handleStatusOptionChange = (option: string) => {
     setSelectedOption(option);
-    setStatusTabFilter(mapDropdownToStatusTab(option));
+    setStatusTabFilter(option.endsWith("_refund") ? "all" : mapDropdownToStatusTab(option));
   };
 
   const handleStatusTabChange = (status: string) => {
@@ -159,6 +159,14 @@ const BookingTab: React.FC = () => {
       newApiFilters.payment_status = "paid";
     } else if (normalizedOption === "failed") {
       newApiFilters.payment_status = "failed";
+    }
+    const refundStatus = normalizedOption.replace("_refund", "");
+    if (["pending", "processing", "completed", "failed", "not_applicable"].includes(refundStatus)) {
+      newApiFilters.refund_status = refundStatus;
+    } else if (normalizedOption === "stale_refund") {
+      newApiFilters.refund_stale = "true";
+    } else if (normalizedOption === "overdue_refund") {
+      newApiFilters.refund_overdue = "true";
     }
 
     const str = JSON.stringify(newApiFilters);
@@ -269,6 +277,9 @@ const BookingTab: React.FC = () => {
                   from_date: normalizeApiDate(selectedStartDate),
                   to_date: normalizeApiDate(selectedEndDate),
                   currency,
+                  ...(selectedOption.endsWith("_refund") && !["stale_refund", "overdue_refund"].includes(selectedOption)
+                    ? { refund_status: selectedOption.replace("_refund", "") }
+                    : selectedOption === "stale_refund" ? { refund_stale: "true" } : selectedOption === "overdue_refund" ? { refund_overdue: "true" } : {}),
                 })
               }}
             >

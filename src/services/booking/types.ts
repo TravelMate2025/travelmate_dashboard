@@ -21,7 +21,37 @@ export type BookingListItem = {
     name?: string;
     surname?: string;
   };
+  refund_operations?: RefundOperations | null;
   [key: string]: unknown;
+};
+
+export type RefundOperations = {
+  id?: string | null;
+  status?: string | null;
+  provider?: string | null;
+  provider_status?: string | null;
+  provider_refund_id?: string | null;
+  expected_amount?: string | number | null;
+  requested_amount?: string | number | null;
+  settled_amount?: string | number | null;
+  currency?: string | null;
+  requested_at?: string | null;
+  settled_at?: string | null;
+  last_synced_at?: string | null;
+  failure_reason?: string | null;
+  stale?: boolean;
+  operational_overdue?: boolean;
+  amount_mismatch?: boolean;
+  mismatch_details?: {
+    expected_vs_requested?: boolean;
+    requested_vs_settled?: boolean;
+  };
+  timeline?: Array<{
+    status?: string;
+    source?: string;
+    provider_status?: string | null;
+    occurred_at?: string | null;
+  }>;
 };
 
 export type BookingListPage = {

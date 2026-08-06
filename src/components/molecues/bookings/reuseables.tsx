@@ -322,6 +322,13 @@ export const Filter: React.FC<FilterProps> = ({
         label: "REFUNDED",
         value: "refunded",
       },
+      { id: 7, label: "Refund pending", value: "pending_refund" },
+      { id: 8, label: "Refund processing", value: "processing_refund" },
+      { id: 9, label: "Refund completed", value: "completed_refund" },
+      { id: 10, label: "Refund failed", value: "failed_refund" },
+      { id: 11, label: "Stale refunds", value: "stale_refund" },
+      { id: 12, label: "No refund applies", value: "not_applicable_refund" },
+      { id: 13, label: "Overdue refunds", value: "overdue_refund" },
     ];
   };
 
