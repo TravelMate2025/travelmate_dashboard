@@ -7,7 +7,7 @@ import StayDetails from "@/components/molecues/bookings/data/stays/StaysDetails"
 import CarDetails from "@/components/molecues/bookings/data/cars/CarDetails";
 import FlightDetails from "@/components/molecues/bookings/data/flight/FlightDetails";
 import BookingService from "@/services/booking";
-import type { RefundOperations as RefundOperationsData } from "@/services/booking/types";
+import type { RefundAction, RefundOperations as RefundOperationsData } from "@/services/booking/types";
 
 export default function BookingDetailsPage() {
   const { id }: { id: string } = useParams();
@@ -78,10 +78,18 @@ export default function BookingDetailsPage() {
     return (response.data?.refund || null) as RefundOperationsData | null;
   };
 
+  const executeRefundAction = async (action: RefundAction, reason: string, confirmSettlement = false): Promise<RefundOperationsData | null> => {
+    const refundId = String((booking?.result as { refund_operations?: { id?: string | null } } | undefined)?.refund_operations?.id || "");
+    if (!refundId) return null;
+    const idempotencyKey = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `dashboard-refund-${Date.now()}`;
+    const response = await BookingService.refundAction({ refundId, action, reason, confirmSettlement, idempotencyKey });
+    return response.data?.refund || null;
+  };
+
   const bookingComponents: Record<string, React.ReactNode> = {
-    stays: <StayDetails data={booking?.result} onReconcile={reconcileRefund} />,
-    transfers: <CarDetails data={booking?.result} onReconcile={reconcileRefund} />,
-    flights: <FlightDetails data={booking?.result} onReconcile={reconcileRefund} />,
+    stays: <StayDetails data={booking?.result} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
+    transfers: <CarDetails data={booking?.result} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
+    flights: <FlightDetails data={booking?.result} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
   };
 
   const handleRequestCancellation = async () => {

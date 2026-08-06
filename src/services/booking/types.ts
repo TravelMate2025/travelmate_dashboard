@@ -35,6 +35,11 @@ export type RefundOperations = {
   requested_amount?: string | number | null;
   settled_amount?: string | number | null;
   currency?: string | null;
+  original_payment_amount?: string | number | null;
+  retained_amount?: string | number | null;
+  refund_percent?: number | null;
+  payment_status?: string | null;
+  policy_basis?: Record<string, unknown> | null;
   requested_at?: string | null;
   settled_at?: string | null;
   last_synced_at?: string | null;
@@ -48,11 +53,17 @@ export type RefundOperations = {
   };
   timeline?: Array<{
     status?: string;
+    workflow_status?: string | null;
+    action?: string | null;
+    reason?: string | null;
+    actor_user_id?: string | null;
     source?: string;
     provider_status?: string | null;
     occurred_at?: string | null;
   }>;
 };
+
+export type RefundAction = "initiate" | "approve" | "settle" | "reject";
 
 export type BookingListPage = {
   results: BookingListItem[];

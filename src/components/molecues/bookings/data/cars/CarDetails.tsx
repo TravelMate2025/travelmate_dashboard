@@ -2,7 +2,7 @@ import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
 import CancellationFinancials, { CancellationFinancialData } from "../../CancellationFinancials";
 import RefundOperations from "../../RefundOperations";
-import type { RefundOperations as RefundOperationsData } from "@/services/booking/types";
+import type { RefundAction, RefundOperations as RefundOperationsData } from "@/services/booking/types";
 import { parseISO, format, formatDate } from "date-fns";
 
 type CancellationPolicyEntry = {
@@ -72,13 +72,13 @@ const formatDuration = (minutes?: number): string => {
   return `${mins}m`;
 };
 
-const CarDetails = ({ data, onReconcile }: { data: CarBookingData; onReconcile?: () => Promise<RefundOperationsData | null> }) => {
+const CarDetails = ({ data, onReconcile, onAction }: { data: CarBookingData; onReconcile?: () => Promise<RefundOperationsData | null>; onAction?: (action: RefundAction, reason: string, confirmSettlement?: boolean) => Promise<RefundOperationsData | null> }) => {
   return (
     <div className="space-y-5">
       <BookingDetails data={data} />
       <GridDetails data={data} />
       <CancellationFinancials data={data} />
-      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} />
+      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} onAction={onAction} />
     </div>
   );
 };

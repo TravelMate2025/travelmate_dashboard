@@ -167,6 +167,8 @@ const BookingTab: React.FC = () => {
       newApiFilters.refund_stale = "true";
     } else if (normalizedOption === "overdue_refund") {
       newApiFilters.refund_overdue = "true";
+    } else if (normalizedOption.endsWith("_workflow")) {
+      newApiFilters.refund_workflow_status = normalizedOption.replace("_workflow", "");
     }
 
     const str = JSON.stringify(newApiFilters);

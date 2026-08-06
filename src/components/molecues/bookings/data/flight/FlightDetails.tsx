@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import RefundOperations from "../../RefundOperations";
-import type { RefundOperations as RefundOperationsData } from "@/services/booking/types";
+import type { RefundAction, RefundOperations as RefundOperationsData } from "@/services/booking/types";
 import { GridValues, FlexValues, Policy, LocationTag } from "../../reuseables";
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -78,12 +78,12 @@ type FlightBookingData = {
   refund_operations?: RefundOperationsData | null;
 };
 
-const FlightDetails = ({ data, onReconcile }: { data: FlightBookingData; onReconcile?: () => Promise<RefundOperationsData | null> }) => {
+const FlightDetails = ({ data, onReconcile, onAction }: { data: FlightBookingData; onReconcile?: () => Promise<RefundOperationsData | null>; onAction?: (action: RefundAction, reason: string, confirmSettlement?: boolean) => Promise<RefundOperationsData | null> }) => {
   return (
     <div className="space-y-5">
       <BookingDetails data={data} />
       <GridDetails data={data} />
-      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} />
+      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} onAction={onAction} />
     </div>
   );
 };
