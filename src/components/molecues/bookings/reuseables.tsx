@@ -57,6 +57,15 @@ export const FlexValues = ({ title, value, red }: FlexValuesProps) => {
 };
 
 export const Policy = ({ List }: PolicyProps) => {
+  const safeList = Array.isArray(List)
+    ? List
+    : List && typeof List === "object"
+      ? [
+          (List as Record<string, unknown>).policyCopy,
+          (List as Record<string, unknown>).terms,
+          (List as Record<string, unknown>).label,
+        ].filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      : [];
   return (
     <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-[0_8px_24px_rgba(16,42,67,0.04)]">
       <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#023E8A]">Terms</p>
@@ -65,7 +74,7 @@ export const Policy = ({ List }: PolicyProps) => {
       </h2>
 
       <ul className="space-y-2.5 pl-4">
-        {List.map((item, index) => (
+        {safeList.map((item, index) => (
           <li key={index} className="text-[13px] leading-5 text-[#687382]">
             {item}
           </li>
@@ -79,10 +88,12 @@ export const BookingTableDropdown = ({
   bookingId,
   bookingType,
   onResynced,
+  bookingStatus,
 }: {
   bookingId?: string | number;
   bookingType?: "stays" | "flights" | "transfers";
   onResynced?: () => void;
+  bookingStatus?: string;
 }) => {
   const router = useRouter();
   const [resyncing, setResyncing] = useState(false);
@@ -108,6 +119,9 @@ export const BookingTableDropdown = ({
   // never upserts flights), so a resync request for a flight booking would
   // 404 — don't offer it there.
   const canResync = resolvedBookingId && (bookingType === "stays" || bookingType === "transfers");
+  const canCancel = !["cancelled", "canceled", "refunded", "completed", "failed", "payment_failed"].includes(
+    String(bookingStatus || "").toLowerCase(),
+  );
 
   const handleResync = async () => {
     if (!resolvedBookingId || resyncing) return;
@@ -129,11 +143,11 @@ export const BookingTableDropdown = ({
 
   const options = [
     { id: 1, label: "View Details", disabled: !resolvedBookingId },
-    {
+    ...(canCancel ? [{
       id: 2,
       label: "Cancel Booking",
       disabled: !resolvedBookingId,
-    },
+    }] : []),
     ...(canResync
       ? [
           {
