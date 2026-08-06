@@ -4,7 +4,7 @@ import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
 import CancellationFinancials, { CancellationFinancialData } from "../../CancellationFinancials";
 import RefundOperations from "../../RefundOperations";
-import type { RefundOperations as RefundOperationsData } from "@/services/booking/types";
+import type { RefundAction, RefundOperations as RefundOperationsData } from "@/services/booking/types";
 
 type StayRoom = {
   room_type?: string;
@@ -108,13 +108,13 @@ const getNights = (checkIn?: string, checkOut?: string) => {
   return diff > 0 ? `${diff} night${diff > 1 ? "s" : ""}` : "N/A";
 };
 
-export default function StayDetails({ data, onReconcile }: { data?: StayBookingData; onReconcile?: () => Promise<RefundOperationsData | null> }) {
+export default function StayDetails({ data, onReconcile, onAction }: { data?: StayBookingData; onReconcile?: () => Promise<RefundOperationsData | null>; onAction?: (action: RefundAction, reason: string, confirmSettlement?: boolean) => Promise<RefundOperationsData | null> }) {
   return (
     <div className="space-y-5">
       <BookingDetails data={data} />
       <GridDetails data={data} />
       <CancellationFinancials data={data} />
-      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} />
+      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} onAction={onAction} />
     </div>
   );
 }

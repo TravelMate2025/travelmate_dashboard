@@ -344,6 +344,10 @@ export const Filter: React.FC<FilterProps> = ({
       { id: 11, label: "Stale refunds", value: "stale_refund" },
       { id: 12, label: "No refund applies", value: "not_applicable_refund" },
       { id: 13, label: "Overdue refunds", value: "overdue_refund" },
+      { id: 14, label: "Awaiting approval", value: "initiated_workflow" },
+      { id: 15, label: "Awaiting settlement", value: "approved_workflow" },
+      { id: 16, label: "Support intervention", value: "failed_workflow" },
+      { id: 17, label: "Rejected / retry", value: "rejected_workflow" },
     ];
   };
 
