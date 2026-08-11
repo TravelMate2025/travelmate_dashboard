@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { GridValues, FlexValues, Policy } from "@/components/molecues/bookings/reuseables";
-import { Switch } from "@/components/ui/switch";
 import {
   useGetBooking,
   useProcessBookingCancellation,
@@ -352,7 +351,6 @@ const Form = ({
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [overridePolicy, setOverridePolicy] = useState(false);
   const [adminNote, setAdminNote] = useState("");
   const [workingMessage, setWorkingMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -437,7 +435,6 @@ const Form = ({
       cancellationRequestId,
       payload: {
         note: adminNote,
-        override_policy: overridePolicy,
       },
     });
 
@@ -445,7 +442,6 @@ const Form = ({
       id: cancellationRequestId,
       payload: {
         note: adminNote,
-        override_policy: overridePolicy,
       },
       successCallback: ({ cancellationRequest }) => {
         if (cancellationRequest) {
@@ -504,20 +500,6 @@ const Form = ({
           </div>
         )}
 
-        <div className="flex justify-between items-center bg-[#DEDFE126] rounded-[12px] p-[12px]">
-          <div className="flex items-center space-x-1">
-            <img src="/assets/icons/vector-red.svg" alt="" className="" />
-            <p className="text-[#D72638] text-[18px] font-[500]">
-              Override Policy
-            </p>
-          </div>
-
-          <Switch
-            id="airplane-mode"
-            checked={overridePolicy}
-            onCheckedChange={(checked) => setOverridePolicy(Boolean(checked))}
-          />
-        </div>
       </div>
       <div className="space-y-[20px] rounded-[12px] w-full ">
         <h1 className="font-[600] text-[20px] text-[#181818] ">
