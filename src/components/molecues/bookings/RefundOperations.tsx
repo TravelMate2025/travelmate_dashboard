@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import axios from "axios";
 import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, ShieldCheck, X } from "lucide-react";
 import type { RefundAction, RefundOperations as RefundOperationsData } from "@/services/booking/types";
 
@@ -83,6 +84,14 @@ export default function RefundOperations({ data, onReconcile, onAction }: Props)
     return ["initiated", "approved"].includes(workflow);
   };
 
+  const errorMessage = (error: unknown, fallback: string) => {
+    if (!axios.isAxiosError(error)) {
+      return error instanceof Error ? error.message : fallback;
+    }
+    const response = error.response?.data as { error?: string; detail?: string; message?: string } | undefined;
+    return response?.error || response?.detail || response?.message || error.message || fallback;
+  };
+
   const reconcile = async () => {
     if (!onReconcile) return;
     setReconciling(true);
@@ -91,7 +100,7 @@ export default function RefundOperations({ data, onReconcile, onAction }: Props)
       const refreshed = await onReconcile();
       if (refreshed) setCurrent(refreshed);
     } catch (reconcileError) {
-      setError(reconcileError instanceof Error ? reconcileError.message : "Reconciliation failed.");
+      setError(errorMessage(reconcileError, "Reconciliation failed."));
     } finally {
       setReconciling(false);
     }
@@ -107,7 +116,7 @@ export default function RefundOperations({ data, onReconcile, onAction }: Props)
       setSelectedAction(null);
       setReason("");
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Refund action failed.");
+      setError(errorMessage(actionError, "Refund action failed."));
     } finally {
       setWorking(false);
     }
