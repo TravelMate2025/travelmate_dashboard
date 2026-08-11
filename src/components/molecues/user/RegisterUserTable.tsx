@@ -7,6 +7,7 @@ import {
   LoadingUser,
   UserActivationDialog,
 } from "@/components/molecues/user/AllUserComponents";
+import type { UserRecord } from "@/components/molecues/user/AllUserComponents";
 
 import { useGetUsers, useGetUser } from "@/hooks/api/user";
 import {
@@ -46,8 +47,8 @@ type UsersTableProps = {
 
 type UserListItem = {
   id: string;
-  first_name?: string;
-  last_name?: string;
+  first_name?: string | null;
+  last_name?: string | null;
   email?: string;
   date_created: string;
   is_active: boolean;
@@ -105,7 +106,7 @@ export const UsersTable = ({
   const [reactivatingUser, setReactivatingUser] = useState<UserListItem | null>(null);
   const [isReactivateDialogOpen, setIsReactivateDialogOpen] = useState(false);
 
-  const { data: userDetails, loading: userLoading } = useGetUser({
+  const { data: userDetails, loading: userLoading } = useGetUser<UserRecord>({
     UserId: userId as string,
     initalFetch: !!userId,
     successCallback: (message) => {

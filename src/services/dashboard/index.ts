@@ -1,7 +1,7 @@
 import instance from "@/hooks/initializers/useAxiosDefaults";
 import env from "@/config/env";
 import { showErrorToast } from "@/utils/toasters";
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 
 type DashboardSummary = {
   total_bookings: number;
@@ -174,8 +174,13 @@ export async function fetchDashboardData(
 
   const { isSuperadmin } = options;
 
-  const settledData = <T,>(result: PromiseSettledResult<T>, fallback: T): T =>
-    result.status === "fulfilled" ? result.value : fallback;
+  const settledData = <T,>(
+    result: PromiseSettledResult<AxiosResponse<T>>,
+    fallback: T,
+  ): AxiosResponse<T> =>
+    result.status === "fulfilled"
+      ? result.value
+      : ({ data: fallback } as AxiosResponse<T>);
 
   try {
     setLoading(true);

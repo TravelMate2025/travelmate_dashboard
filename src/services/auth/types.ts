@@ -1,5 +1,17 @@
 import { AxiosResponse } from "axios";
 
+export type AuthResponse = {
+  access?: string;
+  refresh?: string;
+  user_id?: number | string;
+  email?: string;
+  name?: string;
+  is_superuser?: boolean;
+  is_admin?: boolean;
+  message?: string;
+  description?: string;
+};
+
 export type TLoginService = {
   payload: {
     email?: string;
@@ -34,13 +46,13 @@ export type TNewPassword = {
 };
 
 export interface AuthInterface {
-  login: ({ payload }: TLoginService) => Promise<AxiosResponse<unknown, unknown>>;
+  login: ({ payload }: TLoginService) => Promise<AxiosResponse<AuthResponse>>;
   resetPassword: ({
     payload,
-  }: TResetPassword) => Promise<AxiosResponse<unknown, unknown>>;
-  newPassword: ({ payload }: TNewPassword) => Promise<AxiosResponse<unknown, unknown>>;
-  verifyToken: ({ payload }: TVerifyOTP) => Promise<AxiosResponse<unknown, unknown>>;
+  }: TResetPassword) => Promise<AxiosResponse<AuthResponse>>;
+  newPassword: ({ payload }: TNewPassword) => Promise<AxiosResponse<AuthResponse>>;
+  verifyToken: ({ payload }: TVerifyOTP) => Promise<AxiosResponse<AuthResponse>>;
   resendResetToken: ({
     payload,
-  }: TResendResetToken) => Promise<AxiosResponse<unknown, unknown>>;
+  }: TResendResetToken) => Promise<AxiosResponse<AuthResponse>>;
 }

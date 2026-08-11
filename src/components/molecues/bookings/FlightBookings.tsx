@@ -184,7 +184,7 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
   // Helper function to get departure date
   const getClass = (flightDetails: FlightDetail[]) => {
     if (!flightDetails || flightDetails.length === 0) return "N/A";
-    return formatDate(flightDetails[0].departure_datetime);
+    return formatDate(flightDetails[0].departure_datetime ?? "");
   };
 
   return (
@@ -274,10 +274,10 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
                         {item.passenger_count}
                       </TableCell>
                       <TableCell className="text-[14px] font-[400] text-[#181818] py-3 px-4">
-                        {formatDate(item.date_booked)}
+                        {formatDate(item.date_booked ?? "")}
                       </TableCell>
                       <TableCell className="text-[14px] font-[400] text-[#181818] py-3 px-4">
-                        {item.flight_details?.length > 0
+                        {item.flight_details && item.flight_details.length > 0
                           ? item.flight_details[0].cabin_class || "N/A"
                           : "N/A"}
                       </TableCell>
@@ -292,7 +292,7 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
                       <TableCell className="py-5 px-4">
                         <div
                           className={`border-[1px] rounded-[12px] text-[14px] font-[400] p-[10px] w-fit ${getStatusStyling(
-                            item.payment_status
+                            item.payment_status ?? ""
                           )}`}
                         >
                           {item.payment_status || "PENDING"}

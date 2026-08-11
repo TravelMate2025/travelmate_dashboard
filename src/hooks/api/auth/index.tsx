@@ -40,11 +40,11 @@ export const useLoginUser = ({ Service }: { Service: AuthInterface }) => {
       const res = await Service.login({ payload });
 
       const user = {
-        user_id: res.data.user_id,
+        user_id: String(res.data.user_id ?? ""),
         email: res.data.email,
         name: res.data.name,
-        isSuperuser: res.data.is_superuser,
-        isAdmin: res.data.is_admin,
+        isSuperuser: res.data.is_superuser ?? false,
+        isAdmin: res.data.is_admin ?? false,
       };
 
       const nextState = {
@@ -197,7 +197,7 @@ export function useNewPassword({ Service }: { Service: AuthInterface }) {
   }: {
     payload: {
       email: string;
-      otp: string;
+      token: string;
       new_password: string;
       re_new_password: string;
     };
@@ -211,7 +211,7 @@ export function useNewPassword({ Service }: { Service: AuthInterface }) {
         message: response.data.message || "🚀 Password Reset successful!",
         description: response.data.description || "",
       });
-      successCallback?.(response.data.message);
+      successCallback?.(response.data.message || "Password Reset successful!");
     } catch (error: unknown) {
       const payload = getAuthErrorPayload(error);
       errorCallback?.({

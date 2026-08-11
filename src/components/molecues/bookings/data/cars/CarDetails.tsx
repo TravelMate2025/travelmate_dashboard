@@ -25,6 +25,9 @@ type CarBookingData = {
   email?: string;
   contact_phone?: string;
   transfer_type?: string;
+  ride_type?: string;
+  vehicle_count?: number | null;
+  available_seats?: number | null;
   total_amount?: number;
   passenger_capacity?: number;
   luggage_capacity?: number;
@@ -117,12 +120,12 @@ const BookingDetails = ({ data }: { data: CarBookingData }) => {
             title="Booking Refrence"
             value={data?.booking_reference}
           />
-          <GridValues title="Booked On" value={formatDate(data?.date_booked)} />
+          <GridValues title="Booked On" value={formatDate(data?.date_booked ?? "")} />
 
           <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b8491]">Payment status</p>
             <div className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusStyling(
-                data.payment_status
+                data.payment_status ?? ""
               )}`}
             >
               {data.payment_status || "PENDING"}
@@ -131,7 +134,7 @@ const BookingDetails = ({ data }: { data: CarBookingData }) => {
           <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b8491]">Booking status</p>
             <div className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusStyling(
-                data.booking_status
+                data.booking_status ?? ""
               )}`}
             >
               {data.booking_status || "PENDING"}
@@ -166,7 +169,7 @@ export const GridDetails = ({ data }: { data: CarBookingData }) => {
               />
               <FlexValues
                 title="Pick Up Date"
-                value={formatDate2(data.pickup_date)}
+                value={formatDate2(data.pickup_date ?? "")}
               />
               <FlexValues title="Pick Up Time" value={data?.pickup_time} />
               <FlexValues
@@ -206,7 +209,11 @@ export const GridDetails = ({ data }: { data: CarBookingData }) => {
               Taxi Details
             </h1>
             <div className="space-y-4">
-              <FlexValues title="Type" value={data.transfer_type} />
+              <FlexValues title="Ride type" value={data.ride_type || data.transfer_type || "—"} />
+              <FlexValues
+                title="Vehicles"
+                value={data?.vehicle_count != null ? `${data.vehicle_count}` : "—"}
+              />
               <FlexValues
                 title="Seats"
                 value={data?.passenger_capacity ? `${data.passenger_capacity} Seats` : "—"}
@@ -216,6 +223,10 @@ export const GridDetails = ({ data }: { data: CarBookingData }) => {
                 value={data?.luggage_capacity ? `Up to ${data.luggage_capacity} bags` : "—"}
               />
               <FlexValues title="Provider" value={data?.provider_name || "—"} />
+              <FlexValues
+                title="Shared availability"
+                value={data?.available_seats != null ? `${data.available_seats} seats left` : "—"}
+              />
             </div>
           </div>
         </div>
@@ -236,7 +247,7 @@ export const GridDetails = ({ data }: { data: CarBookingData }) => {
             </div>
           </div>
         </div>
-        <Transaction value={data.total_amount} />
+        <Transaction value={data.total_amount ?? 0} />
         <Policy List={List} />
       </div>
     </div>

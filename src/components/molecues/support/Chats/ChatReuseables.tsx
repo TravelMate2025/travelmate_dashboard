@@ -135,8 +135,8 @@ export const ChatDetailsDialog = ({
   onClaimChat,
   claimingChat,
 }: ChatDetailsDialogProps) => {
-  const name = `${chatDetails?.user_info.first_name || "---"} ${
-    chatDetails?.user_info.last_name || "---"
+  const name = `${chatDetails?.user_info?.first_name || "---"} ${
+    chatDetails?.user_info?.last_name || "---"
   }`;
   const canClaimChat =
     chatDetails?.status === "ACTIVE" &&
@@ -177,13 +177,13 @@ export const ChatDetailsDialog = ({
                 <DetailRow label="Status" value={chatDetails?.status} />
                 <DetailRow
                   label="Created at"
-                  value={formatCreatedAt(chatDetails?.created_at, 2)}
+                  value={formatCreatedAt(chatDetails?.created_at ?? "", 2)}
                 />
                 {chatDetails?.closed_at !== null && (
                   <>
                     <DetailRow
                       label="Closed at"
-                      value={formatCreatedAt(chatDetails?.closed_at, 2)}
+                      value={formatCreatedAt(chatDetails?.closed_at ?? "", 2)}
                     />
                     <DetailRow
                       label="Closure Type"
@@ -208,7 +208,7 @@ export const ChatDetailsDialog = ({
                   <DetailRow label="Customer’s Name" value={name} />
                   <DetailRow
                     label="Customer’s Email"
-                    value={chatDetails?.user_info.email}
+                    value={chatDetails?.user_info?.email ?? "---"}
                   />
                 </>
               )}
@@ -237,7 +237,7 @@ export const ChatDetailsDialog = ({
                             text.claimed_admin_info.first_name || "---"
                           } ${" "} ${
                             text.claimed_admin_info.last_name || "---"
-                          } - ${formatCreatedAt(text?.timestamp, 2)}  `}{" "}
+                          } - ${formatCreatedAt(text?.timestamp ?? "", 2)}  `}{" "}
                         </p>
                         )
                       )}
@@ -338,7 +338,7 @@ export const ClaimedChatSection = ({
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   const formattedDate = useMemo(
-    () => (chatDetails ? formatCreatedAt(chatDetails.created_at, 2) : ""),
+    () => (chatDetails ? formatCreatedAt(chatDetails.created_at ?? "", 2) : ""),
     [chatDetails]
   );
 
@@ -428,8 +428,7 @@ export const ClaimedChatSection = ({
           </div>
         ) : notAuthorized && !loading ? (
           <NotAuthorizedModal
-            ticketDetails={chatDetails}
-            className="animate-fade-in"
+            ticketDetails={chatDetails ?? {}}
           />
         ) : !loading ? (
           <>
@@ -456,7 +455,7 @@ export const ClaimedChatSection = ({
                 <div
                   className="w-full lg:w-auto p-4 rounded-[8px] border-[1px] border-[#023E8A] justify-center flex items-center space-x-3 cursor-pointer hover:opacity-90"
                   onClick={() =>
-                    router.push(`/Dashboard/support/chats/${chatDetails.id}/`)
+                    router.push(`/Dashboard/support/chats/${chatDetails?.id ?? ""}/`)
                   }
                 >
                   <span className="text-[#023E8A] text-[20px] font-[500]">

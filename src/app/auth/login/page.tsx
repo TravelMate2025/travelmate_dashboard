@@ -58,8 +58,8 @@ const LoginComponent = () => {
       </div>
     </div>
   ) : (
-    <Formik
-      initialValues={authInitialValues.signIn}
+    <Formik<{ email: string; password: string }>
+      initialValues={authInitialValues.signIn as { email: string; password: string }}
       validationSchema={authSchema.signIn}
       onSubmit={handleSubmit}
     >
@@ -148,7 +148,7 @@ const Inputs = () => {
   );
 };
 
-export const InputReuseables = ({
+const InputReuseables = ({
   placeholder,
   label,
   name,

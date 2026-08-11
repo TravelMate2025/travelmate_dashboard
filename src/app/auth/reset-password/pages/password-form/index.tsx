@@ -2,7 +2,7 @@
 import React from "react";
 import AuthWrapper from "@/app/auth/AuthWrapper";
 import Button from "@/components/reuseables/Button";
-import { InputReuseables } from "@/app/auth/login/page";
+import { InputReuseables } from "@/app/auth/InputReuseables";
 import { Formik, Form } from "formik";
 import { useNewPassword } from "@/hooks/api/auth";
 import AuthService from "@/services/auth";

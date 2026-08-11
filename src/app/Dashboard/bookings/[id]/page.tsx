@@ -61,6 +61,7 @@ export default function BookingDetailsPage() {
     currentType === "transfers"
       ? currentType
       : undefined;
+  const bookingResult = booking?.result ?? {};
 
   const reconcileRefund = async (): Promise<RefundOperationsData | null> => {
     const refundId = String(
@@ -87,9 +88,9 @@ export default function BookingDetailsPage() {
   };
 
   const bookingComponents: Record<string, React.ReactNode> = {
-    stays: <StayDetails data={booking?.result} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
-    transfers: <CarDetails data={booking?.result} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
-    flights: <FlightDetails data={booking?.result} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
+    stays: <StayDetails data={bookingResult} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
+    transfers: <CarDetails data={bookingResult} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
+    flights: <FlightDetails data={bookingResult} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
   };
 
   const handleRequestCancellation = async () => {
@@ -118,7 +119,7 @@ export default function BookingDetailsPage() {
     });
   };
 
-  if (loadingBooking || !booking) {
+  if (loadingBooking || !booking || !booking.result) {
     return (
       <div className="space-y-[24px]">
         <div className="flex justify-between items-center">

@@ -63,6 +63,13 @@ type TicketDetailsDialogProps = {
   onClose: () => void;
 };
 
+const getClaimHistoryResults = (
+  history: TicketDetails["claim_history"],
+): TicketClaimHistoryItem[] =>
+  history && typeof history === "object" && Array.isArray(history.results)
+    ? history.results
+    : [];
+
 const normalizeRoleName = (value?: string | null) =>
   String(value || "")
     .trim()
@@ -181,11 +188,13 @@ export const TicketDetailsDialog = ({
   const name = `${ticketDetails?.user?.first_name || "---"} ${
     ticketDetails?.user?.last_name || "---"
   }`;
-  const formattedDate = formatCreatedAt(ticketDetails?.created_at, 2);
+  const formattedDate = formatCreatedAt(ticketDetails?.created_at ?? "", 2);
   const currentRoleName = normalizeRoleName(data?.name);
   const canClaimTicket = canAccessSupportTickets({
     roleName: currentRoleName,
-    permissionSlugs: data?.current_permission_group_slugs,
+    permissionSlugs: Array.isArray(data?.current_permission_group_slugs)
+      ? data.current_permission_group_slugs
+      : undefined,
   });
   const isAlreadyClaimed = Boolean(ticketDetails?.claimed_admin);
   const isClaimedByCurrentUser =
@@ -263,14 +272,14 @@ export const TicketDetailsDialog = ({
                   <DetailRow label="Customer’s Name" value={name} />
                   <DetailRow
                     label="Customer’s Email"
-                    value={ticketDetails?.user.email}
+                    value={ticketDetails?.user?.email ?? "---"}
                   />
                 </>
               )}
             </div>
           </div>
 
-          {ticketDetails?.claim_history?.length !== 0 && (
+          {getClaimHistoryResults(ticketDetails?.claim_history).length !== 0 && (
             <>
               <div className="border-[#9B9EA4]  border-b-[1px]"></div>
               <div className="px-[16px] lg:px-[32px] space-y-3">
@@ -282,7 +291,7 @@ export const TicketDetailsDialog = ({
                     <Loading />
                   ) : (
                     <div className="sace-y-2">
-                      {ticketDetails?.claim_history?.results?.map(
+                      {getClaimHistoryResults(ticketDetails?.claim_history).map(
                         (text: TicketClaimHistoryItem, i: number) => (
                           <p
                             className="text-[14px] font-[600] text-[#343537]"
@@ -297,7 +306,7 @@ export const TicketDetailsDialog = ({
                                     }`.trim()
                                   : admin?.email || "---";
                               return `This chat was claimed by ${name} - ${formatCreatedAt(
-                                text?.timestamp,
+                                text?.timestamp ?? "",
                                 2
                               )}`;
                             })()}
@@ -365,11 +374,13 @@ export const ViewingChatModal = ({
   const currentRoleName = normalizeRoleName(data?.name);
   const canViewMessage = canAccessSupportTickets({
     roleName: currentRoleName,
-    permissionSlugs: data?.current_permission_group_slugs,
+    permissionSlugs: Array.isArray(data?.current_permission_group_slugs)
+      ? data.current_permission_group_slugs
+      : undefined,
   });
 
   const formattedDate = useMemo(
-    () => (ticketDetails ? formatCreatedAt(ticketDetails.created_at, 2) : ""),
+    () => (ticketDetails ? formatCreatedAt(ticketDetails.created_at ?? "", 2) : ""),
     [ticketDetails]
   );
 
@@ -652,13 +663,13 @@ export const Filter = ({
   setSearchTerm: (value: string) => void;
   datePickerOpen: boolean;
   setDatePickerOpen: (value: boolean) => void;
-  selectedDate: string;
-  setSelectedDate: (value: string) => void;
-  selectedStartDate: string;
-  setSelectedStartDate: (value: string) => void;
-  selectedEndDate: string;
-  setSelectedEndDate: (value: string) => void;
-  activeTab: string;
+  selectedDate?: string;
+  setSelectedDate: (value: string | undefined) => void;
+  selectedStartDate?: string;
+  setSelectedStartDate?: (value: string | undefined) => void;
+  selectedEndDate?: string;
+  setSelectedEndDate?: (value: string | undefined) => void;
+  activeTab?: string;
 }) => {
   const [inputValue, setInputValue] = useState("");
 
@@ -798,7 +809,7 @@ export const ConfirmResolution = ({
   const handleResolution = () => {
     if (!selectedTicket?.id) return;
     onResolveTicket({
-      TicketId: selectedTicket.id,
+      TicketId: String(selectedTicket.id),
       successCallback: () => {
         onClose();
         setShowModal(true);
@@ -1014,7 +1025,7 @@ export const EscalatedTicketDetailsDialog = ({
   const name = `${ticketDetails?.user?.first_name || "---"} ${
     ticketDetails?.user?.last_name || "---"
   }`;
-  const formattedDate = formatCreatedAt(ticketDetails?.created_at, 2);
+  const formattedDate = formatCreatedAt(ticketDetails?.created_at ?? "", 2);
 
   return (
     <div
@@ -1050,13 +1061,13 @@ export const EscalatedTicketDetailsDialog = ({
                 {ticketDetails?.escalated && (
                   <DetailRow
                     label="Escalated at"
-                    value={formatCreatedAt(ticketDetails?.escalated_at, 2)}
+                    value={formatCreatedAt(ticketDetails?.escalated_at ?? "", 2)}
                   />
                 )}
               </div>
             )}
           </div>
-          {ticketDetails?.claim_history?.results?.length > 0 && (
+          {getClaimHistoryResults(ticketDetails?.claim_history).length > 0 && (
             <>
               <div className="border-[#9B9EA4] border-b-[1px]"></div>
               <div className="px-[16px] lg:px-[32px] space-y-3">
@@ -1068,7 +1079,7 @@ export const EscalatedTicketDetailsDialog = ({
                     <Loading />
                   ) : (
                     <div className="space-y-2">
-                      {ticketDetails.claim_history.results.map(
+                      {getClaimHistoryResults(ticketDetails?.claim_history).map(
                         (claim: TicketClaimHistoryItem, i: number) => (
                           <p
                             className="text-[14px] font-[400] text-[#343537]"
@@ -1078,7 +1089,7 @@ export const EscalatedTicketDetailsDialog = ({
                               claim.claimed_admin?.first_name || "---"
                             } ${
                               claim.claimed_admin?.last_name || "---"
-                            } - ${formatCreatedAt(claim.timestamp, 2)}`}
+                            } - ${formatCreatedAt(claim.timestamp ?? "", 2)}`}
                           </p>
                         )
                       )}

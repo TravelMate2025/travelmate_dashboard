@@ -85,7 +85,17 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
   // Load API data into local state once
   useEffect(() => {
     if (data && data.length > 0) {
-      setNotifications(data);
+      setNotifications(
+        data.map((item) => ({
+          id: String(item.id),
+          is_read: Boolean(item.is_read),
+          created_at: item.created_at ?? "",
+          notification_details: {
+            title: item.notification_details?.title ?? "",
+            message: item.notification_details?.message ?? "",
+          },
+        })),
+      );
     }
   }, [data]);
 
@@ -97,7 +107,18 @@ const NotificationTable = ({ accessToken }: NotificationTableProps) => {
 
       setNotifications((prev) => {
         if (!prev.some((n) => n.id === latest.id)) {
-          return [latest, ...prev]; // prepend new notification
+          return [
+            {
+              id: String(latest.id),
+              is_read: Boolean(latest.is_read),
+              created_at: latest.created_at ?? "",
+              notification_details: {
+                title: latest.notification_details?.title ?? "",
+                message: latest.notification_details?.message ?? "",
+              },
+            },
+            ...prev,
+          ]; // prepend new notification
         }
         return prev;
       });

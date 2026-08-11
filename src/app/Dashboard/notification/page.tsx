@@ -3,7 +3,7 @@ import { getCookies } from "@/context/Auth-Cookies";
 
 const page = async () => {
   const { accessToken } = await getCookies();
-  return <NotificationModule accessToken={accessToken} />;
+  return <NotificationModule accessToken={accessToken ?? ""} />;
 };
 
 export default page;

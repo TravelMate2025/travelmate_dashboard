@@ -132,7 +132,7 @@ const Selections = ({ id, showModal, setShowModal }: any) => {
     }),
     onSubmit: (values) => {
       const payload = {
-        escalation_role: values.escalation_level,
+        escalation_role: Number(values.escalation_level),
         escalation_reason: values.escalation_reason,
         escalation_note: values.escalation_note,
         escalation_response_time: values.escalation_response_time,
@@ -163,7 +163,7 @@ const Selections = ({ id, showModal, setShowModal }: any) => {
               Department:
             </h1>
             <Dropdown
-              options={Leveldata || []}
+              options={Array.isArray(Leveldata) ? (Leveldata as DropdownOption[]) : []}
               placeholder="Select Department"
               onSelect={(option) => {
                 formik.setFieldValue("escalation_level", option.id);

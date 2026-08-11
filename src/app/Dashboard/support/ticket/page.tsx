@@ -35,19 +35,15 @@ const Page = () => {
       </div>
 
       <Filter
-        selectedOption={selectedOption}
-        setSelectedOption={setSelectedOption}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        filterOption={"ticket"}
-        selectedDate={selectedDate}
-        setSelectedDate={setSelectedDate}
+        selectedDate={selectedDate ?? ""}
+        setSelectedDate={(value) => setSelectedDate(value)}
         datePickerOpen={datePickerOpen}
         setDatePickerOpen={setDatePickerOpen}
       />
       <div className="bg-[#FFFFFF] py-[16px] rounded-[8px] shadow-md">
         <TicketTabContent
-          selectedOption={selectedOption}
           searchTerm={searchTerm}
           date={selectedDate}
         />

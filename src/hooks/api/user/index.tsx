@@ -5,26 +5,28 @@ import UserService from "@/services/user";
 import env from "@/config/env";
 import instance from "@/hooks/initializers/useAxiosDefaults";
 
-export function useGetUser({
+export function useGetUser<T = unknown>({
   UserId,
   initalFetch = true,
+  initialFetch,
   successCallback,
   errorCallback,
 }: {
   UserId?: string;
   initalFetch?: boolean;
+  initialFetch?: boolean;
   successCallback?: (message: string) => void;
   errorCallback?: (props: { message?: string; description?: string }) => void;
 }) {
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<unknown | null>(null);
+  const [data, setData] = useState<T | null>(null);
 
   const fetchUser = async () => {
     if (!UserId) return;
     setLoading(true);
     try {
       const res = await UserService.getUser({ UserId });
-      setData(res.data);
+      setData(res.data as T);
       if (successCallback)
         successCallback("User Profile fetched successfully.");
     } catch (error: unknown) {
@@ -39,20 +41,21 @@ export function useGetUser({
   };
 
   useEffect(() => {
-    if (initalFetch) fetchUser();
-  }, [initalFetch, UserId]);
+    if (initialFetch ?? initalFetch) fetchUser();
+  }, [initialFetch, initalFetch, UserId]);
 
   return { loading, data };
 }
 
 interface User {
-  id: number;
+  id: string;
   email: string;
   first_name: string | null;
   last_name: string | null;
   name: string;
   profile_picture: string;
   date_created: string;
+  registration_date?: string;
   total_bookings: number;
   is_active: boolean;
   reason: string;
@@ -298,6 +301,7 @@ export const useDeactivateUser = () => {
     setIsSuccess(false);
 
     const data = {
+      email: payload.email,
       additional_reason: payload.additional_note,
       reason_choices: payload.reason,
     };
@@ -351,6 +355,7 @@ export const useReactivateUser = () => {
     setIsSuccess(false);
 
     const data = {
+      email: payload.email,
       additional_reason: payload.additional_note,
       reason_choices: payload.reason,
     };
@@ -452,7 +457,7 @@ export const useDeleteUser = () => {
     setIsSuccess(false);
 
     try {
-      const res = await UserService.deleteUser({ userId });
+      const res = await UserService.deleteUser({ userId: String(userId) });
       const message = getActionMessage({
         responseData: res.data,
         fallback: "User deleted successfully",

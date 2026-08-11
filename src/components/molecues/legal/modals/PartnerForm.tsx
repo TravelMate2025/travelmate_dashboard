@@ -53,7 +53,8 @@ const PartnerForm = ({
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, type, checked } = e.target;
+    const { name, type } = e.target;
+    const checked = e.target instanceof HTMLInputElement ? e.target.checked : false;
 
     if (
       type === "file" &&

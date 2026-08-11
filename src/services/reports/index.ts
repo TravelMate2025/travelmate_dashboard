@@ -15,7 +15,7 @@ type BreakdownRow = {
 type CombinedRow = {
   label: string;
   bookings: number;
-  revenue?: number;
+  revenue: number;
 };
 
 type SummaryRow = {
@@ -23,8 +23,14 @@ type SummaryRow = {
   user_growth_percentage: number;
   total_bookings: number;
   booking_growth_percentage: number;
-  total_revenue?: number;
-  revenue_growth_percentage?: number;
+  total_revenue: number;
+  revenue_growth_percentage: number;
+};
+
+export type ReportsResponse = {
+  bookingBreakdown: BreakdownRow[];
+  bookingsCombined: CombinedRow[];
+  summary: SummaryRow;
 };
 
 export const exportStats = (queryString = "") =>
@@ -61,8 +67,12 @@ export const fetchReports = async ({
     while (nextUrl && !visited.has(nextUrl)) {
       visited.add(nextUrl);
       const response = await instance.get(nextUrl);
-      rows.push(...normalizeResults(response.data?.results));
-      nextUrl = typeof response.data?.next === "string" ? response.data.next : null;
+      const data = response.data as {
+        results?: unknown;
+        next?: unknown;
+      };
+      rows.push(...normalizeResults(data.results));
+      nextUrl = typeof data.next === "string" ? data.next : null;
     }
 
     return rows as T[];
@@ -74,9 +84,21 @@ export const fetchReports = async ({
     instance.get(summary),
   ]);
 
+  const summaryData = summaryRes.data as Partial<SummaryRow>;
+
   return {
     bookingBreakdown,
-    bookingsCombined,
-    summary: summaryRes.data as SummaryRow,
+    bookingsCombined: bookingsCombined.map((row) => ({
+      ...row,
+      revenue: row.revenue ?? 0,
+    })),
+    summary: {
+      total_users: summaryData.total_users ?? 0,
+      user_growth_percentage: summaryData.user_growth_percentage ?? 0,
+      total_bookings: summaryData.total_bookings ?? 0,
+      booking_growth_percentage: summaryData.booking_growth_percentage ?? 0,
+      total_revenue: summaryData.total_revenue ?? 0,
+      revenue_growth_percentage: summaryData.revenue_growth_percentage ?? 0,
+    },
   };
 };

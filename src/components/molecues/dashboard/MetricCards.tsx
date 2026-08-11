@@ -1,9 +1,11 @@
 import React from "react";
-import { TimeFilterDropdown } from "@/app/Dashboard/page";
-import { Bookings } from "@/app/Dashboard/page";
-import { UsersProps } from "@/app/Dashboard/page";
-import { RevenueProps } from "@/app/Dashboard/page";
-import { StatCard } from "@/app/Dashboard/page";
+import {
+  TimeFilterDropdown,
+  Bookings,
+  UsersProps,
+  RevenueProps,
+  StatCard,
+} from "@/app/Dashboard/dashboard-shared";
 const Statistics = ({
   bookings,
   revenue,

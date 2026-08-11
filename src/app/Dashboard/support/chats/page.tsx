@@ -11,6 +11,7 @@ const page = (props: Props) => {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState("");
   const [selectedStartDate, setSelectedStartDate] = useState<
     string | undefined
   >(undefined);
@@ -31,10 +32,12 @@ const page = (props: Props) => {
           activeTab={"chat"}
           setSearchTerm={setSearchTerm}
           searchTerm={searchTerm}
-          selectedStartDate={selectedStartDate}
-          setSelectedStartDate={setSelectedStartDate}
-          selectedEndDate={selectedEndDate}
-          setSelectedEndDate={setSelectedEndDate}
+          selectedStartDate={selectedStartDate ?? ""}
+          setSelectedStartDate={(value) => setSelectedStartDate(value)}
+          selectedEndDate={selectedEndDate ?? ""}
+          setSelectedEndDate={(value) => setSelectedEndDate(value)}
+          selectedDate={selectedDate}
+          setSelectedDate={(value) => setSelectedDate(value ?? "")}
           setDatePickerOpen={setDatePickerOpen}
           datePickerOpen={datePickerOpen}
         />
@@ -42,10 +45,9 @@ const page = (props: Props) => {
 
       <div className="p-4 rounded-[20px] bg-white shadow-md">
         <MessageTabContent
-          setSearchTerm={setSearchTerm}
           searchTerm={searchTerm}
-          selectedEndDate={selectedEndDate}
-          selectedStartDate={selectedStartDate}
+          selectedEndDate={selectedEndDate ?? ""}
+          selectedStartDate={selectedStartDate ?? ""}
         />
       </div>
     </div>

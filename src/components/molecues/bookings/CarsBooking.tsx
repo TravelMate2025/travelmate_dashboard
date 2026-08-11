@@ -290,7 +290,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                       <TableCell className="py-5 px-4">
                         <div
                           className={`border-[1px] rounded-[12px] text-[14px] font-[400] p-[10px] w-fit ${getStatusStyling(
-                            item.payment_status
+                            item.payment_status ?? ""
                           )}`}
                         >
                           {item.payment_status || "PENDING"}
@@ -299,7 +299,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                       <TableCell className="py-3 px-4">
                         <div
                           className={`border-[1px] rounded-[12px] text-[14px] font-[400] p-[10px] w-fit ${getStatusStyling(
-                            item.booking_status || item.status
+                            item.booking_status || item.status || ""
                           )}`}
                         >
                           {item.booking_status || item.status || "PENDING"}

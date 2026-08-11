@@ -59,7 +59,7 @@ const DateDialog = ({
             <Calendar
               mode="single"
               selected={internalDate} 
-              onSelect={(date: Date) => {
+              onSelect={(date: Date | undefined) => {
                 if (date) {
                   setInternalDate(date);
                 }
@@ -127,20 +127,20 @@ export const DatePairDialog = ({
   const handleClear = () => {
     setInternalStartDate(undefined);
     setInternalEndDate(undefined);
-    setSelectedStartDate("");
-    setSelectedEndDate("");
+    setSelectedStartDate?.("");
+    setSelectedEndDate?.("");
   };
 
   const handleApply = () => {
     if (internalStartDate) {
       const formattedStartDate = format(internalStartDate, "yyyy-MM-dd");
-      setSelectedStartDate(formattedStartDate);
+      setSelectedStartDate?.(formattedStartDate);
     }
     if (internalEndDate) {
       const formattedEndDate = format(internalEndDate, "yyyy-MM-dd");
-      setSelectedEndDate(formattedEndDate);
+      setSelectedEndDate?.(formattedEndDate);
     }
-    onClose();
+    onClose?.();
   };
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

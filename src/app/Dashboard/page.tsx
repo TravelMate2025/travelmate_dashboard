@@ -76,7 +76,7 @@ const page = () => {
         setLoading,
         setRevenue,
         setUsers,
-        setAllBookings,
+        setAllBookings: (data) => setAllBookings(data as BookingsProps[]),
       },
       { isSuperadmin }
     );
@@ -189,7 +189,7 @@ const page = () => {
   );
 };
 
-export const StatCard = ({
+const StatCard = ({
   title,
   value,
   icon,
@@ -197,6 +197,8 @@ export const StatCard = ({
   title: string;
   value: string;
   icon: string;
+  color?: string;
+  smColor?: string;
 }) => {
   return (
     <>
@@ -264,7 +266,7 @@ const DataGrid = ({
 };
 
 // TimeFilterDropdown.tsx
-export const TimeFilterDropdown = ({
+const TimeFilterDropdown = ({
   selectedOption,
   setSelectedOption,
 }: {
@@ -308,7 +310,7 @@ export const TimeFilterDropdown = ({
 
 export default page;
 
-export type ActivityProps = {
+type ActivityProps = {
   user_full_name: string;
   amount: number;
   date: string;
@@ -316,7 +318,7 @@ export type ActivityProps = {
   booking_type: string;
 };
 
-export type MessageProps = {
+type MessageProps = {
   content: string;
   created_at: string;
   id: string;
@@ -330,22 +332,22 @@ export type MessageProps = {
   type: string;
 };
 
-export type RevenueProps = {
+type RevenueProps = {
   total_revenue: number;
   transfer_revenue: number;
   flight_revenue: number;
   currency: string;
 };
 
-export type UsersProps = {
+type UsersProps = {
   total_normal_users: number;
 };
 
-export type Bookings = {
+type Bookings = {
   total_bookings: number;
 };
 
-export type BookingsProps = {
+type BookingsProps = {
   booking_type: "flight" | "stay" | "stays" | "hotel" | "transfer" | "transfers";
   created_at: string;
   details: {
@@ -362,7 +364,7 @@ export type BookingsProps = {
   user: string;
 };
 
-export type WeeklyDataPoint = {
+type WeeklyDataPoint = {
   day: string;
   flight: number;
   hotel: number;

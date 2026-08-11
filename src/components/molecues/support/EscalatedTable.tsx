@@ -187,7 +187,9 @@ export const EscaleteTable: React.FC<EscalatedTableProps> = ({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {tickets.map((ticket: EscalatedTicket, index: number) => (
+                      {tickets.map((rawTicket, index: number) => {
+                        const ticket = rawTicket as unknown as EscalatedTicket;
+                        return (
                         <TableRow
                           key={`${ticket.id}-${index}`}
                           className="items-center cursor-pointer border-none"
@@ -212,11 +214,11 @@ export const EscaleteTable: React.FC<EscalatedTableProps> = ({
                           <TableCell className=" border-none">
                             <div className="space-y-2">
                               <p className="text-[#181818] text-[14px] font-[500] capitalize">
-                                {ticket.user.first_name || "---"}{" "}
-                                {ticket.user.last_name || "---"}
+                                {ticket.user?.first_name || "---"}{" "}
+                                {ticket.user?.last_name || "---"}
                               </p>
                               <p className="text-[#9B9EA4] text-[12px]">
-                                {ticket.user.email || "---"}
+                                {ticket.user?.email || "---"}
                               </p>
                             </div>
                           </TableCell>
@@ -269,7 +271,7 @@ export const EscaleteTable: React.FC<EscalatedTableProps> = ({
                                   : "bg-gray-100 text-gray-600" // fallback for other/unknown statuses
                               }`}
                             >
-                              {ticket.status.replace("_", " ").toUpperCase()}
+                              {(ticket.status || "unknown").replace("_", " ").toUpperCase()}
                             </span>
                           </TableCell>
                           <TableCell className="border-none">
@@ -280,7 +282,8 @@ export const EscaleteTable: React.FC<EscalatedTableProps> = ({
                             />
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>

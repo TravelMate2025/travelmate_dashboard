@@ -27,19 +27,15 @@ const page = (props: Props) => {
         />
       </div>
       <Filter
-        selectedOption={selectedOption}
-        setSelectedOption={setSelectedOption}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        filterOption={"ticket"}
-        selectedDate={selectedDate}
-        setSelectedDate={setSelectedDate}
+        selectedDate={selectedDate ?? ""}
+        setSelectedDate={(value) => setSelectedDate(value)}
         datePickerOpen={datePickerOpen}
         setDatePickerOpen={setDatePickerOpen}
       />
       <div className="p-4 bf-white shadow-sm rounded-[2px]">
         <EscaleteTable
-          selectedOption={selectedOption}
           searchTerm={searchTerm}
           date={selectedDate}
         />

@@ -28,6 +28,7 @@ export type BookingListItem = {
 export type RefundOperations = {
   id?: string | null;
   status?: string | null;
+  workflow_status?: string | null;
   provider?: string | null;
   provider_status?: string | null;
   provider_refund_id?: string | null;

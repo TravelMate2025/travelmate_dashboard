@@ -33,22 +33,22 @@ const Stats = () => {
             <StatCard
               icon="/assets/icons/airplane_ticket.svg"
               label="Pending Tickets"
-              value={data?.pending_tickets?.count ?? "N/A"}
+              value={String(data?.pending_tickets?.count ?? "N/A")}
             />
             <StatCard
               icon="/assets/icons/access_time.svg"
               label="Average Response Time"
-              value={data?.average_response_time?.human_readable ?? "N/A"}
+              value={String(data?.average_response_time?.human_readable ?? "N/A")}
             />
             <StatCard
               icon="/assets/icons/card-escalate.svg"
               label="Unresolved Escalated"
-              value={data?.unresolved_escalated?.count ?? "N/A"}
+              value={String(data?.unresolved_escalated?.count ?? "N/A")}
             />
             <StatCard
               icon="/assets/icons/airplane_ticket.svg"
               label="Resolved Tickets"
-              value={data?.resolved_tickets?.count ?? "N/A"}
+              value={String(data?.resolved_tickets?.count ?? "N/A")}
             />
           </div>
         )}

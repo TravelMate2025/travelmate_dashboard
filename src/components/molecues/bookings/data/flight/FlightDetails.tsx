@@ -120,12 +120,12 @@ const BookingDetails = ({ data }: { data: FlightBookingData }) => {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <GridValues title="Booking Refrence" value={data.booking_reference} />
           <GridValues title="E- ticket Number" value="123456" />
-          <GridValues title="Booked On" value={formatDate(data.date_booked)} />
+          <GridValues title="Booked On" value={formatDate(data.date_booked ?? "")} />
 
           <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b8491]">Payment status</p>
             <div className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusStyling(
-                data.payment_status
+                data.payment_status ?? ""
               )}`}
             >
               {data.payment_status || "PENDING"}
@@ -134,7 +134,7 @@ const BookingDetails = ({ data }: { data: FlightBookingData }) => {
           <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b8491]">Booking status</p>
             <div className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getStatusStyling(
-                data.booking_status
+                data.booking_status ?? ""
               )}`}
             >
               {data.booking_status || "PENDING"}
@@ -282,7 +282,7 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
           {/* Passenger Details */}
           {data.passengers?.map((passenger: FlightPassenger, index: number) => {
             const isOpen =
-              openPassengerIndex === index || data.passengers.length === 1;
+              openPassengerIndex === index || (data.passengers?.length ?? 0) === 1;
             const passengerKey =
               passenger.id ||
               `${passenger.first_name || "unknown"}-${passenger.last_name || "passenger"}-${index}`;
@@ -299,7 +299,7 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
                       Adult Passenger {index + 1}
                     </h1>
 
-                    {data.passengers.length > 1 && (
+                    {(data.passengers?.length ?? 0) > 1 && (
                       <span className="text-sm text-gray-600">
                         {isOpen ? <ChevronUp /> : <ChevronDown />}
                       </span>
@@ -322,7 +322,7 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
                       />
                       <FlexValues
                         title="Date Of Birth"
-                        value={formatDate(passenger.dob)}
+                        value={formatDate(passenger.dob ?? "")}
                       />
                       <FlexValues
                         title="Gender"
@@ -430,8 +430,9 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
             <div className="space-y-4">
               {(() => {
                 const depLeg =
-                  Array.isArray(data.flight_itinerary) &&
-                  data.flight_itinerary.find((l: FlightLeg) => l.leg === "DEPARTURE");
+                  Array.isArray(data.flight_itinerary)
+                    ? data.flight_itinerary.find((l: FlightLeg) => l.leg === "DEPARTURE")
+                    : undefined;
                 const summary = depLeg?.summary;
                 const firstSeg = depLeg?.segments?.[0];
                 return (
@@ -555,8 +556,9 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
               <div className="space-y-4">
                 {(() => {
                   const retLeg =
-                    Array.isArray(data.flight_itinerary) &&
-                    data.flight_itinerary.find((l: FlightLeg) => l.leg === "RETURN");
+                    Array.isArray(data.flight_itinerary)
+                      ? data.flight_itinerary.find((l: FlightLeg) => l.leg === "RETURN")
+                      : undefined;
                   const summary = retLeg?.summary;
                   const firstSeg = retLeg?.segments?.[0];
                   return (

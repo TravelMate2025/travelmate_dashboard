@@ -18,7 +18,7 @@ const page = async ({
     <div className="">
       <MainChatComponents
         sessionId={resolvedSessionId}
-        accessToken={accessToken}
+        accessToken={accessToken ?? ""}
       />
     </div>
   );

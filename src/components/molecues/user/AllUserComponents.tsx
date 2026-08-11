@@ -52,10 +52,10 @@ const DetailRow = ({
   </div>
 );
 
-type UserRecord = {
+export type UserRecord = {
   id?: string;
-  first_name?: string;
-  last_name?: string;
+  first_name?: string | null;
+  last_name?: string | null;
   email?: string;
   date_created?: string;
   gender?: string | null;
@@ -101,7 +101,7 @@ export const UserDetailsDialog = ({
               <DetailRow label="Email" value={userDetails.email} />
               <DetailRow
                 label="Registration Date"
-                value={format(new Date(userDetails.date_created), "MM/dd/yyyy")}
+                value={format(new Date(userDetails.date_created ?? ""), "MM/dd/yyyy")}
               />
               <DetailRow
                 label="Gender"
@@ -175,10 +175,11 @@ export const UserDeactivationDialog = ({
 
     onDeactivateUser({
       payload: {
+        email: deactivatingUser?.email ?? "",
         reason,
         additional_note: additionalNote,
       },
-      userId: deactivatingUser?.id,
+      userId: deactivatingUser?.id ?? "",
       successCallback: () => {
         onCancel();
         setShowModal(true);
@@ -443,10 +444,11 @@ export const UserActivationDialog = ({
   const handleReactivate = () => {
     onReactivateUser({
       payload: {
-        reason,
-        additional_note: additionalNote,
+        email: reactivatingUser?.email ?? "",
+        reason: reason || "",
+        additional_note: additionalNote || "",
       },
-      userId: reactivatingUser?.id,
+      userId: reactivatingUser?.id ?? "",
       successCallback: () => {
         onCancel();
         setShowModal(true);

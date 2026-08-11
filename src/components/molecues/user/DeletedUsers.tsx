@@ -8,6 +8,7 @@ import {
   LoadingUser,
   NotAuthorizedModal,
 } from "@/components/molecues/user/DeleteUserComponent";
+import type { UserDetails } from "@/components/molecues/user/DeleteUserComponent";
 
 import {
   useGetDeletedUsers,
@@ -141,7 +142,7 @@ export const DeletedUsersTable = ({
   // Bulk delete hook
   const { deleting, onBulkDeleteUser } = useBulkDeleteUser();
 
-  const { data: userDetails, loading: userLoading } = useGetUser({
+  const { data: userDetails, loading: userLoading } = useGetUser<UserDetails>({
     UserId: userId as string,
     initialFetch: !!userId,
     successCallback: (message) => {
@@ -368,7 +369,6 @@ export const DeletedUsersTable = ({
 
       {selectedUser && (
         <UserDetailsDialog
-          isOpen={!!selectedUser}
           selectedUser={selectedUser}
           userDetails={userDetails}
           userLoading={userLoading}

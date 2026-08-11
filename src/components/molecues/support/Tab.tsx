@@ -121,11 +121,8 @@ const TicketTable: React.FC = () => {
           <Filter
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
-            selectedOption={selectedOption}
-            setSelectedOption={setSelectedOption}
             datePickerOpen={datePickerOpen}
             setDatePickerOpen={setDatePickerOpen}
-            filterOption={activeTab}
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
             activeTab={activeTab}
@@ -139,9 +136,8 @@ const TicketTable: React.FC = () => {
         <div className="bg-[#FFFFFF] py-[16px] rounded-[8px] shadow-md w-full ">
           <TabsContent value="ticket">
             <TicketTabContent
-              selectedOption={selectedOption}
               searchTerm={searchTerm}
-              date={selectedDate}
+              date={selectedDate ?? ""}
             />
           </TabsContent>
           <TabsContent value="chat">

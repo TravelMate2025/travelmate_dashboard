@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ActivityProps } from '@/app/Dashboard/page';
+import { ActivityProps } from '@/app/Dashboard/dashboard-shared';
 import { useRouter } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import Loading from '@/app/Dashboard/admin/loading';

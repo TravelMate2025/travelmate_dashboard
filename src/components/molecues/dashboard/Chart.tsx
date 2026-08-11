@@ -9,7 +9,7 @@ import {
   Line,
   Tooltip,
 } from "recharts";
-import { WeeklyDataPoint } from "@/app/Dashboard/page";
+import { WeeklyDataPoint } from "@/app/Dashboard/dashboard-shared";
 
 const Chart = ({ weeklyData }: { weeklyData: WeeklyDataPoint[] }) => {
   const router = useRouter();

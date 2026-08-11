@@ -51,7 +51,7 @@ const DetailRow = ({
   </div>
 );
 
-type UserDetails = {
+export type UserDetails = {
   id: string;
   first_name?: string;
   last_name?: string;
@@ -104,11 +104,11 @@ export const UserDetailsDialog = ({
               <DetailRow label="Email" value={userDetails.email} />
               <DetailRow
                 label="Registration Date"
-                value={format(new Date(userDetails.date_created), "MM/dd/yyyy")}
+                value={format(new Date(userDetails.date_created ?? ""), "MM/dd/yyyy")}
               />
               <DetailRow
                 label="Deletion Date"
-                value={format(new Date(userDetails.deleted_at), "MM/dd/yyyy")}
+                value={format(new Date(userDetails.deleted_at ?? ""), "MM/dd/yyyy")}
               />
               <DetailRow
                 label="Gender"
@@ -129,7 +129,7 @@ export const UserDetailsDialog = ({
               <DetailRow
                 label="Deletion Reason"
                 value={
-                  userDetails.deactivation_reason.reason || "Not Available"
+                  userDetails.deactivation_reason?.reason || "Not Available"
                 }
               />
             </div>

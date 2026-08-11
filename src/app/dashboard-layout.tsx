@@ -30,7 +30,8 @@ import {
 import { showInfoToast } from "@/utils/toasters";
 import type { AppNotification } from "@/hooks/api/notification";
 
-const INACTIVITY_TIMEOUT_MS = 3 * 60 * 1000;
+export const DASHBOARD_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
+export const DASHBOARD_INACTIVITY_WARNING_MS = 25 * 60 * 1000;
 const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
   "mousemove",
   "mousedown",
@@ -87,6 +88,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   useEffect(() => {
     let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+    let inactivityWarningTimer: ReturnType<typeof setTimeout> | null = null;
     let logoutDelayTimer: ReturnType<typeof setTimeout> | null = null;
 
     const clearInactivityTimer = () => {
@@ -98,8 +100,30 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       inactivityTimer = null;
     };
 
+    const clearInactivityWarningTimer = () => {
+      if (!inactivityWarningTimer) {
+        return;
+      }
+
+      clearTimeout(inactivityWarningTimer);
+      inactivityWarningTimer = null;
+    };
+
     const startInactivityTimer = () => {
       clearInactivityTimer();
+      clearInactivityWarningTimer();
+
+      inactivityWarningTimer = setTimeout(() => {
+        if (hasLoggedOutRef.current) {
+          return;
+        }
+
+        showInfoToast({
+          message: "You will be signed out soon",
+          description: "You have been inactive for 25 minutes. Move your mouse or press a key to stay signed in.",
+          duration: 8000,
+        });
+      }, DASHBOARD_INACTIVITY_WARNING_MS);
 
       inactivityTimer = setTimeout(() => {
         if (hasLoggedOutRef.current) {
@@ -109,13 +133,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         hasLoggedOutRef.current = true;
         showInfoToast({
           message: "Session expired due to inactivity",
-          description: "You were inactive for 3 minutes and have been logged out.",
+          description: "You were inactive for 30 minutes and have been logged out.",
         });
 
         logoutDelayTimer = setTimeout(() => {
           onLogout();
         }, 1200);
-      }, INACTIVITY_TIMEOUT_MS);
+      }, DASHBOARD_INACTIVITY_TIMEOUT_MS);
     };
 
     const handleUserActivity = () => {
@@ -134,6 +158,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
     return () => {
       clearInactivityTimer();
+      clearInactivityWarningTimer();
       if (logoutDelayTimer) {
         clearTimeout(logoutDelayTimer);
       }

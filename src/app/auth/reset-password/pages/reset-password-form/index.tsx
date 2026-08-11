@@ -3,7 +3,7 @@ import React from "react";
 import Image from "next/image";
 import AuthWrapper from "@/app/auth/AuthWrapper";
 import Button from "@/components/reuseables/Button";
-import { InputReuseables } from "@/app/auth/login/page";
+import { InputReuseables } from "@/app/auth/InputReuseables";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import { useForgotPassword } from "@/hooks/api/auth";
