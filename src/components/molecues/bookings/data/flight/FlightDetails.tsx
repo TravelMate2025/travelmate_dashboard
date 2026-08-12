@@ -3,6 +3,7 @@ import React from "react";
 import { GridValues, FlexValues, Policy, LocationTag } from "../../reuseables";
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import RefundSummary from "../../RefundSummary";
 
 type FlightDuration = {
   day?: number;
@@ -73,6 +74,9 @@ type FlightBookingData = {
   total_amount?: number;
   tax?: number;
   flight_itinerary?: FlightLeg[];
+  refund_status?: string | null;
+  refund?: React.ComponentProps<typeof RefundSummary>["refund"];
+  refund_operations?: React.ComponentProps<typeof RefundSummary>["refund_operations"];
 };
 
 const FlightDetails = ({ data }: { data: FlightBookingData }) => {
@@ -80,6 +84,7 @@ const FlightDetails = ({ data }: { data: FlightBookingData }) => {
     <div className="space-y-[24px]">
       <BookingDetails data={data} />
       <GridDetails data={data} />
+      <RefundSummary refund={data.refund} refund_operations={data.refund_operations} refund_status={data.refund_status} />
     </div>
   );
 };

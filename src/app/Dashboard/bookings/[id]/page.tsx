@@ -58,6 +58,11 @@ export default function BookingDetailsPage() {
     currentType === "transfers"
       ? currentType
       : undefined;
+  const result = booking?.result as Record<string, any> | undefined;
+  const refundStatus = String(result?.refund_operations?.status || result?.refund?.status || result?.refund_status || "").toLowerCase();
+  const bookingStatus = String(result?.booking_status || result?.status || "").toLowerCase();
+  const terminalBooking = ["cancelled", "canceled", "refunded", "completed", "failed", "payment_failed"].includes(bookingStatus);
+  const refundCompleted = refundStatus === "completed";
 
   const handleRequestCancellation = async () => {
     if (!id) return;
@@ -196,13 +201,13 @@ export default function BookingDetailsPage() {
           </h1>
         </div>
 
-        <button
+        {!terminalBooking && !refundCompleted && <button
           className="rounded-[8px] p-[12px] bg-[#D72638] text-[#fff] text-[14px] font-[400] cursor-pointer"
           onClick={handleRequestCancellation}
           disabled={requestingCancellation}
         >
           {requestingCancellation ? "Requesting..." : "Cancel Booking"}
-        </button>
+        </button>}
       </div>
 
       {bookingComponents[currentType] || (
