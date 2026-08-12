@@ -76,7 +76,11 @@ export default function RefundOperations({ data, onReconcile, onAction, onRepair
   const active = current?.status === "pending" || current?.status === "processing";
   const workflow = current?.workflow_status || current?.status || "pending";
   const terminal = ["completed", "not_applicable"].includes(workflow);
-  const mismatch = Boolean(current?.amount_mismatch);
+  const numericMismatch = (left?: string | number | null, right?: string | number | null) =>
+    left != null && right != null && Number(left) !== Number(right);
+  const mismatch = Boolean(current?.amount_mismatch)
+    || numericMismatch(current?.expected_amount, current?.requested_amount)
+    || numericMismatch(current?.requested_amount, current?.settled_amount);
   const actionAllowed = (action: RefundAction) => {
     if (terminal) return false;
     if (action === "initiate") return ["pending", "rejected", "failed"].includes(workflow);
