@@ -87,9 +87,16 @@ export default function BookingDetailsPage() {
     return response.data?.refund || null;
   };
 
+  const repairRefundAmount = async (amount: string, reason: string): Promise<RefundOperationsData | null> => {
+    const refundId = String((booking?.result as { refund_operations?: { id?: string | null } } | undefined)?.refund_operations?.id || "");
+    if (!refundId) return null;
+    const response = await BookingService.repairRefundAmount({ refundId, amount, reason });
+    return response.data?.refund || null;
+  };
+
   const bookingComponents: Record<string, React.ReactNode> = {
-    stays: <StayDetails data={bookingResult} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
-    transfers: <CarDetails data={bookingResult} onReconcile={reconcileRefund} onAction={executeRefundAction} />,
+    stays: <StayDetails data={bookingResult} onReconcile={reconcileRefund} onAction={executeRefundAction} onRepair={repairRefundAmount} />,
+    transfers: <CarDetails data={bookingResult} onReconcile={reconcileRefund} onAction={executeRefundAction} onRepair={repairRefundAmount} />,
     flights: <FlightDetails data={bookingResult} />,
   };
 

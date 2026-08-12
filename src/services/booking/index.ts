@@ -226,6 +226,13 @@ class Service {
     );
   }
 
+  repairRefundAmount({ refundId, amount, reason }: { refundId: string; amount: string | number; reason: string }) {
+    return instance.post<{ refund: RefundOperations; action: "repair_amount" }>(
+      `${env.api.bookingAdminRefundAction}${refundId}/repair-amount/`,
+      { amount, reason },
+    );
+  }
+
   updateBooking({ bookingId, payload }: { bookingId?: string; payload?: Record<string, unknown> }) {
     return instance.post(
       env.api.bookings + "/" + bookingId + "/update_booking/",
