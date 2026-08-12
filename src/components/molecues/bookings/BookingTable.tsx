@@ -32,6 +32,11 @@ interface BookingItem {
   total_amount?: string | number;
   check_in?: string;
   check_out?: string;
+   refund_percent?: number | null;
+  refund_amount?: number | string | null;
+  refund_status?: string | null;
+  refund_operations?: { status?: string | null; workflow_status?: string | null } | null;
+    refund?: { status?: string | null } | null;
   rooms?: Array<{ room_type?: string }>;
   customer_details?: {
     name?: string;
@@ -86,6 +91,9 @@ const BookingTable: React.FC<BookingTableProps> = ({
 
       const bookingStatus = normalizeStatus(item.booking_status || item.status);
       const paymentStatus = normalizeStatus(item.payment_status);
+      const refundStatus = normalizeStatus(
+        item.refund_operations?.status || item.refund?.status || item.refund_status
+      );
 
       if (activeStatusTab === "ongoing") {
         // "ongoing" was never a real booking_status value — the backend
@@ -110,7 +118,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
       }
 
       if (activeStatusTab === "refunded") {
-        return bookingStatus === "refunded" || paymentStatus === "refunded";
+        return bookingStatus === "refunded" || paymentStatus === "refunded" || refundStatus === "completed";
       }
 
       return bookingStatus === activeStatusTab;

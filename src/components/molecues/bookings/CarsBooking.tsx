@@ -35,6 +35,11 @@ interface CarBooking {
   payment_status?: string;
   booking_status?: string;
   status?: string;
+   refund_percent?: number | null;
+  refund_amount?: number | string | null;
+  refund_status?: string | null;
+  refund_operations?: { status?: string | null; workflow_status?: string | null } | null;
+    refund?: { status?: string | null } | null;
   created_at?: string;
   date_booked?: string;
   [key: string]: unknown;
@@ -82,6 +87,9 @@ const CarBookings: React.FC<CarBookingsProps> = ({
 
       const bookingStatus = normalizeStatus(item.booking_status || item.status);
       const paymentStatus = normalizeStatus(item.payment_status);
+      const refundStatus = normalizeStatus(
+        item.refund_operations?.status || item.refund?.status || item.refund_status
+      );
 
       if (activeStatusTab === "ongoing") {
         // "ongoing" was never a real booking_status value — the backend
@@ -103,7 +111,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
       }
 
       if (activeStatusTab === "refunded") {
-        return bookingStatus === "refunded" || paymentStatus === "refunded";
+        return bookingStatus === "refunded" || paymentStatus === "refunded" || refundStatus === "completed";
       }
 
       return bookingStatus === activeStatusTab;
