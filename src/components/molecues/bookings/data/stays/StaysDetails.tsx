@@ -108,13 +108,13 @@ const getNights = (checkIn?: string, checkOut?: string) => {
   return diff > 0 ? `${diff} night${diff > 1 ? "s" : ""}` : "N/A";
 };
 
-export default function StayDetails({ data, onReconcile, onAction }: { data?: StayBookingData; onReconcile?: () => Promise<RefundOperationsData | null>; onAction?: (action: RefundAction, reason: string, confirmSettlement?: boolean) => Promise<RefundOperationsData | null> }) {
+export default function StayDetails({ data, onReconcile, onAction, onRepair }: { data?: StayBookingData; onReconcile?: () => Promise<RefundOperationsData | null>; onAction?: (action: RefundAction, reason: string, confirmSettlement?: boolean) => Promise<RefundOperationsData | null>; onRepair?: (amount: string, reason: string) => Promise<RefundOperationsData | null> }) {
   return (
     <div className="space-y-5">
       <BookingDetails data={data} />
       <GridDetails data={data} />
       <CancellationFinancials data={data} />
-      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} onAction={onAction} />
+      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} onAction={onAction} onRepair={onRepair} />
     </div>
   );
 }

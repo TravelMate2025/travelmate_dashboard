@@ -72,13 +72,13 @@ const formatDuration = (minutes?: number): string => {
   return `${mins}m`;
 };
 
-const CarDetails = ({ data, onReconcile, onAction }: { data: CarBookingData; onReconcile?: () => Promise<RefundOperationsData | null>; onAction?: (action: RefundAction, reason: string, confirmSettlement?: boolean) => Promise<RefundOperationsData | null> }) => {
+const CarDetails = ({ data, onReconcile, onAction, onRepair }: { data: CarBookingData; onReconcile?: () => Promise<RefundOperationsData | null>; onAction?: (action: RefundAction, reason: string, confirmSettlement?: boolean) => Promise<RefundOperationsData | null>; onRepair?: (amount: string, reason: string) => Promise<RefundOperationsData | null> }) => {
   return (
     <div className="space-y-5">
       <BookingDetails data={data} />
       <GridDetails data={data} />
       <CancellationFinancials data={data} />
-      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} onAction={onAction} />
+      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} onAction={onAction} onRepair={onRepair} />
     </div>
   );
 };
