@@ -159,6 +159,7 @@ export default function RefundOperations({ data, onReconcile, onAction, onRepair
             <Metric label="Policy refund" value={current.refund_percent != null ? `${current.refund_percent}%` : "Not available"} />
             <Metric label="Provider reference" value={current.provider_refund_id || "Not available"} />
             <Metric label="Requested at" value={date(current.requested_at)} />
+            <Metric label="Settled at" value={date(current.settled_at)} />
             <Metric label="Last synced" value={date(current.last_synced_at)} />
           </div>
           <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium">
