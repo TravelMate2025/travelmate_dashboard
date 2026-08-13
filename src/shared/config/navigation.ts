@@ -38,6 +38,12 @@ export const navItems: NavigationItem[] = [
     iconActive: "/assets/icons/a-sidebar-support.svg",
   },
   {
+    icon: "/assets/icons/side-academy.svg",
+    label: "Training",
+    href: "/Dashboard/academy",
+    iconActive: "/assets/icons/a-sidebar-academy.svg",
+  },
+  {
     icon: "/assets/icons/BellDark.svg",
     label: "Notifications",
     href: "/Dashboard/notification",

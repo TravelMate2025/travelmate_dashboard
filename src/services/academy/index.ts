@@ -1,0 +1,54 @@
+import env from "@/config/env";
+import instance from "@/hooks/initializers/useAxiosDefaults";
+import {
+  ClassSession,
+  CreateSessionPayload,
+  CreateTrainingClassPayload,
+  Registrant,
+  TrainingClass,
+} from "./types";
+
+class AcademyService {
+  getClasses() {
+    return instance.get<TrainingClass[]>(env.api.academyAdminClasses);
+  }
+
+  createClass(payload: CreateTrainingClassPayload) {
+    return instance.post<TrainingClass>(env.api.academyAdminClasses, payload);
+  }
+
+  getClass(slug: string) {
+    return instance.get<TrainingClass>(`${env.api.academyAdminClasses}${slug}/`);
+  }
+
+  setRegistrationOpen(slug: string, registrationOpen: boolean) {
+    return instance.patch<TrainingClass>(`${env.api.academyAdminClasses}${slug}/`, {
+      registration_open: registrationOpen,
+    });
+  }
+
+  deleteClass(slug: string) {
+    return instance.delete<void>(`${env.api.academyAdminClasses}${slug}/`);
+  }
+
+  deleteSession(slug: string, sessionId: string) {
+    return instance.delete<void>(`${env.api.academyAdminClasses}${slug}/sessions/${sessionId}/`);
+  }
+
+  getSessions(slug: string) {
+    return instance.get<ClassSession[]>(`${env.api.academyAdminClasses}${slug}/sessions/`);
+  }
+
+  createSession(slug: string, payload: CreateSessionPayload) {
+    return instance.post<ClassSession>(
+      `${env.api.academyAdminClasses}${slug}/sessions/`,
+      payload,
+    );
+  }
+
+  getRegistrants(slug: string) {
+    return instance.get<Registrant[]>(`${env.api.academyAdminClasses}${slug}/registrants/`);
+  }
+}
+
+export default new AcademyService();
