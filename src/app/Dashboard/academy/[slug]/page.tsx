@@ -82,6 +82,8 @@ export default function AcademyClassDetailPage() {
   const [classDeleteSubmitting, setClassDeleteSubmitting] = useState(false);
   const [deletingSession, setDeletingSession] = useState<ClassSession | null>(null);
   const [sessionDeleteSubmitting, setSessionDeleteSubmitting] = useState(false);
+  const [deletingRegistrant, setDeletingRegistrant] = useState<Registrant | null>(null);
+  const [registrantDeleteSubmitting, setRegistrantDeleteSubmitting] = useState(false);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -173,6 +175,18 @@ export default function AcademyClassDetailPage() {
       await loadAll();
     } finally {
       setSessionDeleteSubmitting(false);
+    }
+  };
+
+  const handleDeleteRegistrant = async () => {
+    if (!deletingRegistrant) return;
+    setRegistrantDeleteSubmitting(true);
+    try {
+      await academyService.deleteRegistrant(slug, deletingRegistrant.id);
+      setDeletingRegistrant(null);
+      await loadAll();
+    } finally {
+      setRegistrantDeleteSubmitting(false);
     }
   };
 
@@ -469,12 +483,13 @@ export default function AcademyClassDetailPage() {
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                   Attendance
                 </th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {registrants.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
                     No registrants yet.
                   </td>
                 </tr>
@@ -510,6 +525,16 @@ export default function AcademyClassDetailPage() {
                           />
                         ))}
                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setDeletingRegistrant(r)}
+                        className="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-[#D72638]"
+                        aria-label={`Delete ${r.full_name}`}
+                      >
+                        ✕
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -581,6 +606,17 @@ export default function AcademyClassDetailPage() {
           loading={sessionDeleteSubmitting}
           onConfirm={handleDeleteSession}
           onCancel={() => setDeletingSession(null)}
+        />
+      )}
+
+      {deletingRegistrant && (
+        <ConfirmDeleteModal
+          title={`Delete "${deletingRegistrant.full_name}"?`}
+          description={`This permanently removes this registrant (${deletingRegistrant.email}) and their attendance records from this class. This does not affect any other class they may be registered for. This cannot be undone.`}
+          confirmPhrase={deletingRegistrant.email}
+          loading={registrantDeleteSubmitting}
+          onConfirm={handleDeleteRegistrant}
+          onCancel={() => setDeletingRegistrant(null)}
         />
       )}
     </div>

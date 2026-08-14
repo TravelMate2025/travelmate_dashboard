@@ -49,6 +49,12 @@ class AcademyService {
   getRegistrants(slug: string) {
     return instance.get<Registrant[]>(`${env.api.academyAdminClasses}${slug}/registrants/`);
   }
+
+  deleteRegistrant(slug: string, enrollmentId: string) {
+    return instance.delete<void>(
+      `${env.api.academyAdminClasses}${slug}/registrants/${enrollmentId}/`,
+    );
+  }
 }
 
 export default new AcademyService();
