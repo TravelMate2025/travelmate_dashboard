@@ -7,7 +7,7 @@ import academyService from "@/services/academy";
 import type { ClassSession, Registrant, TrainingClass } from "@/services/academy/types";
 import { ConfirmDeleteModal } from "../ConfirmDeleteModal";
 
-const WEB_FRONTEND_URL = env.links.USER_FRONTEND_URL || "https://localhost:3000";
+const WEB_FRONTEND_URL = env.links.USER_FRONTEND_URL;
 
 const checkInUrl = (qrToken: string) => `${WEB_FRONTEND_URL}/academy/checkin/${qrToken}`;
 const registerUrl = (classSlug: string) => `${WEB_FRONTEND_URL}/academy/${classSlug}/register`;
