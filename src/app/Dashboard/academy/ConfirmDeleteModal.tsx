@@ -6,6 +6,7 @@ type ConfirmDeleteModalProps = {
   description: string;
   confirmPhrase: string;
   loading?: boolean;
+  error?: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -19,6 +20,7 @@ export function ConfirmDeleteModal({
   description,
   confirmPhrase,
   loading = false,
+  error = null,
   onConfirm,
   onCancel,
 }: ConfirmDeleteModalProps) {
@@ -46,6 +48,11 @@ export function ConfirmDeleteModal({
           autoFocus
           className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
         />
+        {error && (
+          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] text-red-800">
+            {error}
+          </p>
+        )}
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"

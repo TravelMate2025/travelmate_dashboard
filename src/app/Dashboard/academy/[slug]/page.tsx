@@ -84,6 +84,7 @@ export default function AcademyClassDetailPage() {
   const [sessionDeleteSubmitting, setSessionDeleteSubmitting] = useState(false);
   const [deletingRegistrant, setDeletingRegistrant] = useState<Registrant | null>(null);
   const [registrantDeleteSubmitting, setRegistrantDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -156,11 +157,20 @@ export default function AcademyClassDetailPage() {
     }
   };
 
+  const getDeleteErrorMessage = (err: unknown): string => {
+    const detail = (err as { response?: { data?: { error?: string; detail?: string } } })
+      ?.response?.data;
+    return detail?.error || detail?.detail || "Something went wrong. Please try again.";
+  };
+
   const handleDeleteClass = async () => {
     setClassDeleteSubmitting(true);
+    setDeleteError(null);
     try {
       await academyService.deleteClass(slug);
       router.push("/Dashboard/academy");
+    } catch (err: unknown) {
+      setDeleteError(getDeleteErrorMessage(err));
     } finally {
       setClassDeleteSubmitting(false);
     }
@@ -169,10 +179,13 @@ export default function AcademyClassDetailPage() {
   const handleDeleteSession = async () => {
     if (!deletingSession) return;
     setSessionDeleteSubmitting(true);
+    setDeleteError(null);
     try {
       await academyService.deleteSession(slug, deletingSession.id);
       setDeletingSession(null);
       await loadAll();
+    } catch (err: unknown) {
+      setDeleteError(getDeleteErrorMessage(err));
     } finally {
       setSessionDeleteSubmitting(false);
     }
@@ -181,10 +194,13 @@ export default function AcademyClassDetailPage() {
   const handleDeleteRegistrant = async () => {
     if (!deletingRegistrant) return;
     setRegistrantDeleteSubmitting(true);
+    setDeleteError(null);
     try {
       await academyService.deleteRegistrant(slug, deletingRegistrant.id);
       setDeletingRegistrant(null);
       await loadAll();
+    } catch (err: unknown) {
+      setDeleteError(getDeleteErrorMessage(err));
     } finally {
       setRegistrantDeleteSubmitting(false);
     }
@@ -276,7 +292,10 @@ export default function AcademyClassDetailPage() {
           </button>
           <button
             type="button"
-            onClick={() => setDeletingClass(true)}
+            onClick={() => {
+              setDeleteError(null);
+              setDeletingClass(true);
+            }}
             className="text-[11.5px] font-medium text-[#D72638] hover:underline"
           >
             Delete class
@@ -397,7 +416,10 @@ export default function AcademyClassDetailPage() {
               >
                 <button
                   type="button"
-                  onClick={() => setDeletingSession(session)}
+                  onClick={() => {
+                    setDeleteError(null);
+                    setDeletingSession(session);
+                  }}
                   className="absolute top-3 right-3 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-[#D72638]"
                   aria-label={`Delete ${session.label}`}
                 >
@@ -529,7 +551,10 @@ export default function AcademyClassDetailPage() {
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
-                        onClick={() => setDeletingRegistrant(r)}
+                        onClick={() => {
+                          setDeleteError(null);
+                          setDeletingRegistrant(r);
+                        }}
                         className="rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-[#D72638]"
                         aria-label={`Delete ${r.full_name}`}
                       >
@@ -593,8 +618,12 @@ export default function AcademyClassDetailPage() {
           description={`This permanently deletes the class, all ${sessions.length} of its sessions, every registrant's enrollment, and all attendance records. This cannot be undone.`}
           confirmPhrase={trainingClass.name}
           loading={classDeleteSubmitting}
+          error={deleteError}
           onConfirm={handleDeleteClass}
-          onCancel={() => setDeletingClass(false)}
+          onCancel={() => {
+            setDeleteError(null);
+            setDeletingClass(false);
+          }}
         />
       )}
 
@@ -604,8 +633,12 @@ export default function AcademyClassDetailPage() {
           description={`This permanently deletes this session and its ${deletingSession.present_count} attendance record${deletingSession.present_count === 1 ? "" : "s"}. Registrants and the rest of the class are unaffected. This cannot be undone.`}
           confirmPhrase={deletingSession.label}
           loading={sessionDeleteSubmitting}
+          error={deleteError}
           onConfirm={handleDeleteSession}
-          onCancel={() => setDeletingSession(null)}
+          onCancel={() => {
+            setDeleteError(null);
+            setDeletingSession(null);
+          }}
         />
       )}
 
@@ -615,8 +648,12 @@ export default function AcademyClassDetailPage() {
           description={`This permanently removes this registrant (${deletingRegistrant.email}) and their attendance records from this class. This does not affect any other class they may be registered for. This cannot be undone.`}
           confirmPhrase={deletingRegistrant.email}
           loading={registrantDeleteSubmitting}
+          error={deleteError}
           onConfirm={handleDeleteRegistrant}
-          onCancel={() => setDeletingRegistrant(null)}
+          onCancel={() => {
+            setDeleteError(null);
+            setDeletingRegistrant(null);
+          }}
         />
       )}
     </div>

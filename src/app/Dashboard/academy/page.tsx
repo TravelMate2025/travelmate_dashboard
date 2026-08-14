@@ -28,6 +28,7 @@ export default function AcademyClassesPage() {
 
   const [deletingClass, setDeletingClass] = useState<TrainingClass | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadClasses = async () => {
     setLoading(true);
@@ -85,10 +86,15 @@ export default function AcademyClassesPage() {
   const handleDeleteClass = async () => {
     if (!deletingClass) return;
     setDeleteSubmitting(true);
+    setDeleteError(null);
     try {
       await academyService.deleteClass(deletingClass.slug);
       setDeletingClass(null);
       await loadClasses();
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { error?: string; detail?: string } } })
+        ?.response?.data;
+      setDeleteError(detail?.error || detail?.detail || "Something went wrong. Please try again.");
     } finally {
       setDeleteSubmitting(false);
     }
@@ -208,6 +214,7 @@ export default function AcademyClassesPage() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  setDeleteError(null);
                   setDeletingClass(cls);
                 }}
                 className="absolute top-3 right-3 rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-[#D72638]"
@@ -247,8 +254,12 @@ export default function AcademyClassesPage() {
           description={`This permanently deletes the class, all ${deletingClass.session_count} of its sessions, every registrant's enrollment, and all attendance records. This cannot be undone.`}
           confirmPhrase={deletingClass.name}
           loading={deleteSubmitting}
+          error={deleteError}
           onConfirm={handleDeleteClass}
-          onCancel={() => setDeletingClass(null)}
+          onCancel={() => {
+            setDeleteError(null);
+            setDeletingClass(null);
+          }}
         />
       )}
     </div>
