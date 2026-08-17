@@ -34,7 +34,7 @@ export default function AcademyClassesPage() {
     setLoading(true);
     try {
       const response = await academyService.getClasses();
-      setClasses(response.data);
+      setClasses(response.data.results);
     } finally {
       setLoading(false);
     }

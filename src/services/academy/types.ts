@@ -1,5 +1,17 @@
 export type WindowStatus = "not_started" | "open" | "closed";
 
+// The class/session/registrant admin list endpoints are paginated
+// (DRF's PageNumberPagination shape) -- default page sizes are large
+// enough that every realistic class/session/registrant count today
+// still fits on page 1, but callers must read .results, not treat the
+// response as the array directly.
+export type PaginatedResponse<T> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+};
+
 export type TrainingClass = {
   id: string;
   name: string;

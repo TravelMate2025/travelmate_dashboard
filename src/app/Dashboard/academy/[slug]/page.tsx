@@ -95,8 +95,8 @@ export default function AcademyClassDetailPage() {
         academyService.getRegistrants(slug),
       ]);
       setTrainingClass(classRes.data);
-      setSessions(sessionsRes.data);
-      setRegistrants(registrantsRes.data);
+      setSessions(sessionsRes.data.results);
+      setRegistrants(registrantsRes.data.results);
     } finally {
       setLoading(false);
     }

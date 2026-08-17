@@ -4,13 +4,14 @@ import {
   ClassSession,
   CreateSessionPayload,
   CreateTrainingClassPayload,
+  PaginatedResponse,
   Registrant,
   TrainingClass,
 } from "./types";
 
 class AcademyService {
   getClasses() {
-    return instance.get<TrainingClass[]>(env.api.academyAdminClasses);
+    return instance.get<PaginatedResponse<TrainingClass>>(env.api.academyAdminClasses);
   }
 
   createClass(payload: CreateTrainingClassPayload) {
@@ -36,7 +37,9 @@ class AcademyService {
   }
 
   getSessions(slug: string) {
-    return instance.get<ClassSession[]>(`${env.api.academyAdminClasses}${slug}/sessions/`);
+    return instance.get<PaginatedResponse<ClassSession>>(
+      `${env.api.academyAdminClasses}${slug}/sessions/`,
+    );
   }
 
   createSession(slug: string, payload: CreateSessionPayload) {
@@ -47,7 +50,9 @@ class AcademyService {
   }
 
   getRegistrants(slug: string) {
-    return instance.get<Registrant[]>(`${env.api.academyAdminClasses}${slug}/registrants/`);
+    return instance.get<PaginatedResponse<Registrant>>(
+      `${env.api.academyAdminClasses}${slug}/registrants/`,
+    );
   }
 
   deleteRegistrant(slug: string, enrollmentId: string) {
