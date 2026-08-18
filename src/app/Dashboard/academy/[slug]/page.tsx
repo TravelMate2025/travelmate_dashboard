@@ -4,13 +4,22 @@ import { useParams, useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import env from "@/config/env";
 import academyService from "@/services/academy";
-import type { ClassSession, Registrant, TrainingClass } from "@/services/academy/types";
+import type {
+  ClassSession,
+  ClassTutor,
+  QuestionsLinkSend,
+  Registrant,
+  TrainingClass,
+} from "@/services/academy/types";
+import { AssignmentSubmissionsPanel } from "../AssignmentSubmissionsPanel";
 import { ConfirmDeleteModal } from "../ConfirmDeleteModal";
 
 const WEB_FRONTEND_URL = env.links.USER_FRONTEND_URL;
 
 const checkInUrl = (qrToken: string) => `${WEB_FRONTEND_URL}/academy/checkin/${qrToken}`;
 const registerUrl = (classSlug: string) => `${WEB_FRONTEND_URL}/academy/${classSlug}/register`;
+const questionsLinkUrl = (shareToken: string) => `${WEB_FRONTEND_URL}/academy/questions/${shareToken}`;
+const tutorPortalUrl = (magicToken: string) => `${window.location.origin}/academy/tutor/${magicToken}`;
 
 const windowBadgeClass: Record<ClassSession["window_status"], string> = {
   open: "border-[#2D9C5E] text-[#2D9C5E] bg-[#2D9C5E1A]",
@@ -86,17 +95,52 @@ export default function AcademyClassDetailPage() {
   const [registrantDeleteSubmitting, setRegistrantDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Tutor
+  const [tutor, setTutor] = useState<ClassTutor | null>(null);
+  const [showAssignTutor, setShowAssignTutor] = useState(false);
+  const [tutorNameInput, setTutorNameInput] = useState("");
+  const [tutorEmailInput, setTutorEmailInput] = useState("");
+  const [tutorSubmitting, setTutorSubmitting] = useState(false);
+  const [tutorError, setTutorError] = useState<string | null>(null);
+  const [tutorLinkCopied, setTutorLinkCopied] = useState(false);
+  const [resendingTutor, setResendingTutor] = useState(false);
+  const [revokingTutor, setRevokingTutor] = useState(false);
+  const [tutorRevokeSubmitting, setTutorRevokeSubmitting] = useState(false);
+
+  // Questions links
+  const [questionsLinkSends, setQuestionsLinkSends] = useState<QuestionsLinkSend[]>([]);
+  const [showNewSend, setShowNewSend] = useState(false);
+  const [sendTitle, setSendTitle] = useState("");
+  const [sendUrl, setSendUrl] = useState("");
+  const [sendSessionId, setSendSessionId] = useState("");
+  const [sendSubmitting, setSendSubmitting] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [copiedSendToken, setCopiedSendToken] = useState<string | null>(null);
+  const [expandedSendId, setExpandedSendId] = useState<string | null>(null);
+  const [deletingSend, setDeletingSend] = useState<QuestionsLinkSend | null>(null);
+  const [sendDeleteSubmitting, setSendDeleteSubmitting] = useState(false);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [classRes, sessionsRes, registrantsRes] = await Promise.all([
+      const [classRes, sessionsRes, registrantsRes, sendsRes] = await Promise.all([
         academyService.getClass(slug),
         academyService.getSessions(slug),
         academyService.getRegistrants(slug),
+        academyService.getQuestionsLinkSends(slug),
       ]);
       setTrainingClass(classRes.data);
       setSessions(sessionsRes.data.results);
       setRegistrants(registrantsRes.data.results);
+      setQuestionsLinkSends(sendsRes.data.results);
+      try {
+        const tutorRes = await academyService.getTutor(slug);
+        setTutor(tutorRes.data);
+      } catch {
+        // No tutor assigned yet -- the endpoint 404s, which is expected
+        // and not an error state for this page.
+        setTutor(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -226,6 +270,116 @@ export default function AcademyClassDetailPage() {
     }
   };
 
+  const openAssignTutor = () => {
+    setTutorError(null);
+    setTutorNameInput(tutor?.full_name ?? "");
+    setTutorEmailInput(tutor?.email ?? "");
+    setShowAssignTutor(true);
+  };
+
+  const handleAssignTutor = async () => {
+    if (!tutorNameInput || !tutorEmailInput) return;
+    setTutorSubmitting(true);
+    setTutorError(null);
+    try {
+      const response = await academyService.assignTutor(slug, {
+        full_name: tutorNameInput,
+        email: tutorEmailInput,
+      });
+      setTutor(response.data);
+      setShowAssignTutor(false);
+    } catch {
+      setTutorError("Could not assign this tutor. Check the fields and try again.");
+    } finally {
+      setTutorSubmitting(false);
+    }
+  };
+
+  const handleResendTutorLink = async () => {
+    setResendingTutor(true);
+    try {
+      await academyService.resendTutorLink(slug);
+    } finally {
+      setResendingTutor(false);
+    }
+  };
+
+  const handleRevokeTutor = async () => {
+    setTutorRevokeSubmitting(true);
+    setDeleteError(null);
+    try {
+      const response = await academyService.revokeTutor(slug);
+      setTutor(response.data);
+      setRevokingTutor(false);
+    } catch (err: unknown) {
+      setDeleteError(getDeleteErrorMessage(err));
+    } finally {
+      setTutorRevokeSubmitting(false);
+    }
+  };
+
+  const copyTutorLink = async () => {
+    if (!tutor) return;
+    try {
+      await navigator.clipboard.writeText(tutorPortalUrl(tutor.magic_token));
+      setTutorLinkCopied(true);
+      setTimeout(() => setTutorLinkCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable (e.g. insecure context) — link is still visible to copy manually.
+    }
+  };
+
+  const handleCreateSend = async () => {
+    if (!sendUrl) return;
+    setSendSubmitting(true);
+    setSendError(null);
+    try {
+      await academyService.createQuestionsLinkSend(slug, {
+        title: sendTitle,
+        questions_url: sendUrl,
+        session_id: sendSessionId || null,
+      });
+      setShowNewSend(false);
+      setSendTitle("");
+      setSendUrl("");
+      setSendSessionId("");
+      await loadAll();
+    } catch {
+      setSendError("Could not send this questions link. Check the URL and try again.");
+    } finally {
+      setSendSubmitting(false);
+    }
+  };
+
+  const handleDeleteSend = async () => {
+    if (!deletingSend) return;
+    setSendDeleteSubmitting(true);
+    setDeleteError(null);
+    try {
+      await academyService.deleteQuestionsLinkSend(slug, deletingSend.id);
+      setDeletingSend(null);
+      if (expandedSendId === deletingSend.id) setExpandedSendId(null);
+      await loadAll();
+    } catch (err: unknown) {
+      setDeleteError(getDeleteErrorMessage(err));
+    } finally {
+      setSendDeleteSubmitting(false);
+    }
+  };
+
+  const copySendLink = async (shareToken: string) => {
+    try {
+      await navigator.clipboard.writeText(questionsLinkUrl(shareToken));
+      setCopiedSendToken(shareToken);
+      setTimeout(
+        () => setCopiedSendToken((current) => (current === shareToken ? null : current)),
+        2000,
+      );
+    } catch {
+      // Clipboard API unavailable (e.g. insecure context) — link is still visible to copy manually.
+    }
+  };
+
   const totalSessions = sessions.length;
   const leaderboard = [...registrants].sort((a, b) => b.sessions_attended - a.sessions_attended);
 
@@ -305,6 +459,146 @@ export default function AcademyClassDetailPage() {
       <p className="-mt-4 text-[11px] text-gray-400">
         Share this link directly with participants — it isn't shown anywhere in the product.
       </p>
+
+      {/* Tutor */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[16px] font-semibold text-[#181818]">Tutor</h2>
+          {!tutor && !showAssignTutor && (
+            <button
+              type="button"
+              onClick={openAssignTutor}
+              className="rounded-lg bg-[#023E8A] px-4 py-2 text-[12.5px] font-semibold text-white transition hover:bg-[#012A5D]"
+            >
+              Assign tutor
+            </button>
+          )}
+        </div>
+
+        {showAssignTutor && (
+          <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-sm space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={tutorNameInput}
+                  onChange={(e) => setTutorNameInput(e.target.value)}
+                  placeholder="Bola Tutor"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={tutorEmailInput}
+                  onChange={(e) => setTutorEmailInput(e.target.value)}
+                  placeholder="tutor@example.com"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-400">
+              {tutor
+                ? "Reassigning issues a fresh access link — the old one stops working immediately."
+                : "The tutor gets no dashboard login — just an emailed link scoped to this class."}
+            </p>
+            {tutorError && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {tutorError}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleAssignTutor}
+                disabled={tutorSubmitting || !tutorNameInput || !tutorEmailInput}
+                className="rounded-lg bg-[#023E8A] px-4 py-2 text-[12.5px] font-semibold text-white transition hover:bg-[#012A5D] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {tutorSubmitting ? "Saving…" : tutor ? "Update tutor" : "Assign tutor"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAssignTutor(false)}
+                className="rounded-lg border border-[#dfe7f0] px-4 py-2 text-[12.5px] font-semibold text-[#4E4F52] hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {tutor && !showAssignTutor && (
+          <div className="rounded-xl border border-[#dfe7f0] bg-white p-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[13px] font-medium text-[#181818]">{tutor.full_name}</p>
+              <p className="text-[11px] text-gray-400">{tutor.email}</p>
+              {tutor.revoked_at && (
+                <span className="mt-1.5 inline-block rounded-full border border-[#9B9EA4] text-[#67696D] bg-[#F5F5F5] px-2.5 py-1 text-[10px] font-semibold">
+                  Access revoked
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {tutor.revoked_at ? (
+                <button
+                  type="button"
+                  onClick={openAssignTutor}
+                  className="rounded-lg border border-[#dfe7f0] px-3 py-1.5 text-[11px] font-medium text-[#023E8A] hover:bg-[#F0F4FA]"
+                >
+                  Reassign tutor
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={copyTutorLink}
+                    className="rounded-lg border border-[#dfe7f0] px-3 py-1.5 text-[11px] font-medium text-[#023E8A] hover:bg-[#F0F4FA]"
+                  >
+                    {tutorLinkCopied ? "Portal link copied ✓" : "Copy portal link"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResendTutorLink}
+                    disabled={resendingTutor}
+                    className="rounded-lg border border-[#dfe7f0] px-3 py-1.5 text-[11px] font-medium text-[#023E8A] hover:bg-[#F0F4FA] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {resendingTutor ? "Sending…" : "Resend link"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openAssignTutor}
+                    className="rounded-lg border border-[#dfe7f0] px-3 py-1.5 text-[11px] font-medium text-[#023E8A] hover:bg-[#F0F4FA]"
+                  >
+                    Change tutor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteError(null);
+                      setRevokingTutor(true);
+                    }}
+                    className="rounded-lg px-3 py-1.5 text-[11px] font-medium text-[#D72638] hover:bg-red-50"
+                  >
+                    Revoke access
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!tutor && !showAssignTutor && (
+          <div className="rounded-xl border border-dashed border-[#dfe7f0] bg-white p-8 text-center text-sm text-gray-500">
+            No tutor assigned yet.
+          </div>
+        )}
+      </section>
 
       {/* Sessions */}
       <section className="space-y-4">
@@ -470,6 +764,157 @@ export default function AcademyClassDetailPage() {
                     Download QR
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Questions links */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[16px] font-semibold text-[#181818]">
+            Questions links ({questionsLinkSends.length})
+          </h2>
+          <button
+            type="button"
+            onClick={() => setShowNewSend((v) => !v)}
+            className="rounded-lg bg-[#023E8A] px-4 py-2 text-[12.5px] font-semibold text-white transition hover:bg-[#012A5D]"
+          >
+            {showNewSend ? "Cancel" : "Send questions link"}
+          </button>
+        </div>
+
+        {showNewSend && (
+          <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-sm space-y-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="md:col-span-2">
+                <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
+                  Questions link URL
+                </label>
+                <input
+                  type="url"
+                  value={sendUrl}
+                  onChange={(e) => setSendUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
+                  Send to
+                </label>
+                <select
+                  value={sendSessionId}
+                  onChange={(e) => setSendSessionId(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All registrants</option>
+                  {sessions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      Attendees of {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
+                Title (optional)
+              </label>
+              <input
+                type="text"
+                value={sendTitle}
+                onChange={(e) => setSendTitle(e.target.value)}
+                placeholder="Week 1 quiz"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            {sendSessionId && (
+              <p className="text-[12px] text-gray-500">
+                Only registrants who checked in to{" "}
+                <strong className="text-[#181818]">
+                  {sessions.find((s) => s.id === sendSessionId)?.label}
+                </strong>{" "}
+                will be able to view or submit through this link.
+              </p>
+            )}
+            {sendError && (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {sendError}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleCreateSend}
+              disabled={sendSubmitting || !sendUrl}
+              className="rounded-lg bg-[#023E8A] px-4 py-2 text-[12.5px] font-semibold text-white transition hover:bg-[#012A5D] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {sendSubmitting ? "Sending…" : "Send questions link"}
+            </button>
+          </div>
+        )}
+
+        {questionsLinkSends.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[#dfe7f0] bg-white p-8 text-center text-sm text-gray-500">
+            No questions links sent yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {questionsLinkSends.map((send) => (
+              <div
+                key={send.id}
+                className="relative rounded-xl border border-[#dfe7f0] bg-white p-4 shadow-sm space-y-3"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteError(null);
+                    setDeletingSend(send);
+                  }}
+                  className="absolute top-3 right-3 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-[#D72638]"
+                  aria-label={`Delete ${send.title || "questions link"}`}
+                >
+                  ✕
+                </button>
+                <div className="pr-5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#023E8A]">
+                    {send.title || "Questions link"}
+                  </p>
+                  <p className="text-[12px] text-gray-500">
+                    {send.session_label ? `Attendees: ${send.session_label}` : "All registrants"}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <p className="text-[22px] font-bold text-[#181818] leading-none">
+                    {send.submission_count}
+                  </p>
+                  <p className="text-[11px] text-gray-500">
+                    submitted · sent by {send.sent_by}
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => copySendLink(send.share_token)}
+                    className="flex-1 rounded-lg border border-[#dfe7f0] px-2.5 py-1.5 text-[11px] font-medium text-[#023E8A] hover:bg-[#F0F4FA]"
+                  >
+                    {copiedSendToken === send.share_token ? "Link copied ✓" : "Copy link"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedSendId((id) => (id === send.id ? null : send.id))}
+                    className="flex-1 rounded-lg border border-[#dfe7f0] px-2.5 py-1.5 text-[11px] font-medium text-[#023E8A] hover:bg-[#F0F4FA]"
+                  >
+                    {expandedSendId === send.id ? "Hide submissions" : "View submissions"}
+                  </button>
+                </div>
+
+                {expandedSendId === send.id && (
+                  <AssignmentSubmissionsPanel slug={slug} sendId={send.id} />
+                )}
               </div>
             ))}
           </div>
@@ -653,6 +1098,36 @@ export default function AcademyClassDetailPage() {
           onCancel={() => {
             setDeleteError(null);
             setDeletingRegistrant(null);
+          }}
+        />
+      )}
+
+      {revokingTutor && tutor && (
+        <ConfirmDeleteModal
+          title={`Revoke access for "${tutor.full_name}"?`}
+          description={`Their current portal link (${tutorPortalUrl(tutor.magic_token)}) will stop working immediately. Nothing they already sent or that was submitted is deleted — reassigning them (or a new tutor) later issues a fresh link.`}
+          confirmPhrase={tutor.email}
+          loading={tutorRevokeSubmitting}
+          error={deleteError}
+          onConfirm={handleRevokeTutor}
+          onCancel={() => {
+            setDeleteError(null);
+            setRevokingTutor(false);
+          }}
+        />
+      )}
+
+      {deletingSend && (
+        <ConfirmDeleteModal
+          title={`Delete "${deletingSend.title || "this questions link"}"?`}
+          description={`This permanently removes the link and its ${deletingSend.submission_count} submission${deletingSend.submission_count === 1 ? "" : "s"}. Anyone who already has the link can no longer view or submit through it. This cannot be undone.`}
+          confirmPhrase={deletingSend.title || "this questions link"}
+          loading={sendDeleteSubmitting}
+          error={deleteError}
+          onConfirm={handleDeleteSend}
+          onCancel={() => {
+            setDeleteError(null);
+            setDeletingSend(null);
           }}
         />
       )}

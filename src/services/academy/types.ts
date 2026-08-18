@@ -61,3 +61,48 @@ export type Registrant = {
   sessions_attended: number;
   attended_session_ids: string[];
 };
+
+// Phase 17 -- tutor access, questions links, assignment submissions.
+
+export type ClassTutor = {
+  id: string;
+  full_name: string;
+  email: string;
+  magic_token: string;
+  revoked_at: string | null;
+  created_at: string;
+};
+
+export type AssignTutorPayload = {
+  full_name: string;
+  email: string;
+};
+
+export type SentBy = "admin" | "tutor";
+
+export type QuestionsLinkSend = {
+  id: string;
+  title: string;
+  questions_url: string;
+  share_token: string;
+  sent_by: SentBy;
+  session_id: string | null;
+  session_label: string | null;
+  submission_count: number;
+  created_at: string;
+};
+
+export type CreateQuestionsLinkSendPayload = {
+  title?: string;
+  questions_url: string;
+  session_id?: string | null;
+};
+
+export type AssignmentSubmission = {
+  id: string;
+  full_name: string;
+  email: string;
+  student_id: string;
+  assignment_link: string;
+  updated_at: string;
+};

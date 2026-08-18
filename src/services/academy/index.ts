@@ -1,10 +1,15 @@
 import env from "@/config/env";
 import instance from "@/hooks/initializers/useAxiosDefaults";
 import {
+  AssignmentSubmission,
+  AssignTutorPayload,
   ClassSession,
+  ClassTutor,
+  CreateQuestionsLinkSendPayload,
   CreateSessionPayload,
   CreateTrainingClassPayload,
   PaginatedResponse,
+  QuestionsLinkSend,
   Registrant,
   TrainingClass,
 } from "./types";
@@ -58,6 +63,49 @@ class AcademyService {
   deleteRegistrant(slug: string, enrollmentId: string) {
     return instance.delete<void>(
       `${env.api.academyAdminClasses}${slug}/registrants/${enrollmentId}/`,
+    );
+  }
+
+  // Phase 17 -- tutor access, questions links, assignment submissions.
+
+  getTutor(slug: string) {
+    return instance.get<ClassTutor>(`${env.api.academyAdminClasses}${slug}/tutor/`);
+  }
+
+  assignTutor(slug: string, payload: AssignTutorPayload) {
+    return instance.post<ClassTutor>(`${env.api.academyAdminClasses}${slug}/tutor/`, payload);
+  }
+
+  resendTutorLink(slug: string) {
+    return instance.post<void>(`${env.api.academyAdminClasses}${slug}/tutor/resend/`);
+  }
+
+  revokeTutor(slug: string) {
+    return instance.post<ClassTutor>(`${env.api.academyAdminClasses}${slug}/tutor/revoke/`);
+  }
+
+  getQuestionsLinkSends(slug: string) {
+    return instance.get<PaginatedResponse<QuestionsLinkSend>>(
+      `${env.api.academyAdminClasses}${slug}/questions-link-sends/`,
+    );
+  }
+
+  createQuestionsLinkSend(slug: string, payload: CreateQuestionsLinkSendPayload) {
+    return instance.post<QuestionsLinkSend>(
+      `${env.api.academyAdminClasses}${slug}/questions-link-sends/`,
+      payload,
+    );
+  }
+
+  deleteQuestionsLinkSend(slug: string, sendId: string) {
+    return instance.delete<void>(
+      `${env.api.academyAdminClasses}${slug}/questions-link-sends/${sendId}/`,
+    );
+  }
+
+  getSubmissions(slug: string, sendId: string) {
+    return instance.get<PaginatedResponse<AssignmentSubmission>>(
+      `${env.api.academyAdminClasses}${slug}/questions-link-sends/${sendId}/submissions/`,
     );
   }
 }
