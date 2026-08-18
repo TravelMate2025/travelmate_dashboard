@@ -101,10 +101,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     };
 
     const clearInactivityWarningTimer = () => {
-      if (!inactivityWarningTimer) {
-        return;
-      }
-
+      if (!inactivityWarningTimer) return;
       clearTimeout(inactivityWarningTimer);
       inactivityWarningTimer = null;
     };
@@ -114,10 +111,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       clearInactivityWarningTimer();
 
       inactivityWarningTimer = setTimeout(() => {
-        if (hasLoggedOutRef.current) {
-          return;
-        }
-
+        if (hasLoggedOutRef.current) return;
         showInfoToast({
           message: "You will be signed out soon",
           description: "You have been inactive for 25 minutes. Move your mouse or press a key to stay signed in.",

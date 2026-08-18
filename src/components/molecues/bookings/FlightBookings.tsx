@@ -43,6 +43,9 @@ interface FlightBooking {
   payment_status?: string;
   booking_status?: string;
   status?: string;
+  refund_status?: string | null;
+  refund_operations?: { status?: string | null; workflow_status?: string | null } | null;
+  refund?: { status?: string | null } | null;
   [key: string]: unknown;
 }
 
@@ -88,6 +91,9 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
         (item.booking_status || item.status) as string
       );
       const paymentStatus = normalizeStatus(item.payment_status as string);
+      const refundStatus = normalizeStatus(
+        item.refund_operations?.status || item.refund?.status || item.refund_status
+      );
 
       if (activeStatusTab === "ongoing") {
         // "ongoing" was never a real booking_status value — the backend
@@ -109,7 +115,7 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
       }
 
       if (activeStatusTab === "refunded") {
-        return bookingStatus === "refunded" || paymentStatus === "refunded";
+        return bookingStatus === "refunded" || paymentStatus === "refunded" || refundStatus === "completed";
       }
 
       return bookingStatus === activeStatusTab;

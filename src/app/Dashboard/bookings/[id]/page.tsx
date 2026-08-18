@@ -97,7 +97,7 @@ export default function BookingDetailsPage() {
   const bookingComponents: Record<string, React.ReactNode> = {
     stays: <StayDetails data={bookingResult} onReconcile={reconcileRefund} onAction={executeRefundAction} onRepair={repairRefundAmount} />,
     transfers: <CarDetails data={bookingResult} onReconcile={reconcileRefund} onAction={executeRefundAction} onRepair={repairRefundAmount} />,
-    flights: <FlightDetails data={bookingResult} />,
+    flights: <FlightDetails data={bookingResult} onReconcile={reconcileRefund} onAction={executeRefundAction} onRepair={repairRefundAmount} />,
   };
 
   const handleRequestCancellation = async () => {

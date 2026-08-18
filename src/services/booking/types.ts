@@ -1,6 +1,6 @@
 export type BookingCancellationProcessPayload = {
   note: string;
-  override_policy: boolean;
+  override_policy?: boolean;
 };
 
 export type BookingCancellationRequestPayload = {

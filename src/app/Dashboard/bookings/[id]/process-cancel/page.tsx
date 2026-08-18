@@ -354,6 +354,7 @@ const Form = ({
   const [adminNote, setAdminNote] = useState("");
   const [workingMessage, setWorkingMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const { processCancellation, loading } = useProcessBookingCancellation();
   const { requestCancellation, loading: requesting } =
     useRequestBookingCancellation();
@@ -520,7 +521,7 @@ const Form = ({
 
           <button
             type="button"
-            onClick={handleProcessCancellation}
+            onClick={() => setShowConfirm(true)}
             disabled={loading || requesting || !bookingIdFromRoute}
             className="w-full bg-[#023E8A] p-[16px] rounded-[8px] text-[#ffff] text-[20px] font-[500] text-center disabled:bg-gray-400"
             title={!bookingIdFromRoute ? "Booking ID is required before processing." : undefined}
@@ -533,6 +534,58 @@ const Form = ({
           </button>
         </div>
       </div>
+
+      {showConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="process-cancellation-confirm-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#023E8A]">
+              Operator confirmation
+            </p>
+            <h3 id="process-cancellation-confirm-title" className="mt-1 text-lg font-semibold text-[#18202b]">
+              Confirm cancellation and refund
+            </h3>
+            <p className="mt-4 text-sm leading-6 text-[#4e5d6d]">
+              This immediately cancels the booking and executes the real payment refund with the
+              provider — this cannot be undone. Confirm the expected refund of{" "}
+              <span className="font-semibold text-[#18202b]">
+                {formatMoney(cancellationPreview?.refund_amount)}
+              </span>{" "}
+              against the original payment before continuing.
+            </p>
+            {errorMessage && (
+              <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {errorMessage}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                disabled={loading || requesting}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleProcessCancellation();
+                  setShowConfirm(false);
+                }}
+                disabled={loading || requesting}
+                className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading || requesting ? "Processing…" : "Confirm cancellation and refund"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
