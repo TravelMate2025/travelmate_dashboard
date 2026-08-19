@@ -92,9 +92,18 @@ export const createTutorSend = (token: string, payload: CreateQuestionsLinkSendP
     .post<QuestionsLinkSend>(`/${token}/questions-link-sends/`, payload)
     .then((r) => r.data);
 
-export const getTutorSubmissions = (token: string, sendId: string) =>
-  tutorApi
-    .get<PaginatedResponse<AssignmentSubmission>>(
-      `/${token}/questions-link-sends/${sendId}/submissions/`,
-    )
-    .then((r) => r.data.results);
+export const getTutorSubmissions = (
+  token: string,
+  sendId: string,
+  options?: { search?: string; page?: number; pageSize?: number },
+) =>
+  tutorApi.get<PaginatedResponse<AssignmentSubmission>>(
+    `/${token}/questions-link-sends/${sendId}/submissions/`,
+    {
+      params: {
+        search: options?.search || undefined,
+        page: options?.page,
+        page_size: options?.pageSize,
+      },
+    },
+  );
