@@ -11,7 +11,7 @@ import type {
   Registrant,
   TrainingClass,
 } from "@/services/academy/types";
-import { AssignmentSubmissionsPanel } from "../AssignmentSubmissionsPanel";
+import { AssignmentSubmissionsModal } from "../AssignmentSubmissionsModal";
 import { ConfirmDeleteModal } from "../ConfirmDeleteModal";
 
 const WEB_FRONTEND_URL = env.links.USER_FRONTEND_URL;
@@ -32,6 +32,14 @@ const scopeLabel = (send: Pick<QuestionsLinkSend, "scope" | "session_label">) =>
   if (send.scope === "attended_any") return "Attended any session";
   return "All registrants";
 };
+
+const formatDeadline = (value: string) =>
+  new Date(value).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
 const windowBadgeClass: Record<ClassSession["window_status"], string> = {
   open: "border-[#2D9C5E] text-[#2D9C5E] bg-[#2D9C5E1A]",
@@ -125,10 +133,11 @@ export default function AcademyClassDetailPage() {
   const [sendTitle, setSendTitle] = useState("");
   const [sendUrl, setSendUrl] = useState("");
   const [sendSessionId, setSendSessionId] = useState("");
+  const [sendDeadline, setSendDeadline] = useState("");
   const [sendSubmitting, setSendSubmitting] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [copiedSendToken, setCopiedSendToken] = useState<string | null>(null);
-  const [expandedSendId, setExpandedSendId] = useState<string | null>(null);
+  const [viewingSend, setViewingSend] = useState<QuestionsLinkSend | null>(null);
   const [deletingSend, setDeletingSend] = useState<QuestionsLinkSend | null>(null);
   const [sendDeleteSubmitting, setSendDeleteSubmitting] = useState(false);
 
@@ -351,11 +360,13 @@ export default function AcademyClassDetailPage() {
         questions_url: sendUrl,
         session_id: sendSessionId && sendSessionId !== ATTENDED_ANY_VALUE ? sendSessionId : null,
         require_attendance: sendSessionId === ATTENDED_ANY_VALUE,
+        deadline_at: sendDeadline ? new Date(sendDeadline).toISOString() : null,
       });
       setShowNewSend(false);
       setSendTitle("");
       setSendUrl("");
       setSendSessionId("");
+      setSendDeadline("");
       await loadAll();
     } catch {
       setSendError("Could not send this questions link. Check the URL and try again.");
@@ -371,7 +382,7 @@ export default function AcademyClassDetailPage() {
     try {
       await academyService.deleteQuestionsLinkSend(slug, deletingSend.id);
       setDeletingSend(null);
-      if (expandedSendId === deletingSend.id) setExpandedSendId(null);
+      if (viewingSend?.id === deletingSend.id) setViewingSend(null);
       await loadAll();
     } catch (err: unknown) {
       setDeleteError(getDeleteErrorMessage(err));
@@ -832,17 +843,34 @@ export default function AcademyClassDetailPage() {
                 </select>
               </div>
             </div>
-            <div>
-              <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
-                Title (optional)
-              </label>
-              <input
-                type="text"
-                value={sendTitle}
-                onChange={(e) => setSendTitle(e.target.value)}
-                placeholder="Week 1 quiz"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
+                  Title (optional)
+                </label>
+                <input
+                  type="text"
+                  value={sendTitle}
+                  onChange={(e) => setSendTitle(e.target.value)}
+                  placeholder="Week 1 quiz"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
+                  Submission deadline (optional)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={sendDeadline}
+                  onChange={(e) => setSendDeadline(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Registrants can still view the link after this passes, but can no longer submit
+                  or resubmit.
+                </p>
+              </div>
             </div>
             {sendSessionId === ATTENDED_ANY_VALUE && (
               <p className="text-[12px] text-gray-500">
@@ -902,6 +930,14 @@ export default function AcademyClassDetailPage() {
                     {send.title || "Questions link"}
                   </p>
                   <p className="text-[12px] text-gray-500">{scopeLabel(send)}</p>
+                  {send.deadline_at && (
+                    <p
+                      className={`mt-1 text-[11px] font-medium ${send.is_past_deadline ? "text-[#D72638]" : "text-gray-500"}`}
+                    >
+                      {send.is_past_deadline ? "Deadline passed: " : "Due "}
+                      {formatDeadline(send.deadline_at)}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -923,16 +959,12 @@ export default function AcademyClassDetailPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setExpandedSendId((id) => (id === send.id ? null : send.id))}
+                    onClick={() => setViewingSend(send)}
                     className="flex-1 rounded-lg border border-[#dfe7f0] px-2.5 py-1.5 text-[11px] font-medium text-[#023E8A] hover:bg-[#F0F4FA]"
                   >
-                    {expandedSendId === send.id ? "Hide submissions" : "View submissions"}
+                    View submissions
                   </button>
                 </div>
-
-                {expandedSendId === send.id && (
-                  <AssignmentSubmissionsPanel slug={slug} sendId={send.id} />
-                )}
               </div>
             ))}
           </div>
@@ -1147,6 +1179,14 @@ export default function AcademyClassDetailPage() {
             setDeleteError(null);
             setDeletingSend(null);
           }}
+        />
+      )}
+
+      {viewingSend && (
+        <AssignmentSubmissionsModal
+          slug={slug}
+          send={viewingSend}
+          onClose={() => setViewingSend(null)}
         />
       )}
     </div>

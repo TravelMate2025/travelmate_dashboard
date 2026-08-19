@@ -92,6 +92,8 @@ export type QuestionsLinkSend = {
   session_label: string | null;
   scope: QuestionsLinkScope;
   submission_count: number;
+  deadline_at: string | null;
+  is_past_deadline: boolean;
   created_at: string;
 };
 
@@ -100,6 +102,7 @@ export type CreateQuestionsLinkSendPayload = {
   questions_url: string;
   session_id?: string | null;
   require_attendance?: boolean;
+  deadline_at?: string | null;
 };
 
 export type AssignmentSubmission = {

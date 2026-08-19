@@ -11,7 +11,7 @@ import {
   TutorClassSession,
   QuestionsLinkSend,
 } from "@/services/academyTutor/api";
-import { TutorSubmissionsPanel } from "./TutorSubmissionsPanel";
+import { TutorSubmissionsModal } from "./TutorSubmissionsModal";
 
 const WEB_FRONTEND_URL = env.links.USER_FRONTEND_URL;
 const questionsLinkUrl = (shareToken: string) => `${WEB_FRONTEND_URL}/academy/questions/${shareToken}`;
@@ -25,6 +25,14 @@ const scopeLabel = (send: Pick<QuestionsLinkSend, "scope" | "session_label">) =>
   if (send.scope === "attended_any") return "Attended any session";
   return "All registrants";
 };
+
+const formatDateTime = (value: string) =>
+  new Date(value).toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
 const windowBadgeClass: Record<TutorClassSession["window_status"], string> = {
   open: "border-[#2D9C5E] text-[#2D9C5E] bg-[#2D9C5E1A]",
@@ -55,11 +63,12 @@ export default function TutorPortalPage() {
   const [sendTitle, setSendTitle] = useState("");
   const [sendUrl, setSendUrl] = useState("");
   const [sendSessionId, setSendSessionId] = useState("");
+  const [sendDeadline, setSendDeadline] = useState("");
   const [sendSubmitting, setSendSubmitting] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
   const [copiedSendToken, setCopiedSendToken] = useState<string | null>(null);
-  const [expandedSendId, setExpandedSendId] = useState<string | null>(null);
+  const [viewingSend, setViewingSend] = useState<QuestionsLinkSend | null>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -96,11 +105,13 @@ export default function TutorPortalPage() {
         questions_url: sendUrl,
         session_id: sendSessionId && sendSessionId !== ATTENDED_ANY_VALUE ? sendSessionId : null,
         require_attendance: sendSessionId === ATTENDED_ANY_VALUE,
+        deadline_at: sendDeadline ? new Date(sendDeadline).toISOString() : null,
       });
       setShowNewSend(false);
       setSendTitle("");
       setSendUrl("");
       setSendSessionId("");
+      setSendDeadline("");
       const sendsData = await getTutorSends(token);
       setSends(sendsData);
     } catch {
@@ -251,17 +262,34 @@ export default function TutorPortalPage() {
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
-                  Title (optional)
-                </label>
-                <input
-                  type="text"
-                  value={sendTitle}
-                  onChange={(e) => setSendTitle(e.target.value)}
-                  placeholder="Week 1 quiz"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
+                    Title (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={sendTitle}
+                    onChange={(e) => setSendTitle(e.target.value)}
+                    placeholder="Week 1 quiz"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
+                    Submission deadline (optional)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={sendDeadline}
+                    onChange={(e) => setSendDeadline(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Registrants can still view the link after this passes, but can no longer
+                    submit or resubmit.
+                  </p>
+                </div>
               </div>
               {sendSessionId === ATTENDED_ANY_VALUE && (
                 <p className="text-[12px] text-gray-500">
@@ -310,6 +338,14 @@ export default function TutorPortalPage() {
                       {send.title || "Questions link"}
                     </p>
                     <p className="text-[12px] text-gray-500">{scopeLabel(send)}</p>
+                    {send.deadline_at && (
+                      <p
+                        className={`mt-1 text-[11px] font-medium ${send.is_past_deadline ? "text-[#D72638]" : "text-gray-500"}`}
+                      >
+                        {send.is_past_deadline ? "Deadline passed: " : "Due "}
+                        {formatDateTime(send.deadline_at)}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -329,21 +365,25 @@ export default function TutorPortalPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setExpandedSendId((id) => (id === send.id ? null : send.id))}
+                      onClick={() => setViewingSend(send)}
                       className="flex-1 rounded-lg border border-[#dfe7f0] px-2.5 py-1.5 text-[11px] font-medium text-[#023E8A] hover:bg-[#F0F4FA]"
                     >
-                      {expandedSendId === send.id ? "Hide submissions" : "View submissions"}
+                      View submissions
                     </button>
                   </div>
-
-                  {expandedSendId === send.id && (
-                    <TutorSubmissionsPanel token={token} sendId={send.id} />
-                  )}
                 </div>
               ))}
             </div>
           )}
         </section>
+
+        {viewingSend && (
+          <TutorSubmissionsModal
+            token={token}
+            send={viewingSend}
+            onClose={() => setViewingSend(null)}
+          />
+        )}
       </div>
     </div>
   );

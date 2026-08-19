@@ -103,9 +103,10 @@ class AcademyService {
     );
   }
 
-  getSubmissions(slug: string, sendId: string) {
+  getSubmissions(slug: string, sendId: string, search?: string) {
     return instance.get<PaginatedResponse<AssignmentSubmission>>(
       `${env.api.academyAdminClasses}${slug}/questions-link-sends/${sendId}/submissions/`,
+      { params: search ? { search } : undefined },
     );
   }
 }
