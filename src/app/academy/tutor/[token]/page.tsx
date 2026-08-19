@@ -16,6 +16,16 @@ import { TutorSubmissionsPanel } from "./TutorSubmissionsPanel";
 const WEB_FRONTEND_URL = env.links.USER_FRONTEND_URL;
 const questionsLinkUrl = (shareToken: string) => `${WEB_FRONTEND_URL}/academy/questions/${shareToken}`;
 
+// Same sentinel-value approach as the admin dashboard's scope <select>
+// -- see that file's comment for why a third value is needed.
+const ATTENDED_ANY_VALUE = "__attended_any__";
+
+const scopeLabel = (send: Pick<QuestionsLinkSend, "scope" | "session_label">) => {
+  if (send.scope === "session") return `Attendees: ${send.session_label}`;
+  if (send.scope === "attended_any") return "Attended any session";
+  return "All registrants";
+};
+
 const windowBadgeClass: Record<TutorClassSession["window_status"], string> = {
   open: "border-[#2D9C5E] text-[#2D9C5E] bg-[#2D9C5E1A]",
   closed: "border-[#9B9EA4] text-[#67696D] bg-[#F5F5F5]",
@@ -84,7 +94,8 @@ export default function TutorPortalPage() {
       await createTutorSend(token, {
         title: sendTitle,
         questions_url: sendUrl,
-        session_id: sendSessionId || null,
+        session_id: sendSessionId && sendSessionId !== ATTENDED_ANY_VALUE ? sendSessionId : null,
+        require_attendance: sendSessionId === ATTENDED_ANY_VALUE,
       });
       setShowNewSend(false);
       setSendTitle("");
@@ -231,6 +242,7 @@ export default function TutorPortalPage() {
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">All registrants</option>
+                    <option value={ATTENDED_ANY_VALUE}>Attended any session</option>
                     {sessions.map((s) => (
                       <option key={s.id} value={s.id}>
                         Attendees of {s.label}
@@ -251,6 +263,21 @@ export default function TutorPortalPage() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              {sendSessionId === ATTENDED_ANY_VALUE && (
+                <p className="text-[12px] text-gray-500">
+                  Only registrants who checked in to <strong className="text-[#181818]">any</strong>{" "}
+                  session will be able to view or submit through this link.
+                </p>
+              )}
+              {sendSessionId && sendSessionId !== ATTENDED_ANY_VALUE && (
+                <p className="text-[12px] text-gray-500">
+                  Only registrants who checked in to{" "}
+                  <strong className="text-[#181818]">
+                    {sessions.find((s) => s.id === sendSessionId)?.label}
+                  </strong>{" "}
+                  will be able to view or submit through this link.
+                </p>
+              )}
               {sendError && (
                 <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                   {sendError}
@@ -282,9 +309,7 @@ export default function TutorPortalPage() {
                     <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#023E8A]">
                       {send.title || "Questions link"}
                     </p>
-                    <p className="text-[12px] text-gray-500">
-                      {send.session_label ? `Attendees: ${send.session_label}` : "All registrants"}
-                    </p>
+                    <p className="text-[12px] text-gray-500">{scopeLabel(send)}</p>
                   </div>
 
                   <div className="flex items-center gap-3">

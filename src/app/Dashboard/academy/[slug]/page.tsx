@@ -21,6 +21,18 @@ const registerUrl = (classSlug: string) => `${WEB_FRONTEND_URL}/academy/${classS
 const questionsLinkUrl = (shareToken: string) => `${WEB_FRONTEND_URL}/academy/questions/${shareToken}`;
 const tutorPortalUrl = (magicToken: string) => `${window.location.origin}/academy/tutor/${magicToken}`;
 
+// The scope <select> needs a third value distinct from "" (all
+// registrants) and a real session id -- this sentinel means "attended
+// any session," translated into {session_id: null, require_attendance:
+// true} in handleCreateSend rather than sent to the backend as-is.
+const ATTENDED_ANY_VALUE = "__attended_any__";
+
+const scopeLabel = (send: Pick<QuestionsLinkSend, "scope" | "session_label">) => {
+  if (send.scope === "session") return `Attendees: ${send.session_label}`;
+  if (send.scope === "attended_any") return "Attended any session";
+  return "All registrants";
+};
+
 const windowBadgeClass: Record<ClassSession["window_status"], string> = {
   open: "border-[#2D9C5E] text-[#2D9C5E] bg-[#2D9C5E1A]",
   closed: "border-[#9B9EA4] text-[#67696D] bg-[#F5F5F5]",
@@ -337,7 +349,8 @@ export default function AcademyClassDetailPage() {
       await academyService.createQuestionsLinkSend(slug, {
         title: sendTitle,
         questions_url: sendUrl,
-        session_id: sendSessionId || null,
+        session_id: sendSessionId && sendSessionId !== ATTENDED_ANY_VALUE ? sendSessionId : null,
+        require_attendance: sendSessionId === ATTENDED_ANY_VALUE,
       });
       setShowNewSend(false);
       setSendTitle("");
@@ -810,6 +823,7 @@ export default function AcademyClassDetailPage() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All registrants</option>
+                  <option value={ATTENDED_ANY_VALUE}>Attended any session</option>
                   {sessions.map((s) => (
                     <option key={s.id} value={s.id}>
                       Attendees of {s.label}
@@ -830,7 +844,13 @@ export default function AcademyClassDetailPage() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            {sendSessionId && (
+            {sendSessionId === ATTENDED_ANY_VALUE && (
+              <p className="text-[12px] text-gray-500">
+                Only registrants who checked in to <strong className="text-[#181818]">any</strong>{" "}
+                session will be able to view or submit through this link.
+              </p>
+            )}
+            {sendSessionId && sendSessionId !== ATTENDED_ANY_VALUE && (
               <p className="text-[12px] text-gray-500">
                 Only registrants who checked in to{" "}
                 <strong className="text-[#181818]">
@@ -881,9 +901,7 @@ export default function AcademyClassDetailPage() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#023E8A]">
                     {send.title || "Questions link"}
                   </p>
-                  <p className="text-[12px] text-gray-500">
-                    {send.session_label ? `Attendees: ${send.session_label}` : "All registrants"}
-                  </p>
+                  <p className="text-[12px] text-gray-500">{scopeLabel(send)}</p>
                 </div>
 
                 <div className="flex items-center gap-3">

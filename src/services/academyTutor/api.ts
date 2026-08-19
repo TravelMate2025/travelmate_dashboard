@@ -33,6 +33,8 @@ export type TutorClassSession = {
 
 export type SentBy = "admin" | "tutor";
 
+export type QuestionsLinkScope = "all" | "session" | "attended_any";
+
 export type QuestionsLinkSend = {
   id: string;
   title: string;
@@ -41,6 +43,7 @@ export type QuestionsLinkSend = {
   sent_by: SentBy;
   session_id: string | null;
   session_label: string | null;
+  scope: QuestionsLinkScope;
   submission_count: number;
   created_at: string;
 };
@@ -49,6 +52,7 @@ export type CreateQuestionsLinkSendPayload = {
   title?: string;
   questions_url: string;
   session_id?: string | null;
+  require_attendance?: boolean;
 };
 
 export type AssignmentSubmission = {
