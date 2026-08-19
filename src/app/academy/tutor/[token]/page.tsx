@@ -352,7 +352,9 @@ export default function TutorPortalPage() {
                     <p className="text-[22px] font-bold text-[#181818] leading-none">
                       {send.submission_count}
                     </p>
-                    <p className="text-[11px] text-gray-500">submitted</p>
+                    <p className="text-[11px] text-gray-500">
+                      submitted · sent by {send.sent_by}
+                    </p>
                   </div>
 
                   <div className="flex gap-2">
