@@ -21,15 +21,16 @@ const registerUrl = (classSlug: string) => `${WEB_FRONTEND_URL}/academy/${classS
 const questionsLinkUrl = (shareToken: string) => `${WEB_FRONTEND_URL}/academy/questions/${shareToken}`;
 const tutorPortalUrl = (magicToken: string) => `${window.location.origin}/academy/tutor/${magicToken}`;
 
-// The scope <select> needs a third value distinct from "" (all
-// registrants) and a real session id -- this sentinel means "attended
-// any session," translated into {session_id: null, require_attendance:
-// true} in handleCreateSend rather than sent to the backend as-is.
-const ATTENDED_ANY_VALUE = "__attended_any__";
-
-const scopeLabel = (send: Pick<QuestionsLinkSend, "scope" | "session_label">) => {
-  if (send.scope === "session") return `Attendees: ${send.session_label}`;
-  if (send.scope === "attended_any") return "Attended any session";
+const scopeLabel = (send: Pick<QuestionsLinkSend, "scope" | "session_labels" | "match_mode">) => {
+  if (send.scope === "sessions") {
+    const mode = send.match_mode === "any" ? "any" : "all";
+    return `Attendees: ${send.session_labels.join(", ")} (${mode})`;
+  }
+  // "session" and "attended_any" are legacy scopes -- no longer
+  // creatable (see the create form below), but still rendered correctly
+  // for sends created before multi-session scoping shipped.
+  if (send.scope === "session") return `Attendees: ${send.session_labels[0] ?? ""}`;
+  if (send.scope === "attended_any") return "Attended any session (legacy)";
   return "All registrants";
 };
 
@@ -132,7 +133,9 @@ export default function AcademyClassDetailPage() {
   const [showNewSend, setShowNewSend] = useState(false);
   const [sendTitle, setSendTitle] = useState("");
   const [sendUrl, setSendUrl] = useState("");
-  const [sendSessionId, setSendSessionId] = useState("");
+  const [sendMode, setSendMode] = useState<"all" | "specific">("all");
+  const [sendSessionIds, setSendSessionIds] = useState<string[]>([]);
+  const [sendMatchMode, setSendMatchMode] = useState<"all" | "any">("all");
   const [sendDeadline, setSendDeadline] = useState("");
   const [sendSubmitting, setSendSubmitting] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -358,14 +361,16 @@ export default function AcademyClassDetailPage() {
       await academyService.createQuestionsLinkSend(slug, {
         title: sendTitle,
         questions_url: sendUrl,
-        session_id: sendSessionId && sendSessionId !== ATTENDED_ANY_VALUE ? sendSessionId : null,
-        require_attendance: sendSessionId === ATTENDED_ANY_VALUE,
+        session_ids: sendMode === "specific" ? sendSessionIds : [],
+        match_mode: sendMatchMode,
         deadline_at: sendDeadline ? new Date(sendDeadline).toISOString() : null,
       });
       setShowNewSend(false);
       setSendTitle("");
       setSendUrl("");
-      setSendSessionId("");
+      setSendMode("all");
+      setSendSessionIds([]);
+      setSendMatchMode("all");
       setSendDeadline("");
       await loadAll();
     } catch {
@@ -829,20 +834,65 @@ export default function AcademyClassDetailPage() {
                   Send to
                 </label>
                 <select
-                  value={sendSessionId}
-                  onChange={(e) => setSendSessionId(e.target.value)}
+                  value={sendMode}
+                  onChange={(e) => {
+                    setSendMode(e.target.value as "all" | "specific");
+                    setSendSessionIds([]);
+                    setSendMatchMode("all");
+                  }}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">All registrants</option>
-                  <option value={ATTENDED_ANY_VALUE}>Attended any session</option>
-                  {sessions.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      Attendees of {s.label}
-                    </option>
-                  ))}
+                  <option value="all">All registrants</option>
+                  <option value="specific">Specific session(s)</option>
                 </select>
               </div>
             </div>
+
+            {sendMode === "specific" && (
+              <div className="rounded-lg border border-gray-200 p-3 space-y-2">
+                <p className="text-[12px] font-semibold text-[#4E4F52]">
+                  Which session(s) must a registrant have attended?
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  {sessions.map((s) => (
+                    <label key={s.id} className="flex items-center gap-1.5 text-[13px]">
+                      <input
+                        type="checkbox"
+                        checked={sendSessionIds.includes(s.id)}
+                        onChange={(e) =>
+                          setSendSessionIds((prev) =>
+                            e.target.checked ? [...prev, s.id] : prev.filter((id) => id !== s.id)
+                          )
+                        }
+                      />
+                      {s.label}
+                    </label>
+                  ))}
+                </div>
+                {sendSessionIds.length > 1 && (
+                  <div className="pt-1">
+                    <label className="mr-4 inline-flex items-center gap-1.5 text-[13px]">
+                      <input
+                        type="radio"
+                        name="sendMatchMode"
+                        checked={sendMatchMode === "all"}
+                        onChange={() => setSendMatchMode("all")}
+                      />
+                      Attended all of these
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 text-[13px]">
+                      <input
+                        type="radio"
+                        name="sendMatchMode"
+                        checked={sendMatchMode === "any"}
+                        onChange={() => setSendMatchMode("any")}
+                      />
+                      Attended any of these
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-[12px] font-semibold text-[#4E4F52] mb-1.5">
@@ -872,17 +922,18 @@ export default function AcademyClassDetailPage() {
                 </p>
               </div>
             </div>
-            {sendSessionId === ATTENDED_ANY_VALUE && (
-              <p className="text-[12px] text-gray-500">
-                Only registrants who checked in to <strong className="text-[#181818]">any</strong>{" "}
-                session will be able to view or submit through this link.
-              </p>
-            )}
-            {sendSessionId && sendSessionId !== ATTENDED_ANY_VALUE && (
+            {sendMode === "specific" && sendSessionIds.length > 0 && (
               <p className="text-[12px] text-gray-500">
                 Only registrants who checked in to{" "}
                 <strong className="text-[#181818]">
-                  {sessions.find((s) => s.id === sendSessionId)?.label}
+                  {sendSessionIds.length > 1 ? (sendMatchMode === "any" ? "any" : "all") : "the"}
+                </strong>{" "}
+                of{" "}
+                <strong className="text-[#181818]">
+                  {sendSessionIds
+                    .map((id) => sessions.find((s) => s.id === id)?.label)
+                    .filter(Boolean)
+                    .join(", ")}
                 </strong>{" "}
                 will be able to view or submit through this link.
               </p>
@@ -895,7 +946,11 @@ export default function AcademyClassDetailPage() {
             <button
               type="button"
               onClick={handleCreateSend}
-              disabled={sendSubmitting || !sendUrl}
+              disabled={
+                sendSubmitting ||
+                !sendUrl ||
+                (sendMode === "specific" && sendSessionIds.length === 0)
+              }
               className="rounded-lg bg-[#023E8A] px-4 py-2 text-[12.5px] font-semibold text-white transition hover:bg-[#012A5D] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {sendSubmitting ? "Sending…" : "Send questions link"}

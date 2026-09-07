@@ -33,7 +33,12 @@ export type TutorClassSession = {
 
 export type SentBy = "admin" | "tutor";
 
-export type QuestionsLinkScope = "all" | "session" | "attended_any";
+export type MatchMode = "all" | "any";
+
+// "attended_any" is legacy-only: it can still appear on a send created
+// before multi-session scoping shipped, but is no longer creatable --
+// see CreateQuestionsLinkSendPayload.
+export type QuestionsLinkScope = "all" | "session" | "attended_any" | "sessions";
 
 export type QuestionsLinkSend = {
   id: string;
@@ -42,7 +47,8 @@ export type QuestionsLinkSend = {
   share_token: string;
   sent_by: SentBy;
   session_id: string | null;
-  session_label: string | null;
+  session_labels: string[];
+  match_mode: MatchMode | null;
   scope: QuestionsLinkScope;
   submission_count: number;
   deadline_at: string | null;
@@ -53,8 +59,8 @@ export type QuestionsLinkSend = {
 export type CreateQuestionsLinkSendPayload = {
   title?: string;
   questions_url: string;
-  session_id?: string | null;
-  require_attendance?: boolean;
+  session_ids?: string[];
+  match_mode?: MatchMode;
   deadline_at?: string | null;
 };
 
