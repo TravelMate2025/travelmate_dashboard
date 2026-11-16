@@ -39,6 +39,13 @@
 - Information policies and legal content area.
 - Role-aware editing so only approved roles can change commission data.
 
+## Pricing (flights and transfers)
+- Pricing page (`/Dashboard/pricing`, sidebar "Pricing") on the backend's `/api/v2/admin/pricing/` API (flights_plan.md F2b).
+- Markup rules per product (Flights / Transfers): list, add, edit, switch on/off; match on from/to country, cabin, content source and supplier; a percentage, a fixed USD amount or both; priority breaks ties. With no matching rule, the service commission from CMS applies (linked).
+- Price preview: a supplier amount → what the customer pays in each currency, with the rule used.
+- Currencies and exchange rates: rate per USD, last update, stale warning (customers then see USD), switch a currency on/off (USD always on), "Refresh rates now".
+- Changes allowed for super admins and the finance / content-management roles (enforced by the backend; a clear message otherwise).
+
 ## Customer Support
 - Support dashboard with stats and support workflow entry points.
 - Ticket list, escalated ticket list, and ticket detail views.

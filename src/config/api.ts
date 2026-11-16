@@ -48,6 +48,10 @@ const api = () => {
     reportExport: API_BASE + "/admin/reports/export/",
     reportSummary: API_BASE + "/admin/reports/summary/",
     cms: API_BASE + "/admin/commissions/",
+    // Flights/transfers pricing (backend core.applications.pricing, flights_plan.md F2b)
+    pricingMarkupRules: API_BASE + "/v2/admin/pricing/markup-rules",
+    pricingCurrencies: API_BASE + "/v2/admin/pricing/currencies",
+    pricingPreview: API_BASE + "/v2/admin/pricing/preview",
     upload: API_BASE + "/upload/",
     notification: API_BASE + "/notifications/",
     notificationBulkDelete: API_BASE + "/notifications/bulk-delete/",

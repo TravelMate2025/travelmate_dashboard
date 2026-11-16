@@ -32,6 +32,12 @@ export const navItems: NavigationItem[] = [
     iconActive: "/assets/icons/a-sidebar-cms.svg",
   },
   {
+    icon: "/assets/icons/side-cms.svg",
+    label: "Pricing",
+    href: "/Dashboard/pricing",
+    iconActive: "/assets/icons/a-sidebar-cms.svg",
+  },
+  {
     icon: "/assets/icons/side-support.svg",
     label: "Customer Support",
     href: "/Dashboard/support",
