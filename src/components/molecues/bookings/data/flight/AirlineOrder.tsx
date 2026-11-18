@@ -24,6 +24,8 @@ export type AirlineOrderData = {
   payable: { currency: string; total: string }[];
   price_change: { previous: { amount: string; currency: string }; current: { amount: string; currency: string }; direction: string } | null;
   failure: { stage: string; reason: string } | null;
+  payments?: { gateway: string; reference: string; transaction_id: string | null; amount: string; currency: string; status: string; created_at: string; paid_at: string | null }[];
+  refund?: { provider: string; status: string; amount: string; currency: string; reason: string; provider_refund_id: string | null; failure_reason: string | null } | null;
   supplier_calls: { operation: string; status_code: number | null; succeeded: boolean; at: string; ama_request_id: string; error: string | null; duration_ms: number | null }[];
 };
 
@@ -43,7 +45,21 @@ const OPERATIONS: Record<string, string> = {
   flight_order_get: "Read order",
   flight_order_delete: "Delete order",
   flight_order_patch: "Update order",
+  payment_create: "Open Flutterwave checkout",
+  transaction_verify: "Check payment (Flutterwave)",
+  transaction_verify_by_reference: "Check payment (Flutterwave)",
+  transaction_refund: "Refund (Flutterwave)",
 };
+
+const PAYMENT_STATUS: Record<string, string> = {
+  pending: "Checkout opened",
+  succeeded: "Paid",
+  failed: "Failed",
+  refunded: "Refunded",
+  expired: "Expired",
+};
+const paymentClass = (s: string) =>
+  s === "succeeded" ? "text-[#2D9C5E] bg-[#2D9C5E1A]" : s === "pending" ? "text-[#EFB608] bg-[#EFB60833]" : "text-[#E74C3C] bg-[#E74C3C1A]";
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "N/A");
 const statusClass = (s: string | null) =>
@@ -115,7 +131,41 @@ const AirlineOrder = ({ data }: { data: AirlineOrderData }) => {
       )}
 
       <div>
-        <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Calls to Amadeus</h3>
+        <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Payments</h3>
+        {data.payments && data.payments.length > 0 ? (
+          <div className="border border-gray-200 rounded-lg overflow-x-auto">
+            <table className="w-full min-w-[560px] text-[13px]">
+              <thead className="bg-[#F7F9FC] text-left">
+                <tr><th className="px-3 py-2">Reference</th><th className="px-3 py-2">Gateway</th><th className="px-3 py-2">Transaction</th><th className="px-3 py-2">Amount</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">When</th></tr>
+              </thead>
+              <tbody>
+                {data.payments.map((p) => (
+                  <tr key={p.reference} className="border-t border-gray-100">
+                    <td className="px-3 py-2 font-mono">{p.reference}</td>
+                    <td className="px-3 py-2 capitalize">{p.gateway}</td>
+                    <td className="px-3 py-2 font-mono">{p.transaction_id ?? "N/A"}</td>
+                    <td className="px-3 py-2">{p.amount} {p.currency}</td>
+                    <td className="px-3 py-2"><span className={`rounded px-2 py-0.5 ${paymentClass(p.status)}`}>{PAYMENT_STATUS[p.status] ?? p.status}</span></td>
+                    <td className="px-3 py-2">{when(p.paid_at ?? p.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-[13px] text-[#4E4F52]">No payment started yet.</p>
+        )}
+        {data.refund && (
+          <p className={`mt-2 text-[13px] ${data.refund.status === "failed" ? "text-red-600" : "text-[#181818]"}`}>
+            Refund ({data.refund.provider}): {data.refund.amount} {data.refund.currency}, {data.refund.status}
+            {data.refund.provider_refund_id ? ` · ref ${data.refund.provider_refund_id}` : ""}. {data.refund.reason}
+            {data.refund.failure_reason ? ` Refund failed: ${data.refund.failure_reason}. Refund it from the Flutterwave dashboard.` : ""}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Calls to Amadeus and Flutterwave</h3>
         <ul className="space-y-1 text-[13px]">
           {data.supplier_calls.map((c) => (
             <li key={`${c.at}-${c.operation}`} className="flex flex-wrap gap-x-3">
