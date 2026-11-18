@@ -4,6 +4,7 @@ import { GridValues, FlexValues, Policy, LocationTag } from "../../reuseables";
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import RefundOperations from "../../RefundOperations";
+import AirlineOrder, { type AirlineOrderData } from "./AirlineOrder";
 import type { RefundAction, RefundOperations as RefundOperationsData } from "@/services/booking/types";
 
 type FlightDuration = {
@@ -76,6 +77,7 @@ type FlightBookingData = {
   tax?: number;
   flight_itinerary?: FlightLeg[];
   refund_operations?: RefundOperationsData | null;
+  airline_order?: AirlineOrderData | null;
 };
 
 const FlightDetails = ({
@@ -92,6 +94,7 @@ const FlightDetails = ({
   return (
     <div className="space-y-5">
       <BookingDetails data={data} />
+      {data?.airline_order && <AirlineOrder data={data.airline_order} />}
       <GridDetails data={data} />
       <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} onAction={onAction} onRepair={onRepair} />
     </div>
