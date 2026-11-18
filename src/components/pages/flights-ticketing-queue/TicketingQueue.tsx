@@ -152,7 +152,11 @@ const TicketingQueue = () => {
         {queueError && <p role="alert" className="text-[13px] text-red-600">{queueError}</p>}
         {queue && (
           <ul className="text-[13px] space-y-1">
-            {queue.map((q) => <li key={q.pnr} className="font-mono">{q.pnr} · {q.segments.join(", ")} · {q.created_at ?? ""}</li>)}
+            {queue.map((q) => (
+              <li key={q.pnr} className="font-mono">
+                {[q.pnr, q.travelers?.join(", "), q.segments.join(", "), q.created_at].filter(Boolean).join(" · ")}
+              </li>
+            ))}
             {queue.length === 0 && <li className="text-[#4E4F52]">The queue is empty.</li>}
           </ul>
         )}
