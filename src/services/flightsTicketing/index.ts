@@ -63,7 +63,7 @@ export type QueueRow = {
 
 export type QueuePage = { count: number; next: string | null; previous: string | null; results: QueueRow[] };
 export type ActionResult = { result: string; airline_order: unknown };
-export type ConsolidatorQueueItem = { pnr: string; created_at: string | null; segments: string[] };
+export type ConsolidatorQueueItem = { pnr: string; created_at: string | null; segments: string[]; travelers?: string[] };
 
 export const TicketingQueueService = {
   async list(states: string, page: number) {
