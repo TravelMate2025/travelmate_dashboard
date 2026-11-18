@@ -37,3 +37,49 @@ class Service {
 
 const FlightsTicketingService = new Service();
 export default FlightsTicketingService;
+
+// ---------------------------------------------------------------- ticketing queue (F6)
+
+export type QueueRow = {
+  id: string;
+  legacy_id: number;
+  reference: string;
+  pnr: string;
+  state: "PAID" | "TICKETING" | string;
+  ticketing_status: string;
+  customer: string;
+  travelers: number;
+  tickets: number;
+  paid_at: string | null;
+  amount: string;
+  currency: string;
+  handed_off_at: string | null;
+  ticketing_deadline: string | null;
+  last_ticketing_date: string | null;
+  overdue: boolean;
+  handoff_error: string | null;
+  last_checked_at: string | null;
+};
+
+export type QueuePage = { count: number; next: string | null; previous: string | null; results: QueueRow[] };
+export type ActionResult = { result: string; airline_order: unknown };
+export type ConsolidatorQueueItem = { pnr: string; created_at: string | null; segments: string[] };
+
+export const TicketingQueueService = {
+  async list(states: string, page: number) {
+    const res = await instance.get<QueuePage>(env.api.flightsTicketingQueue, { params: { state: states, page } });
+    return res.data;
+  },
+  async resync(id: string) {
+    return (await instance.post<ActionResult>(`${env.api.flightsTicketingQueue}/${id}/resync`, {}, { timeout: 120000 })).data;
+  },
+  async handoff(id: string) {
+    return (await instance.post<ActionResult>(`${env.api.flightsTicketingQueue}/${id}/handoff`, {}, { timeout: 120000 })).data;
+  },
+  async markTicketed(id: string, tickets: { travelerId: string; number: string }[]) {
+    return (await instance.post<ActionResult>(`${env.api.flightsTicketingQueue}/${id}/mark-ticketed`, { tickets })).data;
+  },
+  async consolidatorQueue() {
+    return (await instance.get<ConsolidatorQueueItem[]>(env.api.flightsConsolidatorQueue, { timeout: 120000 })).data;
+  },
+};

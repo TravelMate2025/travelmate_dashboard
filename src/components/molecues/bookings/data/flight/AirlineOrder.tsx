@@ -24,6 +24,8 @@ export type AirlineOrderData = {
   payable: { currency: string; total: string }[];
   price_change: { previous: { amount: string; currency: string }; current: { amount: string; currency: string }; direction: string } | null;
   failure: { stage: string; reason: string } | null;
+  handoff?: { method?: string; office?: string; queue?: string; at?: string; error?: string; last_checked_at?: string; deadline_alerted?: string } | null;
+  tickets?: { number: string; type: string; status: string; travelerId: string | null; traveler: string | null; source: string | null; issued_at: string | null }[];
   payments?: { gateway: string; reference: string; transaction_id: string | null; amount: string; currency: string; status: string; created_at: string; paid_at: string | null }[];
   refund?: { provider: string; status: string; amount: string; currency: string; reason: string; provider_refund_id: string | null; failure_reason: string | null } | null;
   supplier_calls: { operation: string; status_code: number | null; succeeded: boolean; at: string; ama_request_id: string; error: string | null; duration_ms: number | null }[];
@@ -49,6 +51,7 @@ const OPERATIONS: Record<string, string> = {
   transaction_verify: "Check payment (Flutterwave)",
   transaction_verify_by_reference: "Check payment (Flutterwave)",
   transaction_refund: "Refund (Flutterwave)",
+  queue_list: "List consolidator queue",
 };
 
 const PAYMENT_STATUS: Record<string, string> = {
@@ -129,6 +132,33 @@ const AirlineOrder = ({ data }: { data: AirlineOrderData }) => {
           <GridValues title="Payable" value={data.payable.map((p) => `${p.total} ${p.currency}`).join(" · ") || "N/A"} />
         </div>
       )}
+
+      <div>
+        <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Consolidator and tickets</h3>
+        {data.handoff ? (
+          <p className={`text-[13px] ${data.handoff.error ? "text-red-600" : "text-[#181818]"}`}>
+            {data.handoff.error
+              ? `Not handed over: ${data.handoff.error}`
+              : `Handed over by ${(data.handoff.method ?? "").replace(/_/g, " ")}${data.handoff.queue ? `, queue ${data.handoff.queue}` : ""}${data.handoff.office ? `, office ${data.handoff.office}` : ""}, ${when(data.handoff.at ?? null)}.`}
+            {data.handoff.last_checked_at ? ` Order last checked ${when(data.handoff.last_checked_at)}.` : ""}
+            {data.handoff.deadline_alerted ? " Ticketing time limit passed without tickets." : ""}
+          </p>
+        ) : (
+          <p className="text-[13px] text-[#4E4F52]">Not handed to the consolidator yet.</p>
+        )}
+        {data.tickets && data.tickets.length > 0 && (
+          <ul className="mt-2 space-y-1 text-[13px]">
+            {data.tickets.map((t) => (
+              <li key={t.number} className="flex flex-wrap gap-x-3">
+                <span className="font-mono">{t.number}</span>
+                <span>{t.type} · {t.status}</span>
+                <span>{t.traveler ?? "Traveller not matched"}</span>
+                <span className="text-[#4E4F52]">{t.source === "manual" ? "entered by staff" : "from Amadeus"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div>
         <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Payments</h3>

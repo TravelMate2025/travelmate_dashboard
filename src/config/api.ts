@@ -58,6 +58,9 @@ const api = () => {
     flightsRouteFares: API_BASE + "/v2/admin/flights/route-fares",
     // How orders reach the consolidator, super admins only (flights_plan.md F4)
     flightsTicketingSettings: API_BASE + "/v2/admin/flights/ticketing-settings",
+    // Paid bookings waiting for tickets, and their actions (flights_plan.md F6)
+    flightsTicketingQueue: API_BASE + "/v2/admin/flights/bookings",
+    flightsConsolidatorQueue: API_BASE + "/v2/admin/flights/queue",
     upload: API_BASE + "/upload/",
     notification: API_BASE + "/notifications/",
     notificationBulkDelete: API_BASE + "/notifications/bulk-delete/",
