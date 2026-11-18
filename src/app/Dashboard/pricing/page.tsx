@@ -25,7 +25,7 @@ const PricingPage = () => {
   return (
     <div className="p-4 space-y-8">
       <div className="space-y-1">
-        <h1 className="lg:text-[20px] text-[16px] font-semibold text-[#181818]">Pricing</h1>
+        <h1 className="lg:text-[20px] text-[16px] font-semibold text-[#181818]">Markup and exchange rates</h1>
         <p className="text-[14px] text-[#4E4F52]">How supplier prices become what customers pay.</p>
       </div>
       <div role="tablist" aria-label="Product" className="flex gap-2">

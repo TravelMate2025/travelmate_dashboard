@@ -52,6 +52,10 @@ const api = () => {
     pricingMarkupRules: API_BASE + "/v2/admin/pricing/markup-rules",
     pricingCurrencies: API_BASE + "/v2/admin/pricing/currencies",
     pricingPreview: API_BASE + "/v2/admin/pricing/preview",
+    // Flights home sections (backend flights_plan.md F2d)
+    flightsPopularRoutes: API_BASE + "/v2/admin/flights/popular-routes",
+    flightsCampaigns: API_BASE + "/v2/admin/flights/campaigns",
+    flightsRouteFares: API_BASE + "/v2/admin/flights/route-fares",
     upload: API_BASE + "/upload/",
     notification: API_BASE + "/notifications/",
     notificationBulkDelete: API_BASE + "/notifications/bulk-delete/",

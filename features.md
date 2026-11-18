@@ -46,6 +46,12 @@
 - Currencies and exchange rates: rate per USD, last update, stale warning (customers then see USD), switch a currency on/off (USD always on), "Refresh rates now".
 - Changes allowed for super admins and the finance / content-management roles (enforced by the backend; a clear message otherwise).
 
+## Flights home content
+- Flights Home page (`/Dashboard/flights-home`, sidebar "Flights Home") on the backend's `/api/v2/admin/flights/` API (flights_plan.md F2d): what the web and mobile Flights home shows.
+- Popular routes per visitor country ("Everyone else" for countries without a list; add a country by its code): add, reorder, switch off, remove. The first route also feeds fares by class.
+- Promo cards: add, edit, delete; label, headline, text, button text, optional route that prefills the search, country (or every country), start and end; status Live / Scheduled / Ended / Off.
+- "From" prices: the stored cheapest fares per route and cabin, with "Refresh now" (searches the popular routes).
+
 ## Customer Support
 - Support dashboard with stats and support workflow entry points.
 - Ticket list, escalated ticket list, and ticket detail views.
