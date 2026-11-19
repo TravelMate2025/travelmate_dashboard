@@ -1,12 +1,17 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { GridValues } from "../../reuseables";
+import { TicketingQueueService } from "@/services/flightsTicketing";
+import { pricingErrorMessage } from "@/hooks/api/pricing";
+import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 
 // The Amadeus side of a v2 flight booking (backend airline_order, flights_plan.md F4):
 // order id, PNRs, the client reference support quotes to Amadeus, deadlines,
 // each segment's status and the latest calls to Amadeus.
 
 export type AirlineOrderData = {
+  /** The booking id the staff actions take (same as the clients' booking id). */
+  booking_id?: string;
   state: string;
   reference: string;
   order_id: string | null;
@@ -81,7 +86,23 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB"
 const statusClass = (s: string | null) =>
   s === "CONFIRMED" ? "text-[#2D9C5E] bg-[#2D9C5E1A]" : s ? "text-[#E74C3C] bg-[#E74C3C1A]" : "text-[#4E4F52] bg-gray-100";
 
-const AirlineOrder = ({ data }: { data: AirlineOrderData }) => {
+const AirlineOrder = ({ data: initial }: { data: AirlineOrderData }) => {
+  const [data, setData] = useState(initial);
+  const [retrying, setRetrying] = useState(false);
+  const retryRefund = async () => {
+    if (!data.booking_id) return;
+    setRetrying(true);
+    try {
+      const res = await TicketingQueueService.retryRefund(data.booking_id);
+      setData(res.airline_order as AirlineOrderData);
+      if (res.result === "sent") showSuccessToast({ message: "Refund sent to Flutterwave" });
+      else showErrorToast({ message: "Flutterwave refused the refund again: see the reason below" });
+    } catch (e) {
+      showErrorToast({ message: pricingErrorMessage(e) });
+    } finally {
+      setRetrying(false);
+    }
+  };
   const airlineRecords = data.associated_records.filter((r) => r.system !== "GDS");
   return (
     <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-[0_8px_24px_rgba(16,42,67,0.04)] space-y-5">
@@ -222,7 +243,21 @@ const AirlineOrder = ({ data }: { data: AirlineOrderData }) => {
             </div>
           )}
           {data.refund?.failure_reason && (
-            <p role="alert" className="mt-2 text-[13px] text-red-600">Refund failed: {data.refund.failure_reason}. Refund it from the Flutterwave dashboard.</p>
+            <div className="mt-2 space-y-2">
+              <p role="alert" className="text-[13px] text-red-600">Refund failed: {data.refund.failure_reason}.</p>
+              {data.refund.status === "failed" && data.booking_id && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={retryRefund} disabled={retrying}
+                    className="bg-[#023E8A] text-white rounded-[6px] px-3 py-1.5 text-[13px] disabled:opacity-60">
+                    {retrying ? "Sending…" : "Send refund again"}
+                  </button>
+                  <span className="text-[12px] text-[#4E4F52]">
+                    &quot;Insufficient Wallet Balance&quot; means our Flutterwave balance in {data.refund.currency} is too low: top it up in Flutterwave, then send again.
+                    Don&apos;t also refund from the Flutterwave dashboard, or the customer is paid twice.
+                  </span>
+                </div>
+              )}
+            </div>
           )}
           {data.refund?.reason && <p className="mt-2 text-[13px] text-[#4E4F52]">{data.refund.reason}</p>}
         </div>

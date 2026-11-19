@@ -89,6 +89,10 @@ export const TicketingQueueService = {
   async confirmCancellation(id: string, amount: string) {
     return (await instance.post<ActionResult>(`${env.api.flightsTicketingQueue}/${id}/confirm-cancellation`, { amount }, { timeout: 120000 })).data;
   },
+  /** A refund Flutterwave refused (e.g. "Insufficient Wallet Balance"): send it again. */
+  async retryRefund(id: string) {
+    return (await instance.post<ActionResult>(`${env.api.flightsTicketingQueue}/${id}/retry-refund`, {}, { timeout: 120000 })).data;
+  },
   async consolidatorQueue() {
     return (await instance.get<ConsolidatorQueueItem[]>(env.api.flightsConsolidatorQueue, { timeout: 120000 })).data;
   },
