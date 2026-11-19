@@ -232,6 +232,7 @@ const AirlineOrder = ({ data: initial }: { data: AirlineOrderData }) => {
             Before ticketing, a cancellation is refunded in full automatically. After ticketing, the consolidator voids the ticket (same day, full
             refund) or asks the airline for a refund; nothing goes back to the customer until staff confirm the amount in Ticketing Queue → Cancellations.
             &quot;Estimate&quot; is what we told the customer to expect: the taxes on a non-refundable fare, none on a refundable one.
+            Every refund is less the Flutterwave fee on the payment (customers bear it, we don&apos;t).
           </p>
           {data.state === "TICKETED" && (
             <p className="text-[13px] text-[#4E4F52]">{data.in_void_window ? "Void window open: the ticket was issued today." : "Void window closed: a cancellation needs the airline's refund."}</p>

@@ -21,7 +21,7 @@ const ACTIONS = [
   ["Check now", "Asks Flutterwave about the payment and Amadeus about the tickets straight away. This also happens automatically every few minutes."],
   ["Hand over", "Sends the booking to the consolidator again, using Flight ticketing settings. Use it after fixing a failed handover."],
   ["Enter tickets", "Type in the 13-digit ticket numbers when the consolidator sends them by email or their portal instead of through Amadeus. The customer is told they're ticketed."],
-  ["Confirm cancellation", "Use it once the consolidator has voided or refunded the ticket. The amount you enter goes back to the customer through Flutterwave, and the booking is closed."],
+  ["Confirm cancellation", "Use it once the consolidator has voided or refunded the ticket. The amount you enter, less the Flutterwave fee (customers bear it), goes back to the customer through Flutterwave, and the booking is closed."],
 ] as const;
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—");
 const age = (iso: string | null) => {
