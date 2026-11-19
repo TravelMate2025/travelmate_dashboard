@@ -59,6 +59,12 @@ export type QueueRow = {
   overdue: boolean;
   handoff_error: string | null;
   last_checked_at: string | null;
+  paid_amount: string | null;
+  paid_currency: string | null;
+  ticketed_at: string | null;
+  in_void_window: boolean;
+  /** CANCELLATION_REQUESTED only (F8): what the customer asked for. */
+  cancellation: { kind: "VOID" | "AIRLINE_REFUND" | string; reason: string; requested_at: string; estimate: string | null } | null;
 };
 
 export type QueuePage = { count: number; next: string | null; previous: string | null; results: QueueRow[] };
@@ -78,6 +84,10 @@ export const TicketingQueueService = {
   },
   async markTicketed(id: string, tickets: { travelerId: string; number: string }[]) {
     return (await instance.post<ActionResult>(`${env.api.flightsTicketingQueue}/${id}/mark-ticketed`, { tickets })).data;
+  },
+  /** F8: the consolidator voided or refunded the ticket; refund this amount (currency paid) and close the booking. */
+  async confirmCancellation(id: string, amount: string) {
+    return (await instance.post<ActionResult>(`${env.api.flightsTicketingQueue}/${id}/confirm-cancellation`, { amount }, { timeout: 120000 })).data;
   },
   async consolidatorQueue() {
     return (await instance.get<ConsolidatorQueueItem[]>(env.api.flightsConsolidatorQueue, { timeout: 120000 })).data;

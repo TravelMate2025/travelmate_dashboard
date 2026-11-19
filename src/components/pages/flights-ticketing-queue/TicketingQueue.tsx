@@ -5,6 +5,7 @@ import { TicketingQueueService, QueuePage, QueueRow, ConsolidatorQueueItem } fro
 import { pricingErrorMessage } from "@/hooks/api/pricing";
 import { showErrorToast, showSuccessToast } from "@/utils/toasters";
 import MarkTicketedDialog from "./MarkTicketedDialog";
+import ConfirmCancellationDialog from "./ConfirmCancellationDialog";
 
 const th = "px-3 py-3 text-left text-[12px] lg:text-[13px] font-[500] text-[#181818]";
 const td = "px-3 py-3 text-[12px] lg:text-[13px] text-[#181818] align-top";
@@ -13,6 +14,7 @@ const FILTERS = [
   ["PAID", "Paid, not handed over"],
   ["TICKETING", "With the consolidator"],
   ["TICKETED", "Ticketed"],
+  ["CANCELLATION_REQUESTED", "Cancellations"],
 ] as const;
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—");
 const age = (iso: string | null) => {
@@ -23,7 +25,9 @@ const age = (iso: string | null) => {
 const stateLabel = (r: QueueRow) =>
   r.state === "PAID" ? (r.handoff_error ? "Paid · handover failed" : "Paid · handing over")
   : r.state === "TICKETING" ? (r.ticketing_status === "partially_ticketed" ? "Partly ticketed" : "With the consolidator")
-  : r.state === "TICKETED" ? "Ticketed" : r.state;
+  : r.state === "TICKETED" ? "Ticketed"
+  : r.state === "CANCELLATION_REQUESTED" ? (r.cancellation?.kind === "VOID" ? "Cancel · void the ticket" : "Cancel · airline refund")
+  : r.state;
 
 /** Paid flight bookings waiting for tickets (flights_plan.md F6): deadline first, with the actions staff need. */
 const TicketingQueue = () => {
@@ -33,6 +37,7 @@ const TicketingQueue = () => {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [marking, setMarking] = useState<QueueRow | null>(null);
+  const [confirming, setConfirming] = useState<QueueRow | null>(null);
   const [queue, setQueue] = useState<ConsolidatorQueueItem[] | null>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
 
@@ -105,8 +110,20 @@ const TicketingQueue = () => {
                 <td className={td}>
                   {stateLabel(r)}
                   {r.handoff_error && <div className="text-red-600 mt-1 max-w-[240px]">{r.handoff_error}</div>}
+                  {r.state === "TICKETED" && (
+                    <div className={`mt-1 ${r.in_void_window ? "text-[#2D9C5E]" : "text-[#4E4F52]"}`}>
+                      {r.in_void_window ? "Void window open (today)" : "Void window closed"}
+                    </div>
+                  )}
+                  {r.cancellation && (
+                    <div className="mt-1 text-[#4E4F52] max-w-[240px]">
+                      Asked {when(r.cancellation.requested_at)}
+                      {r.cancellation.kind !== "VOID" && ` · estimate ${r.cancellation.estimate ?? "to be confirmed"}${r.cancellation.estimate ? ` ${r.paid_currency ?? ""}` : ""}`}
+                      {r.cancellation.reason && <div>“{r.cancellation.reason}”</div>}
+                    </div>
+                  )}
                 </td>
-                <td className={td}>{r.amount} {r.currency}<div className="text-[#4E4F52]">{when(r.paid_at)} · {age(r.paid_at)} ago</div></td>
+                <td className={td}>{r.paid_amount ?? r.amount} {r.paid_currency ?? r.currency}<div className="text-[#4E4F52]">{when(r.paid_at)} · {age(r.paid_at)} ago</div></td>
                 <td className={td}>{r.tickets} of {r.travelers}</td>
                 <td className={td}>
                   <span className={r.overdue ? "text-red-600 font-[600]" : ""}>{when(r.ticketing_deadline)}{r.overdue ? " · overdue" : ""}</span>
@@ -123,8 +140,11 @@ const TicketingQueue = () => {
                         {busy === `${r.id}-handoff` ? "Handing over…" : "Hand over"}
                       </button>
                     )}
-                    {r.state !== "TICKETED" && (
+                    {(r.state === "PAID" || r.state === "TICKETING") && (
                       <button type="button" onClick={() => setMarking(r)} className="bg-[#023E8A] text-white rounded-[6px] px-3 py-1.5">Enter tickets</button>
+                    )}
+                    {r.state === "CANCELLATION_REQUESTED" && (
+                      <button type="button" onClick={() => setConfirming(r)} className="bg-[#023E8A] text-white rounded-[6px] px-3 py-1.5">Confirm cancellation</button>
                     )}
                   </div>
                 </td>
@@ -161,6 +181,10 @@ const TicketingQueue = () => {
           </ul>
         )}
       </section>
+
+      {confirming && (
+        <ConfirmCancellationDialog row={confirming} onOpenChange={(o) => !o && setConfirming(null)} onSaved={load} />
+      )}
 
       {marking && (
         <MarkTicketedDialog
