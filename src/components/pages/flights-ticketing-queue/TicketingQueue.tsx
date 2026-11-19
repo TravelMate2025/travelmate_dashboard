@@ -10,11 +10,18 @@ import ConfirmCancellationDialog from "./ConfirmCancellationDialog";
 const th = "px-3 py-3 text-left text-[12px] lg:text-[13px] font-[500] text-[#181818]";
 const td = "px-3 py-3 text-[12px] lg:text-[13px] text-[#181818] align-top";
 const FILTERS = [
-  ["PAID,TICKETING", "Waiting for tickets"],
-  ["PAID", "Paid, not handed over"],
-  ["TICKETING", "With the consolidator"],
-  ["TICKETED", "Ticketed"],
-  ["CANCELLATION_REQUESTED", "Cancellations"],
+  ["PAID,TICKETING", "Waiting for tickets", "Every paid booking that doesn't have all its e-tickets yet. The ones the airline will cancel soonest are at the top."],
+  ["PAID", "Paid, not handed over", "Paid, but not sent to the consolidator yet. Normally this takes seconds; a booking that stays here has a handover problem (the reason is shown in red). Fix it in Flight ticketing settings, then use Hand over."],
+  ["TICKETING", "With the consolidator", "Sent to the consolidator and waiting for them to issue the tickets. We check Amadeus for the tickets automatically."],
+  ["TICKETED", "Ticketed", "Every traveller has an e-ticket. Shows whether the void window is still open (the ticket was issued today): a cancellation now can be voided for a full refund."],
+  ["CANCELLATION_REQUESTED", "Cancellations", "Ticketed bookings the customer asked to cancel. Ask the consolidator to void the ticket (same day) or refund it, then use Confirm cancellation with the amount they confirm. No money goes back until you do."],
+] as const;
+
+const ACTIONS = [
+  ["Check now", "Asks Flutterwave about the payment and Amadeus about the tickets straight away. This also happens automatically every few minutes."],
+  ["Hand over", "Sends the booking to the consolidator again, using Flight ticketing settings. Use it after fixing a failed handover."],
+  ["Enter tickets", "Type in the 13-digit ticket numbers when the consolidator sends them by email or their portal instead of through Amadeus. The customer is told they're ticketed."],
+  ["Confirm cancellation", "Use it once the consolidator has voided or refunded the ticket. The amount you enter goes back to the customer through Flutterwave, and the booking is closed."],
 ] as const;
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—");
 const age = (iso: string | null) => {
@@ -89,6 +96,15 @@ const TicketingQueue = () => {
           </button>
         ))}
       </div>
+      <p className="text-[13px] text-[#4E4F52] -mt-3">{FILTERS.find(([value]) => value === filter)?.[2]}</p>
+      <details className="text-[13px] text-[#4E4F52] -mt-3">
+        <summary className="cursor-pointer text-[#023E8A] font-[500]">What the buttons do</summary>
+        <dl className="mt-2 space-y-1.5">
+          {ACTIONS.map(([name, text]) => (
+            <div key={name}><dt className="inline font-[600] text-[#181818]">{name}: </dt><dd className="inline">{text}</dd></div>
+          ))}
+        </dl>
+      </details>
       {error && <p role="alert" className="text-[14px] text-red-600">{error}</p>}
 
       <div className="border border-gray-300 rounded-lg overflow-x-auto bg-white">
@@ -96,7 +112,7 @@ const TicketingQueue = () => {
           <thead className="bg-[#F7F9FC]">
             <tr>
               <th className={th}>Booking</th><th className={th}>Status</th><th className={th}>Paid</th><th className={th}>Tickets</th>
-              <th className={th}>Airline cancels if not ticketed</th><th className={th}>Last checked</th><th className={th}>Actions</th>
+              <th className={th}>Airline cancels if not ticketed<span className="block font-[400] text-[#4E4F52]">The airline drops the seats at this time if there&apos;s no ticket</span></th><th className={th}>Last checked</th><th className={th}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -132,19 +148,19 @@ const TicketingQueue = () => {
                 <td className={td}>{when(r.last_checked_at)}</td>
                 <td className={td}>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" disabled={busy !== null} onClick={() => act(r, "resync")} className="border border-[#023E8A] text-[#023E8A] rounded-[6px] px-3 py-1.5 disabled:opacity-50">
+                    <button type="button" disabled={busy !== null} onClick={() => act(r, "resync")} title={ACTIONS[0][1]} className="border border-[#023E8A] text-[#023E8A] rounded-[6px] px-3 py-1.5 disabled:opacity-50">
                       {busy === `${r.id}-resync` ? "Checking…" : "Check now"}
                     </button>
                     {r.state === "PAID" && (
-                      <button type="button" disabled={busy !== null} onClick={() => act(r, "handoff")} className="border border-[#023E8A] text-[#023E8A] rounded-[6px] px-3 py-1.5 disabled:opacity-50">
+                      <button type="button" disabled={busy !== null} onClick={() => act(r, "handoff")} title={ACTIONS[1][1]} className="border border-[#023E8A] text-[#023E8A] rounded-[6px] px-3 py-1.5 disabled:opacity-50">
                         {busy === `${r.id}-handoff` ? "Handing over…" : "Hand over"}
                       </button>
                     )}
                     {(r.state === "PAID" || r.state === "TICKETING") && (
-                      <button type="button" onClick={() => setMarking(r)} className="bg-[#023E8A] text-white rounded-[6px] px-3 py-1.5">Enter tickets</button>
+                      <button type="button" onClick={() => setMarking(r)} title={ACTIONS[2][1]} className="bg-[#023E8A] text-white rounded-[6px] px-3 py-1.5">Enter tickets</button>
                     )}
                     {r.state === "CANCELLATION_REQUESTED" && (
-                      <button type="button" onClick={() => setConfirming(r)} className="bg-[#023E8A] text-white rounded-[6px] px-3 py-1.5">Confirm cancellation</button>
+                      <button type="button" onClick={() => setConfirming(r)} title={ACTIONS[3][1]} className="bg-[#023E8A] text-white rounded-[6px] px-3 py-1.5">Confirm cancellation</button>
                     )}
                   </div>
                 </td>
@@ -166,7 +182,10 @@ const TicketingQueue = () => {
 
       <section className="space-y-3" aria-labelledby="consolidator-queue-h">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="consolidator-queue-h" className="text-[16px] font-semibold text-[#181818]">On the consolidator&apos;s queue (Amadeus)</h2>
+          <div>
+            <h2 id="consolidator-queue-h" className="text-[16px] font-semibold text-[#181818]">On the consolidator&apos;s queue (Amadeus)</h2>
+            <p className="text-[13px] text-[#4E4F52]">The bookings waiting in the consolidator&apos;s Amadeus queue right now. Use it to check a booking really reached them.</p>
+          </div>
           <button type="button" onClick={showConsolidatorQueue} className="border border-[#023E8A] text-[#023E8A] rounded-[8px] px-4 py-2 text-[13px]">Show queue</button>
         </div>
         {queueError && <p role="alert" className="text-[13px] text-red-600">{queueError}</p>}
