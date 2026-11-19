@@ -27,7 +27,13 @@ export type AirlineOrderData = {
   handoff?: { method?: string; office?: string; queue?: string; at?: string; error?: string; last_checked_at?: string; deadline_alerted?: string } | null;
   tickets?: { number: string; type: string; status: string; travelerId: string | null; traveler: string | null; source: string | null; issued_at: string | null }[];
   payments?: { gateway: string; reference: string; transaction_id: string | null; amount: string; currency: string; status: string; created_at: string; paid_at: string | null }[];
-  refund?: { provider: string; status: string; amount: string; currency: string; reason: string; provider_refund_id: string | null; failure_reason: string | null } | null;
+  refund?: {
+    provider: string; status: string; amount: string; currency: string; reason: string; provider_refund_id: string | null; failure_reason: string | null;
+    kind?: string | null; estimate?: string | null; airline_confirmed?: boolean | null; settled_amount?: string | null; requested_at?: string | null; settled_at?: string | null;
+  } | null;
+  cancellation?: { kind?: string; reason?: string; requested_at?: string; estimate?: string | null; confirmed_amount?: string; confirmed_by?: string; confirmed_at?: string } | null;
+  in_void_window?: boolean;
+  history?: { status: string; at: string; notes: string | null; by: string | null }[];
   supplier_calls: { operation: string; status_code: number | null; succeeded: boolean; at: string; ama_request_id: string; error: string | null; duration_ms: number | null }[];
 };
 
@@ -51,6 +57,7 @@ const OPERATIONS: Record<string, string> = {
   transaction_verify: "Check payment (Flutterwave)",
   transaction_verify_by_reference: "Check payment (Flutterwave)",
   transaction_refund: "Refund (Flutterwave)",
+  refund_get: "Check refund (Flutterwave)",
   queue_list: "List consolidator queue",
 };
 
@@ -63,6 +70,12 @@ const PAYMENT_STATUS: Record<string, string> = {
 };
 const paymentClass = (s: string) =>
   s === "succeeded" ? "text-[#2D9C5E] bg-[#2D9C5E1A]" : s === "pending" ? "text-[#EFB608] bg-[#EFB60833]" : "text-[#E74C3C] bg-[#E74C3C1A]";
+
+const REFUND_KIND: Record<string, string> = {
+  FULL_REFUND: "Full refund (cancelled before ticketing)",
+  VOID: "Void (cancelled on the ticketing day)",
+  AIRLINE_REFUND: "Airline refund (confirmed by the consolidator)",
+};
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "N/A");
 const statusClass = (s: string | null) =>
@@ -185,14 +198,50 @@ const AirlineOrder = ({ data }: { data: AirlineOrderData }) => {
         ) : (
           <p className="text-[13px] text-[#4E4F52]">No payment started yet.</p>
         )}
-        {data.refund && (
-          <p className={`mt-2 text-[13px] ${data.refund.status === "failed" ? "text-red-600" : "text-[#181818]"}`}>
-            Refund ({data.refund.provider}): {data.refund.amount} {data.refund.currency}, {data.refund.status}
-            {data.refund.provider_refund_id ? ` · ref ${data.refund.provider_refund_id}` : ""}. {data.refund.reason}
-            {data.refund.failure_reason ? ` Refund failed: ${data.refund.failure_reason}. Refund it from the Flutterwave dashboard.` : ""}
-          </p>
-        )}
       </div>
+
+      {(data.refund || data.cancellation || data.state === "TICKETED") && (
+        <div>
+          <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Cancellation and refund</h3>
+          {data.state === "TICKETED" && (
+            <p className="text-[13px] text-[#4E4F52]">{data.in_void_window ? "Void window open: the ticket was issued today." : "Void window closed: a cancellation needs the airline's refund."}</p>
+          )}
+          {data.cancellation && (
+            <p className="text-[13px] text-[#181818]">
+              {REFUND_KIND[data.cancellation.kind ?? ""] ?? data.cancellation.kind}. Asked {when(data.cancellation.requested_at ?? null)}
+              {data.cancellation.reason ? `: “${data.cancellation.reason}”` : ""}.
+              {data.cancellation.confirmed_amount !== undefined && ` Confirmed ${data.cancellation.confirmed_amount} by ${data.cancellation.confirmed_by} on ${when(data.cancellation.confirmed_at ?? null)}.`}
+            </p>
+          )}
+          {data.refund && (
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <GridValues title="Refund" value={`${data.refund.amount} ${data.refund.currency} · ${data.refund.status}`} />
+              <GridValues title="Estimate" value={data.refund.estimate ? `${data.refund.estimate} ${data.refund.currency}` : "N/A"} />
+              <GridValues title="Airline confirmed" value={data.refund.airline_confirmed == null ? "Not needed" : data.refund.airline_confirmed ? "Yes" : "Waiting for the consolidator"} />
+              <GridValues title="Flutterwave refund" value={data.refund.provider_refund_id ?? "Not sent yet"} />
+            </div>
+          )}
+          {data.refund?.failure_reason && (
+            <p role="alert" className="mt-2 text-[13px] text-red-600">Refund failed: {data.refund.failure_reason}. Refund it from the Flutterwave dashboard.</p>
+          )}
+          {data.refund?.reason && <p className="mt-2 text-[13px] text-[#4E4F52]">{data.refund.reason}</p>}
+        </div>
+      )}
+
+      {data.history && data.history.length > 0 && (
+        <div>
+          <h3 className="text-[14px] font-semibold text-[#181818] mb-2">History</h3>
+          <ul className="space-y-1 text-[13px]">
+            {data.history.map((h, i) => (
+              <li key={`${h.at}-${i}`} className="flex flex-wrap gap-x-3">
+                <span className="capitalize">{h.status.replace(/_/g, " ")}</span>
+                <span className="text-[#4E4F52]">{when(h.at)}{h.by ? ` · ${h.by}` : ""}</span>
+                {h.notes && <span>{h.notes}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div>
         <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Calls to Amadeus and Flutterwave</h3>
