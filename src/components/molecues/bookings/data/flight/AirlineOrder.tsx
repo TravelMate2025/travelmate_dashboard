@@ -82,6 +82,8 @@ const REFUND_KIND: Record<string, string> = {
   AIRLINE_REFUND: "Airline refund (confirmed by the consolidator)",
 };
 
+const hint = "text-[12px] text-[#4E4F52] mb-2";
+
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "N/A");
 const statusClass = (s: string | null) =>
   s === "CONFIRMED" ? "text-[#2D9C5E] bg-[#2D9C5E1A]" : s ? "text-[#E74C3C] bg-[#E74C3C1A]" : "text-[#4E4F52] bg-gray-100";
@@ -168,7 +170,8 @@ const AirlineOrder = ({ data: initial }: { data: AirlineOrderData }) => {
       )}
 
       <div>
-        <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Consolidator and tickets</h3>
+        <h3 className="text-[14px] font-semibold text-[#181818] mb-1">Consolidator and tickets</h3>
+        <p className={hint}>Paid bookings go to the consolidator automatically, who issues the tickets. Tickets marked &quot;entered by staff&quot; were typed in from the Ticketing Queue.</p>
         {data.handoff ? (
           <p className={`text-[13px] ${data.handoff.error ? "text-red-600" : "text-[#181818]"}`}>
             {data.handoff.error
@@ -195,7 +198,8 @@ const AirlineOrder = ({ data: initial }: { data: AirlineOrderData }) => {
       </div>
 
       <div>
-        <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Payments</h3>
+        <h3 className="text-[14px] font-semibold text-[#181818] mb-1">Payments</h3>
+        <p className={hint}>Every Flutterwave checkout the customer opened. Only one is paid; the others close by themselves. Search the transaction number in the Flutterwave dashboard.</p>
         {data.payments && data.payments.length > 0 ? (
           <div className="border border-gray-200 rounded-lg overflow-x-auto">
             <table className="w-full min-w-[560px] text-[13px]">
@@ -223,7 +227,12 @@ const AirlineOrder = ({ data: initial }: { data: AirlineOrderData }) => {
 
       {(data.refund || data.cancellation || data.state === "TICKETED") && (
         <div>
-          <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Cancellation and refund</h3>
+          <h3 className="text-[14px] font-semibold text-[#181818] mb-1">Cancellation and refund</h3>
+          <p className={hint}>
+            Before ticketing, a cancellation is refunded in full automatically. After ticketing, the consolidator voids the ticket (same day, full
+            refund) or asks the airline for a refund; nothing goes back to the customer until staff confirm the amount in Ticketing Queue → Cancellations.
+            &quot;Estimate&quot; is what we told the customer to expect: the taxes on a non-refundable fare, none on a refundable one.
+          </p>
           {data.state === "TICKETED" && (
             <p className="text-[13px] text-[#4E4F52]">{data.in_void_window ? "Void window open: the ticket was issued today." : "Void window closed: a cancellation needs the airline's refund."}</p>
           )}
@@ -265,7 +274,8 @@ const AirlineOrder = ({ data: initial }: { data: AirlineOrderData }) => {
 
       {data.history && data.history.length > 0 && (
         <div>
-          <h3 className="text-[14px] font-semibold text-[#181818] mb-2">History</h3>
+          <h3 className="text-[14px] font-semibold text-[#181818] mb-1">History</h3>
+          <p className={hint}>Status changes, newest first, with who made them (blank = the system or the customer).</p>
           <ul className="space-y-1 text-[13px]">
             {data.history.map((h, i) => (
               <li key={`${h.at}-${i}`} className="flex flex-wrap gap-x-3">
@@ -279,7 +289,8 @@ const AirlineOrder = ({ data: initial }: { data: AirlineOrderData }) => {
       )}
 
       <div>
-        <h3 className="text-[14px] font-semibold text-[#181818] mb-2">Calls to Amadeus and Flutterwave</h3>
+        <h3 className="text-[14px] font-semibold text-[#181818] mb-1">Calls to Amadeus and Flutterwave</h3>
+        <p className={hint}>The latest calls for this booking. When asking Amadeus support about a failure, quote the request id shown and the Ama-Client-Ref above.</p>
         <ul className="space-y-1 text-[13px]">
           {data.supplier_calls.map((c) => (
             <li key={`${c.at}-${c.operation}`} className="flex flex-wrap gap-x-3">
