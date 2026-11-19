@@ -65,6 +65,8 @@ export type QueueRow = {
   in_void_window: boolean;
   /** CANCELLATION_REQUESTED only (F8): what the customer asked for. */
   cancellation: { kind: "VOID" | "AIRLINE_REFUND" | string; reason: string; requested_at: string; estimate: string | null } | null;
+  /** Flutterwave's fee on the payment, taken off every refund (customers bear it). */
+  gateway_fee: string | null;
 };
 
 export type QueuePage = { count: number; next: string | null; previous: string | null; results: QueueRow[] };
