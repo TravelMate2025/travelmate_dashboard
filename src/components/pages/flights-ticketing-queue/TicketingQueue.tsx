@@ -18,7 +18,7 @@ const FILTERS = [
 ] as const;
 
 const ACTIONS = [
-  ["Check now", "Asks Flutterwave about the payment and Amadeus about the tickets straight away. This also happens automatically every few minutes."],
+  ["Check now", "Asks Flutterwave about the payment and Amadeus about the tickets and any airline schedule change straight away. This also happens automatically."],
   ["Hand over", "Sends the booking to the consolidator again, using Flight ticketing settings. Use it after fixing a failed handover."],
   ["Enter tickets", "Type in the 13-digit ticket numbers when the consolidator sends them by email or their portal instead of through Amadeus. The customer is told they're ticketed."],
   ["Confirm cancellation", "Use it once the consolidator has voided or refunded the ticket. The amount you enter, less the Flutterwave fee (customers bear it), goes back to the customer through Flutterwave, and the booking is closed."],
@@ -65,6 +65,8 @@ const TicketingQueue = () => {
       const messages: Record<string, string> = {
         ticketed: "All travellers are ticketed", partial: "Some travellers are ticketed", waiting: "No tickets yet",
         handed_off: "Handed over to the consolidator", failed: "Handover failed: see the reason in the row", error: "Couldn't read the order from Amadeus",
+        "schedule unchanged": "No schedule changes from the airline", "schedule changed": "The airline changed the schedule: see the booking",
+        "schedule error": "Couldn't read the order from Amadeus", "schedule skipped": "Nothing to check",
       };
       showSuccessToast({ message: messages[res.result] ?? `Done (${res.result})` });
       load();

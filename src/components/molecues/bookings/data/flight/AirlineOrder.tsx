@@ -41,6 +41,12 @@ export type AirlineOrderData = {
   cancellation?: { kind?: string; reason?: string; requested_at?: string; estimate?: string | null; confirmed_amount?: string; confirmed_by?: string; confirmed_at?: string } | null;
   in_void_window?: boolean;
   history?: { status: string; at: string; notes: string | null; by: string | null }[];
+  /** Airline schedule changes found by the sync (F10). */
+  schedule_changes?: {
+    kind: "TIME" | "DROPPED" | "CHANGED" | "ADDED" | string; segmentId: string; flight: string; route: string; detectedAt: string; status?: string | null;
+    previousDepartureLocal?: string; previousArrivalLocal?: string; newDepartureLocal?: string; newArrivalLocal?: string;
+  }[];
+  schedule_checked_at?: string | null;
   supplier_calls: { operation: string; status_code: number | null; succeeded: boolean; at: string; ama_request_id: string; error: string | null; duration_ms: number | null }[];
 };
 
@@ -85,6 +91,14 @@ const REFUND_KIND: Record<string, string> = {
 };
 
 const hint = "text-[12px] text-[#4E4F52] mb-2";
+
+const CHANGE_KIND: Record<string, string> = {
+  TIME: "New time",
+  DROPPED: "Flight cancelled by the airline",
+  CHANGED: "Flight replaced or modified",
+  ADDED: "New flight added",
+};
+const local = (at?: string) => (at ? at.replace("T", " ").slice(0, 16) : "");
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "N/A");
 const statusClass = (s: string | null) =>
@@ -298,6 +312,31 @@ const AirlineOrder = ({ data: initial }: { data: AirlineOrderData }) => {
           {data.refund?.reason && <p className="mt-2 text-[13px] text-[#4E4F52]">{data.refund.reason}</p>}
         </div>
       )}
+
+      <div>
+        <h3 className="text-[14px] font-semibold text-[#181818] mb-1">Schedule changes</h3>
+        <p className={hint}>
+          After payment we read the airline booking daily (every 6 hours in the last 3 days before departure) and compare every flight. New times are
+          shown to the customer and they get a notification. A cancelled, replaced or added flight is shown here in red: contact the airline or
+          consolidator to rebook or refund; the customer has been told we&apos;ll contact them. Use Check now in the Ticketing Queue to check immediately.
+        </p>
+        <p className="text-[13px] text-[#4E4F52] mb-2">Last checked: {data.schedule_checked_at ? when(data.schedule_checked_at) : "not yet"}</p>
+        {data.schedule_changes && data.schedule_changes.length > 0 ? (
+          <ul className="space-y-1 text-[13px]">
+            {data.schedule_changes.map((c, i) => (
+              <li key={`${c.segmentId}-${c.detectedAt}-${i}`} className={`flex flex-wrap gap-x-3 ${c.kind === "TIME" ? "text-[#181818]" : "text-red-600 font-[500]"}`}>
+                <span>{CHANGE_KIND[c.kind] ?? c.kind}{c.status && c.kind !== "TIME" ? ` (${c.status})` : ""}</span>
+                <span>{c.flight} {c.route}</span>
+                {c.previousDepartureLocal && <span>was {local(c.previousDepartureLocal)}</span>}
+                {c.newDepartureLocal && <span>now {local(c.newDepartureLocal)} → {local(c.newArrivalLocal)}</span>}
+                <span className="text-[#4E4F52]">found {when(c.detectedAt)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[13px] text-[#4E4F52]">No changes from the airline.</p>
+        )}
+      </div>
 
       {data.history && data.history.length > 0 && (
         <div>
