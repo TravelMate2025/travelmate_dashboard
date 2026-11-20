@@ -26,7 +26,9 @@ export type AirlineOrderData = {
   ticketing_status: string;
   segments: { segmentId: string; flight: string; from: string; to: string; departureLocal: string; status: string | null }[];
   price: { supplier_amount?: string; supplier_currency?: string; customer_amount?: string; customer_currency?: string; markup_amount?: string; markup_label?: string; fx_rate?: string } | null;
-  payable: { currency: string; total: string }[];
+  payable: { currency: string; flights?: string; bags?: string; total: string }[];
+  /** Extra bags bought (F9), in the booking currency. */
+  bags?: { id: string; itineraryIndex: number; quantity: number; weightKg: number | null; price: { amount: string; currency: string }; travelerIds: string[] }[];
   price_change: { previous: { amount: string; currency: string }; current: { amount: string; currency: string }; direction: string } | null;
   failure: { stage: string; reason: string } | null;
   handoff?: { method?: string; office?: string; queue?: string; at?: string; error?: string; last_checked_at?: string; deadline_alerted?: string } | null;
@@ -165,9 +167,33 @@ const AirlineOrder = ({ data: initial }: { data: AirlineOrderData }) => {
           <GridValues title="Airline price" value={`${data.price.supplier_amount} ${data.price.supplier_currency}`} />
           <GridValues title="Customer price" value={`${data.price.customer_amount} ${data.price.customer_currency}`} />
           <GridValues title="Our markup" value={`${data.price.markup_amount} ${data.price.customer_currency}${data.price.markup_label ? ` (${data.price.markup_label})` : ""}`} />
-          <GridValues title="Payable" value={data.payable.map((p) => `${p.total} ${p.currency}`).join(" · ") || "N/A"} />
+          <GridValues title="Payable" value={data.payable.map((p) => `${p.total} ${p.currency}${p.bags && Number(p.bags) > 0 ? ` (bags ${p.bags})` : ""}`).join(" · ") || "N/A"} />
         </div>
       )}
+
+      <div>
+        <h3 className="text-[14px] font-semibold text-[#181818] mb-1">Extra bags</h3>
+        <p className={hint}>Checked bags the customer bought on top of the fare&apos;s allowance, per traveller and flight. They&apos;re booked with the airline and included in the price paid; bags can&apos;t be added after booking.</p>
+        {data.bags && data.bags.length > 0 ? (
+          <div className="border border-gray-200 rounded-lg overflow-x-auto">
+            <table className="w-full min-w-[420px] text-[13px]">
+              <thead className="bg-[#F7F9FC] text-left"><tr><th className="px-3 py-2">Traveller</th><th className="px-3 py-2">Flight</th><th className="px-3 py-2">Extra bags</th><th className="px-3 py-2">Price</th></tr></thead>
+              <tbody>
+                {data.bags.map((b) => (
+                  <tr key={b.id} className="border-t border-gray-100">
+                    <td className="px-3 py-2">{b.travelerIds.join(", ")}</td>
+                    <td className="px-3 py-2">{b.itineraryIndex === 0 ? "Outbound" : b.itineraryIndex === 1 ? "Return" : `Flight ${b.itineraryIndex + 1}`}</td>
+                    <td className="px-3 py-2">+{b.quantity}{b.weightKg ? ` × ${b.weightKg} kg` : ""}</td>
+                    <td className="px-3 py-2">{b.price.amount} {b.price.currency}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-[13px] text-[#4E4F52]">None.</p>
+        )}
+      </div>
 
       <div>
         <h3 className="text-[14px] font-semibold text-[#181818] mb-1">Consolidator and tickets</h3>
