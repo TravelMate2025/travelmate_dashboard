@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import RefundOperations from "../../RefundOperations";
 import AirlineOrder, { type AirlineOrderData } from "./AirlineOrder";
 import type { RefundAction, RefundOperations as RefundOperationsData } from "@/services/booking/types";
+import { formatMoney } from "@/lib/utils";
 
 type FlightDuration = {
   day?: number;
@@ -52,6 +53,10 @@ type FlightLeg = {
 
 type FlightPassenger = {
   id?: string;
+  /** v2: ADULT, CHILD, HELD_INFANT… and its label ("Adult", "Infant (on lap)") */
+  type?: string;
+  type_label?: string;
+  ticket_number?: string | null;
   title?: string;
   first_name?: string;
   last_name?: string;
@@ -65,6 +70,10 @@ type FlightPassenger = {
 
 type FlightBookingData = {
   booking_reference?: string;
+  /** v2: the airline booking code and our internal BK reference */
+  pnr?: string | null;
+  internal_reference?: string;
+  currency?: string;
   date_booked?: string;
   payment_status?: string;
   booking_status?: string;
@@ -101,6 +110,13 @@ const FlightDetails = ({
   );
 };
 
+/** Issued e-ticket numbers, one per traveller; old bookings have none on record. */
+const ticketNumbers = (data: FlightBookingData) => {
+  const numbers = (data.passengers ?? []).map((p) => p.ticket_number).filter(Boolean);
+  if (numbers.length) return numbers.join(", ");
+  return data.airline_order ? "Not issued yet" : "N/A";
+};
+
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return date.toLocaleDateString("en-GB");
@@ -131,8 +147,9 @@ const BookingDetails = ({ data }: { data: FlightBookingData }) => {
         <div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#023E8A]">Booking record</p><h1 className="mt-1 text-[18px] font-semibold text-[#18202b]">Confirmation details</h1></div><span className="text-xs text-[#8994a3]">Flight</span></div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <GridValues title="Booking Refrence" value={data.booking_reference} />
-          <GridValues title="E- ticket Number" value="123456" />
+          <GridValues title="Booking Reference" value={data.booking_reference} />
+          {data.airline_order && <GridValues title="Airline booking (PNR)" value={data.pnr || "Not created"} />}
+          <GridValues title="E-ticket number" value={ticketNumbers(data)} />
           <GridValues title="Booked On" value={formatDate(data.date_booked)} />
 
           <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
@@ -292,6 +309,11 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
             Passenger Details ({data.passenger_count}{" "}
             {data.passenger_count === 1 ? "Passenger" : "Passengers"})
           </h1>
+          {data.airline_order && (
+            <p className="text-xs text-[#6b7480]">
+              Names and documents exactly as sent to the airline. Email and phone are the booking contact, shown on the lead traveller.
+            </p>
+          )}
           {/* Passenger Details */}
           {data.passengers?.map((passenger: FlightPassenger, index: number) => {
             const isOpen =
@@ -309,7 +331,7 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
                   >
                     {/* ✅ Dynamically show Adult Passenger count */}
                     <h1 className="text-[18px] font-[400] text-[#181818]">
-                      Adult Passenger {index + 1}
+                      {passenger.type_label || "Adult"} passenger {index + 1}
                     </h1>
 
                     {data.passengers.length > 1 && (
@@ -321,10 +343,9 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
 
                   {isOpen && (
                     <div className="space-y-4">
-                      <FlexValues
-                        title="Pick Up Location"
-                        value={data.pickup_location || "N/A"}
-                      />
+                      {passenger.ticket_number && (
+                        <FlexValues title="E-ticket" value={passenger.ticket_number} />
+                      )}
                       <FlexValues
                         title="Title"
                         value={passenger.title || "N/A"}
@@ -335,7 +356,7 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
                       />
                       <FlexValues
                         title="Date Of Birth"
-                        value={formatDate(passenger.dob)}
+                        value={passenger.dob ? formatDate(passenger.dob) : "Not asked by the airline"}
                       />
                       <FlexValues
                         title="Gender"
@@ -396,7 +417,7 @@ export const GridDetails = ({ data }: { data: FlightBookingData }) => {
         </div>
 
         <Transaction data={data} />
-        <Policy List={List} />
+        {!data.airline_order && <Policy List={List} />}
       </div>
 
       {/* Flight Details */}
@@ -669,25 +690,16 @@ export const Transaction = ({ data }: { data: FlightBookingData }) => {
           title={`${isRoundTrip ? "Round Trip" : "One Way"} (${data.passenger_count} ${
             data.passenger_count === 1 ? "Passenger" : "Passengers"
           })`}
-          value={`₦${Number(data.total_amount ?? 0).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`}
+          value={formatMoney(data.total_amount, data.currency)}
         />
         <FlexValues
           title="Taxes & Fees"
-          value={`₦${Number(data.tax ?? 0).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`}
+          value={formatMoney(data.tax, data.currency)}
         />
         <div className="borde-[1px] border-[#ACAEB3] border-b "></div>
         <FlexValues
           title="Total"
-          value={`₦${Number((data.total_amount ?? 0) + (data.tax ?? 0)).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}`}
+          value={formatMoney((data.total_amount ?? 0) + (data.tax ?? 0), data.currency)}
         />
       </div>
     </div>
