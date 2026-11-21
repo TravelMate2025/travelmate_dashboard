@@ -32,11 +32,6 @@ type TResolveTicket = {
   escalation_response_time?: string;
   escalation_note?: string;
 };
-type TEscalationPayload = {
-  name: string;
-  description: string;
-  email: string;
-};
 
 class Service {
   // TicketService with filter and search
@@ -75,17 +70,6 @@ class Service {
 
   claimTicket({ TicketId }: { TicketId?: string }) {
     return instance.post(env.api.ticket + TicketId + "/claim/");
-  }
-
-  getEscalationLevel() {
-    return instance.get(env.api.superadminRoles);
-  }
-  createEscalationLevel({ payload }: { payload: TEscalationPayload }) {
-    return instance.post(env.api.escalation + "/", payload);
-  }
-
-  getEscalationReasons() {
-    return instance.get(env.api.admin + "/escalation-reasons/");
   }
 
   escalateTicket({

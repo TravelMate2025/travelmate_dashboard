@@ -37,7 +37,9 @@ class Service {
   }
 
   exportCSV() {
-    return instance.get(env.api.users + "export/");
+    return instance.get(env.api.users + "export/", {
+      responseType: "blob",
+    });
   }
 }
 

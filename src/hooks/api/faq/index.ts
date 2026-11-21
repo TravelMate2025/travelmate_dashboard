@@ -266,3 +266,84 @@ export function useAddFaqCategory() {
 
   return { loading, onAddFaqCategory };
 }
+
+export type UpdateFaqCategoryPayload = Partial<AddFaqCategoryPayload>;
+
+export function useUpdateFaqCategory() {
+  const [loading, setLoading] = useState(false);
+
+  const onUpdateFaqCategory = async ({
+    id,
+    payload,
+    successCallback,
+  }: {
+    id: number;
+    payload: UpdateFaqCategoryPayload;
+    successCallback?: () => void;
+  }) => {
+    setLoading(true);
+    try {
+      await FaqService.updateFaqCategory({ id, payload });
+
+      showSuccessToast({ message: "FAQ category updated successfully" });
+      successCallback?.();
+    } catch (error: unknown) {
+      const axiosError = axios.isAxiosError(error) ? error : null;
+      const errorData = axiosError?.response?.data as
+        | { message?: string; detail?: string }
+        | Record<string, string[] | string>
+        | undefined;
+
+      let description = "";
+      if (errorData && typeof errorData === "object") {
+        if ("detail" in errorData && typeof errorData.detail === "string") {
+          description = errorData.detail;
+        } else if ("message" in errorData && typeof errorData.message === "string") {
+          description = errorData.message;
+        } else {
+          const firstEntry = Object.values(errorData)[0];
+          if (Array.isArray(firstEntry)) {
+            description = String(firstEntry[0] || "");
+          } else if (typeof firstEntry === "string") {
+            description = firstEntry;
+          }
+        }
+      }
+
+      showErrorToast({
+        message: "Unable to update FAQ category right now",
+        description,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { loading, onUpdateFaqCategory };
+}
+
+export function useDeleteFaqCategory() {
+  const [loading, setLoading] = useState(false);
+
+  const onDeleteFaqCategory = async ({
+    id,
+    successCallback,
+  }: {
+    id: number;
+    successCallback?: () => void;
+  }) => {
+    setLoading(true);
+    try {
+      await FaqService.deleteFaqCategory({ id });
+
+      showSuccessToast({ message: "FAQ category deleted successfully" });
+      successCallback?.();
+    } catch {
+      showErrorToast({ message: "Unable to delete FAQ category at the moment!" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { loading, onDeleteFaqCategory };
+}
