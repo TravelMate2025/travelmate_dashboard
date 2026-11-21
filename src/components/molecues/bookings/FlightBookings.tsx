@@ -9,6 +9,7 @@ import {
   TableBody,
 } from "@/components/ui/table";
 import { BookingTableDropdown } from "./reuseables";
+import { formatMoney } from "@/lib/utils";
 
 // Define the interface for filter props
 interface FilterProps {
@@ -40,6 +41,8 @@ interface FlightBooking {
   flight_details?: FlightDetail[];
   flight_booking_type?: string;
   total_amount?: string | number;
+  /** The booking's own currency (v2 flights can be NGN, GBP or USD). */
+  currency?: string;
   payment_status?: string;
   booking_status?: string;
   status?: string;
@@ -136,13 +139,8 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
     );
   }, [bookings, activeStatusTab]);
 
-  // Format amount based on currency
-  const formatAmount = (amount: string | number) => {
-    const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
-    return filterProps.currency === "USD"
-      ? `$${numAmount.toFixed(2)}`
-      : `₦${numAmount.toLocaleString()}`;
-  };
+  // Each booking in its own currency (falls back to the page's currency for old bookings)
+  const formatAmount = (amount: string | number, currency?: string) => formatMoney(amount, currency || filterProps.currency);
 
   
 
@@ -292,7 +290,7 @@ const FlightBookings: React.FC<FlightBookingsProps> = ({
                       </TableCell>
                       <TableCell className="py-5 px-4 text-gray-800">
                         {item.total_amount
-                          ? formatAmount(item.total_amount)
+                          ? formatAmount(item.total_amount, item.currency)
                           : "N/A"}
                       </TableCell>
                       <TableCell className="py-5 px-4">
