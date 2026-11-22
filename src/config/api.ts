@@ -1,44 +1,11 @@
+import { resolveBackendApiBase } from "@/lib/backend-api";
+
 const api = () => {
-  const STAGING_BASE_URL = "https://travelmate-backend-knvd.onrender.com/api/";
-  const LIVE_BASE_URL = "https://travelmate-backend-1-1lgj.onrender.com/api/";
-  const ALLOWED_BACKEND_HOSTS = new Set(
-    [STAGING_BASE_URL, LIVE_BASE_URL]
-      .map((value) => {
-        try {
-          return new URL(value).hostname.toLowerCase();
-        } catch {
-          return null;
-        }
-      })
-      .filter((hostname): hostname is string => Boolean(hostname))
-  );
-
-  const environment =
-    process.env.NEXT_PUBLIC_ENVIRONMENT?.trim().toLowerCase() || "staging";
-
-  const envBaseCandidate = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
-  const baseFromEnv = (() => {
-    if (!envBaseCandidate) {
-      return undefined;
-    }
-
-    try {
-      const parsed = new URL(envBaseCandidate);
-      if (!ALLOWED_BACKEND_HOSTS.has(parsed.hostname.toLowerCase())) {
-        return undefined;
-      }
-    } catch {
-      return undefined;
-    }
-
-    return envBaseCandidate;
-  })();
-  const defaultBaseUrl = environment === "production" ? LIVE_BASE_URL : STAGING_BASE_URL;
-
-  const normalizedBaseUrl = (baseFromEnv || defaultBaseUrl).replace(/\/+$/, "");
-  const API_BASE = normalizedBaseUrl.endsWith("/api")
-    ? normalizedBaseUrl
-    : `${normalizedBaseUrl}/api`;
+  // Single source of truth for the backend URL — see resolveBackendApiBase
+  // in src/lib/backend-api.ts for the env var / trusted-host logic. Kept
+  // here as its own import (rather than each call site importing directly)
+  // so every endpoint below stays defined in one place, unchanged.
+  const API_BASE = resolveBackendApiBase();
 
   return {
     auth: API_BASE + "/auth/",
@@ -55,7 +22,6 @@ const api = () => {
     faqCategories: API_BASE + "/admin/faqs/categories/",
     ticket: API_BASE + "/admin/tickets/",
     messae: API_BASE + "/admin/tickets/",
-    escalation: API_BASE + "/admin/escalation-levels",
     admin: API_BASE + "/admin",
     chat: API_BASE + "/admin/chats/",
     chatAdmins: API_BASE + "/chat/admins/",
@@ -92,12 +58,16 @@ const api = () => {
     bookingAdminMyBookings: API_BASE + "/bookings/admin/my-bookings/",
     bookingAdminProcessCancellation: API_BASE + "/bookings/admin/",
     bookingAdminRequestCancellation: API_BASE + "/bookings/admin/request-cancellation/",
+    bookingAdminResync: API_BASE + "/bookings/admin/resync/",
+    bookingAdminReconcileRefund: API_BASE + "/bookings/admin/reconcile-refund/",
+    bookingAdminRefundAction: API_BASE + "/bookings/admin/refunds/",
     bookingMyList: API_BASE + "/bookings/my/",
     bookingMyById: API_BASE + "/bookings/my/",
     bookingMyAdvancedSearch: API_BASE + "/bookings/my/advanced-search/",
     bookingMySearchByReference: API_BASE + "/bookings/my/search/",
     bookingMySummary: API_BASE + "/bookings/my/summary/",
     hotelBookingDetailsById: API_BASE + "/hotels/",
+    academyAdminClasses: API_BASE + "/academy/admin/classes/",
   };
 };
 

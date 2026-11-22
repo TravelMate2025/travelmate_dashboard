@@ -16,17 +16,8 @@ import {
   DialogTitle,
 } from "@radix-ui/react-dialog";
 import { DialogHeader } from "@/components/ui/dialog";
-
-interface Role {
-  id: string;
-  name: string;
-  description: string;
-  assigned_users: { id?: number; name?: string; email?: string }[];
-  current_permission_group_slugs: string[];
-  is_superuser: boolean;
-  created_by: string;
-  invited_users: { id?: number; name?: string; email?: string }[];
-}
+import type { DashboardRole as Role } from "@/utils/roles";
+import { getRoleDisplayName, isSuperAdminRole } from "@/utils/roles";
 
 interface RoleManagementProps {
   roles: Role[];
@@ -42,12 +33,6 @@ interface RoleManagementProps {
   setSuccessDeleteModal: (open: boolean) => void;
   isDeleteLoading: boolean;
 }
-
-const normalizeRoleName = (value?: string | null) =>
-  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
-
-const isSuperAdminRole = (role?: Pick<Role, "name" | "is_superuser"> | null) =>
-  Boolean(role?.is_superuser) || normalizeRoleName(role?.name) === "super admin";
 
 const RoleManagement: FC<RoleManagementProps> = ({
   roles,
@@ -163,7 +148,7 @@ const RoleManagement: FC<RoleManagementProps> = ({
                 .map((role) => (
                   <tr className="border-t" key={role.id}>
                     <td className="pl-3 p-3 md:text-base text-xs capitalize">
-                      {role.is_superuser ? "Super Admin" : role.name}
+                      {getRoleDisplayName(role)}
                     </td>
                     <td className="pl-3 p-3 capitalize text-muted-foreground md:text-base text-xs">
                       {role.is_superuser

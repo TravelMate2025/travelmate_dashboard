@@ -3,6 +3,7 @@ export type NavigationItem = {
   label: string;
   href: string;
   iconActive: string;
+  requiresSuperuser?: boolean;
 };
 
 export const navItems: NavigationItem[] = [
@@ -37,6 +38,12 @@ export const navItems: NavigationItem[] = [
     iconActive: "/assets/icons/a-sidebar-support.svg",
   },
   {
+    icon: "/assets/icons/side-academy.svg",
+    label: "Training",
+    href: "/Dashboard/academy",
+    iconActive: "/assets/icons/a-sidebar-academy.svg",
+  },
+  {
     icon: "/assets/icons/BellDark.svg",
     label: "Notifications",
     href: "/Dashboard/notification",
@@ -53,5 +60,6 @@ export const navItems: NavigationItem[] = [
     label: "Admin Roles",
     href: "/Dashboard/admin",
     iconActive: "/assets/icons/a-sidebar-role.svg",
+    requiresSuperuser: true,
   },
 ];

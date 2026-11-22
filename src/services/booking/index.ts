@@ -8,6 +8,8 @@ import {
   BookingCancellationApiResponse,
   BookingCancellationRequestPayload,
   BookingCancellationProcessPayload,
+  RefundAction,
+  RefundOperations,
 } from "./types";
 
 const isHtmlServerError = (error: unknown) => {
@@ -188,6 +190,47 @@ class Service {
       bookingId,
       payload: { reason: "Cancellation requested" },
     });
+  }
+
+  resyncBooking({ bookingId }: { bookingId: string }) {
+    return instance.post<BookingDetailResponse>(
+      `${env.api.bookingAdminResync}${bookingId}/`
+    );
+  }
+
+  reconcileRefund({ refundId, idempotencyKey }: { refundId: string; idempotencyKey: string }) {
+    return instance.post(
+      `${env.api.bookingAdminReconcileRefund}${refundId}/`,
+      {},
+      { headers: { "Idempotency-Key": idempotencyKey } },
+    );
+  }
+
+  refundAction({
+    refundId,
+    action,
+    reason,
+    confirmSettlement = false,
+    idempotencyKey,
+  }: {
+    refundId: string;
+    action: RefundAction;
+    reason: string;
+    confirmSettlement?: boolean;
+    idempotencyKey: string;
+  }) {
+    return instance.post<{ refund: RefundOperations; action: RefundAction; idempotent: boolean }>(
+      `${env.api.bookingAdminRefundAction}${refundId}/action/`,
+      { action, reason, confirm_settlement: confirmSettlement },
+      { headers: { "Idempotency-Key": idempotencyKey } },
+    );
+  }
+
+  repairRefundAmount({ refundId, amount, reason }: { refundId: string; amount: string | number; reason: string }) {
+    return instance.post<{ refund: RefundOperations; action: "repair_amount" }>(
+      `${env.api.bookingAdminRefundAction}${refundId}/repair-amount/`,
+      { amount, reason },
+    );
   }
 
   updateBooking({ bookingId, payload }: { bookingId?: string; payload?: Record<string, unknown> }) {

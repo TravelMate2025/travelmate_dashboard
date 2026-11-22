@@ -35,6 +35,11 @@ interface CarBooking {
   payment_status?: string;
   booking_status?: string;
   status?: string;
+   refund_percent?: number | null;
+  refund_amount?: number | string | null;
+  refund_status?: string | null;
+  refund_operations?: { status?: string | null; workflow_status?: string | null } | null;
+    refund?: { status?: string | null } | null;
   created_at?: string;
   date_booked?: string;
   [key: string]: unknown;
@@ -49,6 +54,7 @@ interface CarBookingsProps {
   hasMore: boolean;
   activeStatusTab: string;
   onStatusTabChange?: (status: string) => void;
+  onResynced?: () => void;
 }
 
 const CarBookings: React.FC<CarBookingsProps> = ({
@@ -60,6 +66,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
   hasMore,
   activeStatusTab,
   onStatusTabChange,
+  onResynced,
 }) => {
 
   const styling =
@@ -80,13 +87,21 @@ const CarBookings: React.FC<CarBookingsProps> = ({
 
       const bookingStatus = normalizeStatus(item.booking_status || item.status);
       const paymentStatus = normalizeStatus(item.payment_status);
+      const refundStatus = normalizeStatus(
+        item.refund_operations?.status || item.refund?.status || item.refund_status
+      );
 
       if (activeStatusTab === "ongoing") {
-        return bookingStatus === "ongoing";
+        // "ongoing" was never a real booking_status value — the backend
+        // only ever sets 'confirmed'/'cancelled'/'completed'
+        // (BookingLifecycleStatus, shared across all booking types), so
+        // this check could never match anything and the tab was
+        // permanently empty regardless of real data.
+        return bookingStatus === "confirmed";
       }
 
       if (activeStatusTab === "completed") {
-        return bookingStatus === "completed" || bookingStatus === "confirmed";
+        return bookingStatus === "completed";
       }
 
       if (activeStatusTab === "pending") {
@@ -96,7 +111,7 @@ const CarBookings: React.FC<CarBookingsProps> = ({
       }
 
       if (activeStatusTab === "refunded") {
-        return bookingStatus === "refunded" || paymentStatus === "refunded";
+        return bookingStatus === "refunded" || paymentStatus === "refunded" || refundStatus === "completed";
       }
 
       return bookingStatus === activeStatusTab;
@@ -293,6 +308,8 @@ const CarBookings: React.FC<CarBookingsProps> = ({
                         <BookingTableDropdown
                           bookingId={item.booking_id || item.booking_reference || item.id}
                           bookingType="transfers"
+                          bookingStatus={item.booking_status || item.status}
+                          onResynced={onResynced}
                         />
                       </TableCell>
                     </TableRow>

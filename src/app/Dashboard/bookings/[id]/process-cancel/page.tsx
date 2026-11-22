@@ -2,13 +2,20 @@
 import React, { useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { GridValues, FlexValues, Policy } from "@/components/molecues/bookings/reuseables";
-import { Switch } from "@/components/ui/switch";
 import {
   useGetBooking,
   useProcessBookingCancellation,
   useRequestBookingCancellation,
+  CancellationRequestPreview,
 } from "@/hooks/api/bookings";
 import { getSingleRouteParam } from "@shared/lib/routeParams";
+
+const formatMoney = (value?: string | number | null) => {
+  if (value === undefined || value === null || value === "") return "—";
+  const numeric = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(numeric)) return "—";
+  return `₦${numeric.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 type SupportedBookingType = "stays" | "flights" | "transfers";
 
@@ -21,10 +28,31 @@ const formatDisplayDate = (value?: string) => {
   return date.toLocaleDateString("en-GB");
 };
 
+const normalizePolicyList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") {
+        const record = item as Record<string, unknown>;
+        return String(record.terms || record.policyCopy || record.label || "");
+      }
+      return "";
+    }).filter(Boolean);
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const text = record.policyCopy || record.terms || record.label;
+    return typeof text === "string" && text.trim() ? [text] : [];
+  }
+  return [];
+};
+
 interface CancellationResult {
   cancellation_reason?: string;
   cancellation_note?: string;
-  cancellation_policy?: string[];
+  cancellation_policy?: unknown;
+  booking_status?: string;
+  status?: string;
 }
 
 interface CancellationBooking {
@@ -39,6 +67,8 @@ interface CancellationBooking {
   updated_at?: string;
   created_at?: string;
   result?: CancellationResult;
+  refund_percent?: number | null;
+  cancellation_preview?: CancellationRequestPreview["cancellation_preview"];
 }
 
 interface CancelDetailsProps {
@@ -85,6 +115,11 @@ const page = () => {
     initalFetch: Boolean(bookingId),
   });
 
+  const loadedBookingStatus = String(
+    booking?.result?.booking_status || booking?.result?.status || booking?.booking_status || "",
+  ).toLowerCase();
+  const isTerminalBooking = ["cancelled", "canceled", "refunded", "completed", "failed", "payment_failed"].includes(loadedBookingStatus);
+
   // if (!booking) {
   //   return (
   //     <div className="flex items-center justify-center h-full">
@@ -92,6 +127,24 @@ const page = () => {
   //     </div>
   //   );
   // }
+
+  if (!loadingBooking && !booking) {
+    return (
+      <div className="space-y-5">
+        <button type="button" className="text-sm font-medium text-[#023E8A]" onClick={() => router.back()}>← Back to booking</button>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">This booking could not be loaded. Cancellation was not started.</div>
+      </div>
+    );
+  }
+
+  if (!loadingBooking && isTerminalBooking) {
+    return (
+      <div className="space-y-5">
+        <button type="button" className="text-sm font-medium text-[#023E8A]" onClick={() => router.back()}>← Back to booking</button>
+        <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-sm"><h1 className="text-lg font-semibold text-[#18202b]">Cancellation unavailable</h1><p className="mt-2 text-sm text-[#687382]">This booking is already {loadedBookingStatus}. No new cancellation request can be created.</p></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-[24px]">
@@ -138,7 +191,8 @@ const CancelDetails = ({
   const additionalDetails =
     booking?.cancellation_note || booking?.result?.cancellation_note || "--";
 
-  const policyList = booking?.result?.cancellation_policy || [
+  const policyList = normalizePolicyList(booking?.result?.cancellation_policy);
+  const safePolicyList = policyList.length ? policyList : [
     "Cancellation charges may apply based on fare rules.",
     "Refund timelines depend on provider and payment method.",
     "Processed cancellations are final once confirmed.",
@@ -191,7 +245,7 @@ const CancelDetails = ({
         routeBookingType={routeBookingType}
         reason={reason}
         additionalDetails={additionalDetails}
-        policyList={policyList}
+        policyList={safePolicyList}
       />
     </div>
   );
@@ -212,6 +266,15 @@ const CancellationGrid = ({
   additionalDetails: string;
   policyList: string[];
 }) => {
+  // Real transaction/refund figures only exist once a CancellationRequest has
+  // been created (request-cancellation) or resolved (process-cancellation) —
+  // the backend doesn't expose a read-only "preview" endpoint. Populated by
+  // Form's handleProcessCancellation as soon as either call resolves, so
+  // these panels show "—" rather than fabricated placeholder values before
+  // that happens.
+  const [cancellationPreview, setCancellationPreview] =
+    useState<CancellationRequestPreview | null>(null);
+
   return (
     <div className="grid grid-cols-2 gap-[24px]">
       <div className="space-y-6">
@@ -227,14 +290,36 @@ const CancellationGrid = ({
           </div>
         </div>
         <Policy List={policyList} />
+        {(booking?.cancellation_preview || booking?.refund_percent != null) && (
+          <div className="bg-[#EEF3FF] border border-[#023E8A33] rounded-[12px] p-[24px] space-y-4">
+            <h2 className="text-[20px] font-[600] text-[#181818]">Policy Snapshot</h2>
+            <FlexValues
+              title="Refund percentage"
+              value={booking?.refund_percent != null ? `${booking.refund_percent}%` : "—"}
+            />
+            <FlexValues
+              title="Estimated refund"
+              value={formatMoney(booking?.cancellation_preview?.refundAmount)}
+            />
+            <p className="text-xs text-[#4E4F52]">
+              {booking?.cancellation_preview?.message || "Use this server-calculated amount when reviewing the request."}
+            </p>
+          </div>
+        )}
         <div className="bg-[#fff] space-y-[22px] p-[24px] rounded-[12px]">
           <div className="space-y-4">
             <h1 className="text-[20px] font-[600] text-[#181818]">
               Transaction Details
             </h1>
             <div className="space-y-4">
-              <FlexValues title="Payment Method" value="Paypal" />
-              <FlexValues title="Transaction ID" value="TXN789456123" />
+              <FlexValues
+                title="Payment Method"
+                value={cancellationPreview?.payment_method || "—"}
+              />
+              <FlexValues
+                title="Transaction ID"
+                value={cancellationPreview?.transaction_id || "—"}
+              />
             </div>
           </div>
         </div>
@@ -243,6 +328,8 @@ const CancellationGrid = ({
         booking={booking}
         bookingId={bookingId}
         routeBookingType={routeBookingType}
+        cancellationPreview={cancellationPreview}
+        onCancellationPreview={setCancellationPreview}
       />
     </div>
   );
@@ -252,18 +339,22 @@ const Form = ({
   booking,
   bookingId,
   routeBookingType,
+  cancellationPreview,
+  onCancellationPreview,
 }: {
   booking?: CancellationBooking | null;
   bookingId?: string;
   routeBookingType?: SupportedBookingType;
+  cancellationPreview: CancellationRequestPreview | null;
+  onCancellationPreview: (preview: CancellationRequestPreview) => void;
 }) => {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [overridePolicy, setOverridePolicy] = useState(false);
   const [adminNote, setAdminNote] = useState("");
   const [workingMessage, setWorkingMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const { processCancellation, loading } = useProcessBookingCancellation();
   const { requestCancellation, loading: requesting } =
     useRequestBookingCancellation();
@@ -328,6 +419,9 @@ const Form = ({
       cancellationRequestId = normalizeId(
         cancellationRequestResult?.cancellationRequestId
       );
+      if (cancellationRequestResult?.cancellationRequest) {
+        onCancellationPreview(cancellationRequestResult.cancellationRequest);
+      }
     }
 
     if (!cancellationRequestId) {
@@ -342,7 +436,6 @@ const Form = ({
       cancellationRequestId,
       payload: {
         note: adminNote,
-        override_policy: overridePolicy,
       },
     });
 
@@ -350,9 +443,11 @@ const Form = ({
       id: cancellationRequestId,
       payload: {
         note: adminNote,
-        override_policy: overridePolicy,
       },
-      successCallback: () => {
+      successCallback: ({ cancellationRequest }) => {
+        if (cancellationRequest) {
+          onCancellationPreview(cancellationRequest);
+        }
         setWorkingMessage(null);
         router.push("/Dashboard/bookings");
       },
@@ -371,11 +466,33 @@ const Form = ({
           Cancellation and Refunds
         </h1>
         <div className="space-y-4">
-          <FlexValues title="Original Payment" value="₦80,000" />
-          <FlexValues title="Payment Processing fee" value="-₦3500" red />
-          <FlexValues title="Cancellation fee" value="-₦0" red />
+          <FlexValues
+            title="Original Payment"
+            value={formatMoney(cancellationPreview?.original_payment)}
+          />
+          <FlexValues
+            title="Payment Processing fee"
+            value={
+              cancellationPreview?.processing_fee
+                ? `-${formatMoney(cancellationPreview.processing_fee)}`
+                : "—"
+            }
+            red
+          />
+          <FlexValues
+            title="Cancellation fee"
+            value={
+              cancellationPreview?.cancellation_fee
+                ? `-${formatMoney(cancellationPreview.cancellation_fee)}`
+                : "—"
+            }
+            red
+          />
           <div className="borde-[1px] border-[#ACAEB3] border-b "></div>
-          <FlexValues title="Expected Customer Refund" value="₦80,000" />
+          <FlexValues
+            title="Expected Customer Refund"
+            value={formatMoney(cancellationPreview?.refund_amount)}
+          />
         </div>
 
         {errorMessage && (
@@ -384,20 +501,6 @@ const Form = ({
           </div>
         )}
 
-        <div className="flex justify-between items-center bg-[#DEDFE126] rounded-[12px] p-[12px]">
-          <div className="flex items-center space-x-1">
-            <img src="/assets/icons/vector-red.svg" alt="" className="" />
-            <p className="text-[#D72638] text-[18px] font-[500]">
-              Override Policy
-            </p>
-          </div>
-
-          <Switch
-            id="airplane-mode"
-            checked={overridePolicy}
-            onCheckedChange={(checked) => setOverridePolicy(Boolean(checked))}
-          />
-        </div>
       </div>
       <div className="space-y-[20px] rounded-[12px] w-full ">
         <h1 className="font-[600] text-[20px] text-[#181818] ">
@@ -418,7 +521,7 @@ const Form = ({
 
           <button
             type="button"
-            onClick={handleProcessCancellation}
+            onClick={() => setShowConfirm(true)}
             disabled={loading || requesting || !bookingIdFromRoute}
             className="w-full bg-[#023E8A] p-[16px] rounded-[8px] text-[#ffff] text-[20px] font-[500] text-center disabled:bg-gray-400"
             title={!bookingIdFromRoute ? "Booking ID is required before processing." : undefined}
@@ -431,6 +534,58 @@ const Form = ({
           </button>
         </div>
       </div>
+
+      {showConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="process-cancellation-confirm-title"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#023E8A]">
+              Operator confirmation
+            </p>
+            <h3 id="process-cancellation-confirm-title" className="mt-1 text-lg font-semibold text-[#18202b]">
+              Confirm cancellation and refund
+            </h3>
+            <p className="mt-4 text-sm leading-6 text-[#4e5d6d]">
+              This immediately cancels the booking and executes the real payment refund with the
+              provider — this cannot be undone. Confirm the expected refund of{" "}
+              <span className="font-semibold text-[#18202b]">
+                {formatMoney(cancellationPreview?.refund_amount)}
+              </span>{" "}
+              against the original payment before continuing.
+            </p>
+            {errorMessage && (
+              <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {errorMessage}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                disabled={loading || requesting}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleProcessCancellation();
+                  setShowConfirm(false);
+                }}
+                disabled={loading || requesting}
+                className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading || requesting ? "Processing…" : "Confirm cancellation and refund"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
