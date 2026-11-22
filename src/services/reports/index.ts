@@ -5,11 +5,11 @@ import instance from "@/hooks/initializers/useAxiosDefaults";
 type BreakdownRow = {
   label: string;
   flight_bookings: number;
-  car_bookings: number;
   stay_bookings?: number;
+  transfer_bookings?: number;
   flight_revenue?: number;
-  car_revenue?: number;
   stay_revenue?: number;
+  transfer_revenue?: number;
 };
 
 type CombinedRow = {

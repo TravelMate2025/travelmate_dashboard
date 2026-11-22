@@ -2,14 +2,24 @@
 
 import React from "react";
 import { GridValues, FlexValues, Policy } from "../../reuseables";
+import CancellationFinancials, { CancellationFinancialData } from "../../CancellationFinancials";
+import RefundOperations from "../../RefundOperations";
+import type { RefundAction, RefundOperations as RefundOperationsData } from "@/services/booking/types";
 
 type StayRoom = {
   room_type?: string;
   room_name?: string;
+  // Partner-shaped fields (as returned in the hold response's
+  // `roomSelections` and now persisted directly on `rooms`) — the partner
+  // calls this field `name`, not `room_type`/`room_name`.
+  name?: string;
+  roomName?: string;
   adults?: number;
   children?: number;
+  occupancy?: number;
   quantity?: number;
   price?: number;
+  baseRate?: number;
 };
 
 type StayCustomerDetails = {
@@ -34,13 +44,21 @@ type StayBookingData = {
   currency?: string;
   hotel_name?: string;
   hotel_code?: string | number;
-  total_amount?: number;
+  // DRF DecimalField serializes as a string (e.g. "490000.00"), not a JSON number.
+  total_amount?: number | string;
   payment_reference?: string;
   payment_transaction_id?: string;
   session_id?: string;
   customer_details?: StayCustomerDetails;
   rooms?: StayRoom[];
   cancellation_policy?: string[] | null;
+  refund_amount?: number | string | null;
+  cancellation_fee?: number | string | null;
+  refund_percent?: number | null;
+  refund_status?: string | null;
+  cancellation_response?: Record<string, unknown> | null;
+  cancellation_preview?: CancellationFinancialData["cancellation_preview"];
+  refund_operations?: RefundOperationsData | null;
 };
 
 const toDisplayDate = (value?: string) => {
@@ -64,8 +82,9 @@ const toStatusClass = (status?: string) => {
   return "text-[#EFB608] border-[#EFB608] bg-[#EFB60833]";
 };
 
-const formatAmount = (amount?: number, currency?: string) => {
-  if (typeof amount !== "number") return "N/A";
+const formatAmount = (amount?: number | string, currency?: string) => {
+  const numericAmount = typeof amount === "string" ? Number(amount) : amount;
+  if (typeof numericAmount !== "number" || Number.isNaN(numericAmount)) return "N/A";
   const safeCurrency = (currency || "USD").toUpperCase();
 
   try {
@@ -74,9 +93,9 @@ const formatAmount = (amount?: number, currency?: string) => {
       currency: safeCurrency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(numericAmount);
   } catch {
-    return `${safeCurrency} ${amount.toFixed(2)}`;
+    return `${safeCurrency} ${numericAmount.toFixed(2)}`;
   }
 };
 
@@ -89,42 +108,43 @@ const getNights = (checkIn?: string, checkOut?: string) => {
   return diff > 0 ? `${diff} night${diff > 1 ? "s" : ""}` : "N/A";
 };
 
-export default function StayDetails({ data }: { data?: StayBookingData }) {
+export default function StayDetails({ data, onReconcile, onAction, onRepair }: { data?: StayBookingData; onReconcile?: () => Promise<RefundOperationsData | null>; onAction?: (action: RefundAction, reason: string, confirmSettlement?: boolean) => Promise<RefundOperationsData | null>; onRepair?: (amount: string, reason: string) => Promise<RefundOperationsData | null> }) {
   return (
-    <div className="space-y-[24px]">
+    <div className="space-y-5">
       <BookingDetails data={data} />
       <GridDetails data={data} />
+      <CancellationFinancials data={data} />
+      <RefundOperations data={data?.refund_operations} onReconcile={onReconcile} onAction={onAction} onRepair={onRepair} />
     </div>
   );
 }
 
 const BookingDetails = ({ data }: { data?: StayBookingData }) => {
   return (
-    <div className="space-y-[24px]">
-      <div className="bg-[#fff] p-[24px] space-y-[20px] rounded-[12px] w-full">
-        <h1 className="font-[600] text-[20px] text-[#181818]">Confirmation Details</h1>
+    <div className="space-y-5">
+      <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-[0_8px_24px_rgba(16,42,67,0.04)]">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#023E8A]">Booking record</p><h1 className="mt-1 text-[18px] font-semibold text-[#18202b]">Confirmation details</h1></div>
+          <span className="text-xs text-[#8994a3]">Stay</span>
+        </div>
 
-        <div className="flex justify-between items-center flex-wrap gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <GridValues title="Confirmation Number" value={data?.reference || "N/A"} />
           <GridValues title="Hotel Code" value={String(data?.hotel_code || "N/A")} />
           <GridValues title="Booked On" value={toDisplayDate(data?.date_booked || data?.created_at)} />
           <GridValues title="Check In" value={toDisplayDate(data?.check_in)} />
           <GridValues title="Check Out" value={toDisplayDate(data?.check_out)} />
 
-          <div className="flex flex-col items-start space-y-3">
-            <h1 className="text-[16px] font-[500] text-[#4E4F52] whitespace-nowrap">
-              Payment Status
-            </h1>
-            <div className={`border rounded-[12px] text-[14px] font-[400] p-[8px] w-fit ${toStatusClass(data?.payment_status)}`}>
+          <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b8491]">Payment status</p>
+            <div className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${toStatusClass(data?.payment_status)}`}>
               {data?.payment_status || "PENDING"}
             </div>
           </div>
 
-          <div className="flex flex-col items-start space-y-3">
-            <h1 className="text-[16px] font-[500] text-[#4E4F52] whitespace-nowrap">
-              Booking Status
-            </h1>
-            <div className={`border rounded-[12px] text-[14px] font-[400] p-[8px] w-fit ${toStatusClass(data?.booking_status)}`}>
+          <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b8491]">Booking status</p>
+            <div className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${toStatusClass(data?.booking_status)}`}>
               {data?.booking_status || "PENDING"}
             </div>
           </div>
@@ -138,7 +158,7 @@ export const GridDetails = ({ data }: { data?: StayBookingData }) => {
   const customer = data?.customer_details;
   const fullName = [customer?.name, customer?.surname].filter(Boolean).join(" ") || customer?.name || "N/A";
   const room = data?.rooms?.[0];
-  const roomType = room?.room_type || room?.room_name || "N/A";
+  const roomType = room?.room_type || room?.room_name || room?.name || room?.roomName || "N/A";
   const roomQuantity = room?.quantity || (data?.rooms?.length ? data.rooms.length : 1);
 
   const policyList = Array.isArray(data?.cancellation_policy) && data?.cancellation_policy.length
@@ -148,11 +168,11 @@ export const GridDetails = ({ data }: { data?: StayBookingData }) => {
       ];
 
   return (
-    <div className="grid grid-cols-2 gap-[24px]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
       <div className="space-y-6">
-        <div className="bg-[#fff] space-y-[22px] p-[24px] rounded-[12px]">
+        <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-[0_8px_24px_rgba(16,42,67,0.04)]">
           <div className="space-y-4">
-            <h1 className="text-[20px] font-[600] text-[#181818]">Guest Details</h1>
+            <h2 className="text-[17px] font-semibold text-[#18202b]">Guest details</h2>
             <div className="space-y-4">
               <FlexValues title="Name" value={fullName} />
               <FlexValues title="Age" value={customer?.age ?? "N/A"} />
@@ -160,7 +180,7 @@ export const GridDetails = ({ data }: { data?: StayBookingData }) => {
           </div>
 
           <div className="space-y-4">
-            <h1 className="text-[20px] font-[600] text-[#181818]">Contact Information</h1>
+            <h2 className="text-[17px] font-semibold text-[#18202b]">Contact information</h2>
             <div className="space-y-4">
               <FlexValues title="Email Address" value={customer?.email || "N/A"} />
               <FlexValues title="Phone Number" value={customer?.phone || "N/A"} />
@@ -170,9 +190,9 @@ export const GridDetails = ({ data }: { data?: StayBookingData }) => {
           </div>
         </div>
 
-        <div className="bg-[#fff] space-y-[22px] p-[24px] rounded-[12px]">
+        <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-[0_8px_24px_rgba(16,42,67,0.04)]">
           <div className="space-y-4">
-            <h1 className="text-[20px] font-[600] text-[#181818]">Stay Details</h1>
+            <h2 className="text-[17px] font-semibold text-[#18202b]">Stay details</h2>
             <div className="space-y-4">
               <FlexValues title="Type" value="Hotel" />
               <FlexValues title="Property Name" value={data?.hotel_name || "N/A"} />
@@ -185,9 +205,9 @@ export const GridDetails = ({ data }: { data?: StayBookingData }) => {
       </div>
 
       <div className="space-y-6">
-        <div className="bg-[#fff] space-y-[22px] p-[24px] rounded-[12px]">
+        <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-[0_8px_24px_rgba(16,42,67,0.04)]">
           <div className="space-y-4">
-            <h1 className="text-[20px] font-[600] text-[#181818]">Transaction Details</h1>
+            <h2 className="text-[17px] font-semibold text-[#18202b]">Transaction details</h2>
             <div className="space-y-4">
               <FlexValues title="Payment Reference" value={data?.payment_reference || "N/A"} />
               <FlexValues

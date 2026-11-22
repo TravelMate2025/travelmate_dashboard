@@ -14,45 +14,23 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { removeUsersFromRole } from "@/services/admin";
-
-interface RoleUser {
-  id?: number;
-  name?: string;
-  email?: string;
-  [key: string]: unknown;
-}
-
-interface Role {
-  id: string;
-  name: string;
-  description: string;
-  assigned_users: RoleUser[];
-  current_permission_group_slugs: string[];
-  is_superuser: boolean;
-  created_by: string;
-  invited_users: RoleUser[];
-}
+import type { DashboardRole as Role } from "@/utils/roles";
+import { isSuperAdminRole } from "@/utils/roles";
 interface RoleAssignmentProps {
   roles: Role[]; // Array of roles to display
   onCreateRoleOpen: () => void; // Callback to open Create Role modal
   onAddMemberOpen: () => void;
   isLoading?: boolean;
   revokeInvite: (id: string, email: string) => void;
-  setAdminDetails: React.Dispatch<React.SetStateAction<Role[]>>;
+  refreshRoles: () => Promise<void>;
 }
-
-const normalizeRoleName = (value?: string | null) =>
-  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
-
-const isSuperAdminRole = (role?: Pick<Role, "name" | "is_superuser"> | null) =>
-  Boolean(role?.is_superuser) || normalizeRoleName(role?.name) === "super admin";
 
 const RoleAssignment: FC<RoleAssignmentProps> = ({
   onAddMemberOpen,
   roles,
   isLoading,
   revokeInvite,
-  setAdminDetails,
+  refreshRoles,
 }) => {
   const [showSuccessRemoveModal, setShowSuccessRemoveModal] = useState(false);
   const [showConfirmRemoveModal, setShowConfirmRemoveModal] = useState(false);
@@ -85,18 +63,7 @@ const RoleAssignment: FC<RoleAssignmentProps> = ({
       setLoadingRemove((prev) => ({ ...prev, [userEmail]: true }));
 
       await removeUsersFromRole(roleId, { email: userEmail });
-      const updatedRoles = roles.map((role) =>
-        role.id === roleId
-          ? {
-              ...role,
-              assigned_users: role.assigned_users.filter(
-                (user) => user.email !== userEmail
-              ),
-            }
-          : role
-      );
-
-      setAdminDetails(updatedRoles);
+      await refreshRoles();
       setShowConfirmRemoveModal(false);
       setShowSuccessRemoveModal(true);
     } catch (error: unknown) {

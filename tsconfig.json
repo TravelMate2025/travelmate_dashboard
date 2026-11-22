@@ -44,7 +44,6 @@
     "**/*.ts",
     "**/*.tsx",
     "next-env.d.ts",
-    "src/components/pages/customer-support",
     ".next/types/**/*.ts"
   ],
   "exclude": [

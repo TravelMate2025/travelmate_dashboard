@@ -11,6 +11,9 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import BookingService from "@/services/booking";
+import { showErrorToast, showSuccessToast } from "@/utils/toasters";
+import axios from "axios";
 
 interface GridValuesProps {
   title: string;
@@ -29,40 +32,50 @@ interface PolicyProps {
 
 export const GridValues = ({ title, value }: GridValuesProps) => {
   return (
-    <div className="space-y-2">
-      <h1 className="text-[16px] font-[500] text-[#4E4F52]">{title}</h1>
-      <p className="text-[16px] font-[500] text-[#181818]">{value}</p>
+    <div className="min-w-0 space-y-1.5 rounded-lg border border-[#e7edf5] bg-[#fbfcfe] px-3.5 py-3">
+      <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b8491]">{title}</p>
+      <p className="break-words text-[14px] font-semibold leading-5 text-[#18202b]">{value || "—"}</p>
     </div>
   );
 };
 
 export const FlexValues = ({ title, value, red }: FlexValuesProps) => {
   return (
-    <div className="flex justify-between">
-      <h1 className="text-[16px] font-[500] text-[#4E4F52]">{title}</h1>
+    <div className="flex items-start justify-between gap-6 border-b border-[#edf1f6] py-2.5 last:border-b-0">
+      <p className="text-[13px] font-medium text-[#687382]">{title}</p>
       <p
         className={
           red
-            ? "text-[16px] font-[500] text-[#D72638] text-end"
-            : "text-[#181818]"
+            ? "max-w-[62%] text-end text-[13px] font-semibold text-[#D72638]"
+            : "max-w-[62%] text-end text-[13px] font-semibold text-[#18202b]"
         }
       >
-        {value}
+        {value || "—"}
       </p>
     </div>
   );
 };
 
 export const Policy = ({ List }: PolicyProps) => {
+  const safeList = Array.isArray(List)
+    ? List
+    : List && typeof List === "object"
+      ? [
+          (List as Record<string, unknown>).policyCopy,
+          (List as Record<string, unknown>).terms,
+          (List as Record<string, unknown>).label,
+        ].filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      : [];
   return (
-    <div className="bg-[#fff] p-[24px] rounded-[12px]">
-      <h1 className="text-[20px] font-[600] text-[#181818] mb-[16px]">
+    <div className="rounded-xl border border-[#dfe7f0] bg-white p-5 shadow-[0_8px_24px_rgba(16,42,67,0.04)]">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#023E8A]">Terms</p>
+      <h2 className="mb-4 mt-1 text-[17px] font-semibold text-[#18202b]">
         Cancellation Policy
-      </h1>
+      </h2>
 
-      <ul className="space-y-[12px] list-disc pl-3 list-disc:bg-[#181818] ">
-        {List.map((item, index) => (
-          <li key={index} className="text-[16px] font-[400] text-[#4E4F52]">
+      <ul className="space-y-2.5 pl-4">
+        {safeList.map((item, index) => (
+          <li key={index} className="text-[13px] leading-5 text-[#687382]">
             {item}
           </li>
         ))}
@@ -74,11 +87,16 @@ export const Policy = ({ List }: PolicyProps) => {
 export const BookingTableDropdown = ({
   bookingId,
   bookingType,
+  onResynced,
+  bookingStatus,
 }: {
   bookingId?: string | number;
   bookingType?: "stays" | "flights" | "transfers";
+  onResynced?: () => void;
+  bookingStatus?: string;
 }) => {
   const router = useRouter();
+  const [resyncing, setResyncing] = useState(false);
   const resolvedBookingId =
     bookingId !== undefined && bookingId !== null ? String(bookingId) : "";
 
@@ -96,14 +114,56 @@ export const BookingTableDropdown = ({
     router.push(`/Dashboard/bookings/${resolvedBookingId}/process-cancel${bookingTypeQuery}`);
   };
 
+  // Only stays and transfers sync from the partner (the periodic
+  // mark_ended_stays_checked_out_task / on-demand BookingViewSet.list sync
+  // never upserts flights), so a resync request for a flight booking would
+  // 404 — don't offer it there.
+  const canResync = resolvedBookingId && (bookingType === "stays" || bookingType === "transfers");
+  const canCancel = !["cancelled", "canceled", "refunded", "completed", "failed", "payment_failed"].includes(
+    String(bookingStatus || "").toLowerCase(),
+  );
+
+  const handleResync = async () => {
+    if (!resolvedBookingId || resyncing) return;
+    setResyncing(true);
+    try {
+      await BookingService.resyncBooking({ bookingId: resolvedBookingId });
+      showSuccessToast({ message: "Booking resynced from partner" });
+      onResynced?.();
+    } catch (error: unknown) {
+      const message = axios.isAxiosError(error)
+        ? (error.response?.data as { error?: string })?.error ||
+          "Unable to resync this booking from the partner"
+        : "Unable to resync this booking from the partner";
+      showErrorToast({ message });
+    } finally {
+      setResyncing(false);
+    }
+  };
+
   const options = [
     { id: 1, label: "View Details", disabled: !resolvedBookingId },
-    {
+    ...(canCancel ? [{
       id: 2,
       label: "Cancel Booking",
       disabled: !resolvedBookingId,
-    },
+    }] : []),
+    ...(canResync
+      ? [
+          {
+            id: 3,
+            label: resyncing ? "Resyncing..." : "Resync from Partner",
+            disabled: resyncing,
+          },
+        ]
+      : []),
   ];
+
+  const handleOptionClick = (id: number) => {
+    if (id === 1) return handleViewDetails();
+    if (id === 2) return handleCancelBooking();
+    return handleResync();
+  };
 
   return (
     <div className="relative overflow-visible">
@@ -120,7 +180,7 @@ export const BookingTableDropdown = ({
           {options.map((option) => (
             <DropdownMenuItem
               key={option.id}
-              onClick={option.id === 1 ? handleViewDetails : handleCancelBooking}
+              onClick={() => handleOptionClick(option.id)}
               disabled={option.disabled}
               className={`cursor-pointer select-none ${
                 option.label === "Cancel Booking"
@@ -149,22 +209,22 @@ export const LocationTag = ({
   arrivalLabel?: string;
 }) => {
   return (
-    <div className="">
-      <div className="flex justify-center items-center space-x-4 border-[1px] border-[#9B9EA4] py-[16px] rounded-[12px] space-y-[8px] ">
+    <div>
+      <div className="flex items-center justify-center gap-4 rounded-xl border border-[#dfe7f0] bg-[#fbfcfe] px-3 py-4">
         <div className="text-center w-[40%] p-2">
-          <p className="text-[18px] font-[600] text-[#181818] ">
+          <p className="text-[17px] font-semibold text-[#18202b]">
             {departureTime}
           </p>
-          <p className="text-[14px] font-[600] text-[#67696D] ">
+          <p className="text-[12px] font-medium text-[#687382]">
             {departureLabel}
           </p>
         </div>
-        <div className="text-center text-gray-500 text-xlw-[150%] p-1">{"------->"}</div>
+        <div className="text-center text-lg text-[#9aa7b5]">→</div>
         <div className="text-center space-y-[8px] w-[40%] p-2">
-          <p className="text-[18px] font-[600] text-[#181818] ">
+          <p className="text-[17px] font-semibold text-[#18202b]">
             {arrivalTime}
           </p>
-          <p className="text-[14px] font-[600] text-[#67696D]">
+          <p className="text-[12px] font-medium text-[#687382]">
             {arrivalLabel}
           </p>
         </div>
@@ -277,6 +337,17 @@ export const Filter: React.FC<FilterProps> = ({
         label: "REFUNDED",
         value: "refunded",
       },
+      { id: 7, label: "Refund pending", value: "pending_refund" },
+      { id: 8, label: "Refund processing", value: "processing_refund" },
+      { id: 9, label: "Refund completed", value: "completed_refund" },
+      { id: 10, label: "Refund failed", value: "failed_refund" },
+      { id: 11, label: "Stale refunds", value: "stale_refund" },
+      { id: 12, label: "No refund applies", value: "not_applicable_refund" },
+      { id: 13, label: "Overdue refunds", value: "overdue_refund" },
+      { id: 14, label: "Awaiting approval", value: "initiated_workflow" },
+      { id: 15, label: "Awaiting settlement", value: "approved_workflow" },
+      { id: 16, label: "Support intervention", value: "failed_workflow" },
+      { id: 17, label: "Rejected / retry", value: "rejected_workflow" },
     ];
   };
 

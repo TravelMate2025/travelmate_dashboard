@@ -13,6 +13,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useLogout } from "@/hooks/api/auth";
 import { useAuthContext } from "@/context/AuthContext";
 import {
@@ -22,7 +30,8 @@ import {
 import { showInfoToast } from "@/utils/toasters";
 import type { AppNotification } from "@/hooks/api/notification";
 
-const INACTIVITY_TIMEOUT_MS = 3 * 60 * 1000;
+export const DASHBOARD_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
+export const DASHBOARD_INACTIVITY_WARNING_MS = 25 * 60 * 1000;
 const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
   "mousemove",
   "mousedown",
@@ -39,9 +48,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { onLogout } = useLogout();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const hasLoggedOutRef = React.useRef(false);
+  const APP_STATE = useAuthContext();
+  const isSuperuser = Boolean(APP_STATE?.user?.isSuperuser);
+  const visibleNavItems = useMemo(
+    () =>
+      navItems.filter(
+        (item) => !item.requiresSuperuser || isSuperuser
+      ),
+    [isSuperuser]
+  );
 
-  const currentNavItem = navItems.find(
+  const currentNavItem = visibleNavItems.find(
     (item) =>
       pathname === item.href ||
       (pathname.startsWith(`${item.href}/`) && item.href !== "/Dashboard")
@@ -51,8 +71,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setMobileSidebarOpen(false);
   };
 
+  const requestLogout = () => {
+    setMobileSidebarOpen(false);
+    setLogoutDialogOpen(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await onLogout();
+    } finally {
+      setIsLoggingOut(false);
+      setLogoutDialogOpen(false);
+    }
+  };
+
   useEffect(() => {
     let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+    let inactivityWarningTimer: ReturnType<typeof setTimeout> | null = null;
     let logoutDelayTimer: ReturnType<typeof setTimeout> | null = null;
 
     const clearInactivityTimer = () => {
@@ -64,8 +100,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       inactivityTimer = null;
     };
 
+    const clearInactivityWarningTimer = () => {
+      if (!inactivityWarningTimer) return;
+      clearTimeout(inactivityWarningTimer);
+      inactivityWarningTimer = null;
+    };
+
     const startInactivityTimer = () => {
       clearInactivityTimer();
+      clearInactivityWarningTimer();
+
+      inactivityWarningTimer = setTimeout(() => {
+        if (hasLoggedOutRef.current) return;
+        showInfoToast({
+          message: "You will be signed out soon",
+          description: "You have been inactive for 25 minutes. Move your mouse or press a key to stay signed in.",
+          duration: 8000,
+        });
+      }, DASHBOARD_INACTIVITY_WARNING_MS);
 
       inactivityTimer = setTimeout(() => {
         if (hasLoggedOutRef.current) {
@@ -75,13 +127,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         hasLoggedOutRef.current = true;
         showInfoToast({
           message: "Session expired due to inactivity",
-          description: "You were inactive for 3 minutes and have been logged out.",
+          description: "You were inactive for 30 minutes and have been logged out.",
         });
 
         logoutDelayTimer = setTimeout(() => {
           onLogout();
         }, 1200);
-      }, INACTIVITY_TIMEOUT_MS);
+      }, DASHBOARD_INACTIVITY_TIMEOUT_MS);
     };
 
     const handleUserActivity = () => {
@@ -100,6 +152,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
     return () => {
       clearInactivityTimer();
+      clearInactivityWarningTimer();
       if (logoutDelayTimer) {
         clearTimeout(logoutDelayTimer);
       }
@@ -119,7 +172,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </Link>
         </div>
         <nav className="flex-1 px-4 space-y-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive =
               pathname === item.href ||
               (pathname.startsWith(`${item.href}/`) &&
@@ -153,7 +206,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="p-4 border-t border-gray-200">
           <button
             className="flex items-center px-4 py-3 text-sm text-red-500 hover:bg-gray-100 rounded-lg w-full"
-            onClick={onLogout}
+            onClick={requestLogout}
           >
             <LogOut className="h-5 w-5 mr-3" />
             Log Out
@@ -196,7 +249,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
 
               <nav className="space-y-2">
-                {navItems.map((item) => {
+                {visibleNavItems.map((item) => {
                   const isActive =
                     pathname === item.href ||
                     (pathname.startsWith(`${item.href}/`) &&
@@ -238,7 +291,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="p-4 border-t border-gray-200">
               <button
                 className="flex items-center w-full px-4 py-3 text-sm text-red-500 hover:bg-gray-100 rounded-lg  "
-                onClick={onLogout}
+                onClick={requestLogout}
               >
                 <LogOut className="h-5 w-5 mr-3" />
                 Log Out
@@ -253,9 +306,45 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <Navbar
           pageName={currentNavItem?.label || "Unknown Page"}
           onMenuClick={() => setMobileSidebarOpen(true)}
+          onRequestLogout={requestLogout}
         />
         <main className="flex-1 lg:px-[40px] px-2 pb-6  ">{children}</main>
       </div>
+
+      <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+        <DialogContent className="max-w-md rounded-[24px] border border-[#e6eaf2] p-0">
+          <div className="space-y-6 p-6 sm:p-8">
+            <DialogHeader className="space-y-3 text-left">
+              <DialogTitle className="text-2xl font-semibold text-[#181818]">
+                Log out?
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-7 text-[#5f6470] sm:text-[15px]">
+                You&apos;ll need to sign in again to continue using the TravelMate
+                admin dashboard.
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter className="flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                className="rounded-[14px] border border-[#d8dde6] px-5 py-3 text-sm font-semibold text-[#181818] transition hover:bg-[#f8fafc]"
+                onClick={() => setLogoutDialogOpen(false)}
+                disabled={isLoggingOut}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-[14px] bg-[#D72638] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#bd2031] disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={handleConfirmLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? "Logging out..." : "Log out"}
+              </button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -263,11 +352,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 interface NavbarProps {
   pageName: string;
   onMenuClick: () => void;
+  onRequestLogout: () => void;
 }
 
-const Navbar = ({ pageName, onMenuClick }: NavbarProps) => {
+const Navbar = ({ pageName, onMenuClick, onRequestLogout }: NavbarProps) => {
   const router = useRouter();
-  const { onLogout } = useLogout();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const { loading, data } = useMyRoles({ modalVisible: true });
   const APP_STATE = useAuthContext();
@@ -391,7 +480,7 @@ const Navbar = ({ pageName, onMenuClick }: NavbarProps) => {
                       View Users
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onSelect={onLogout}
+                      onSelect={onRequestLogout}
                       className="text-[#D72638]"
                     >
                       Log Out

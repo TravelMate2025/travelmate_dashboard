@@ -30,6 +30,11 @@ type TAddFaqCategory = {
   };
 };
 
+type TUpdateFaqCategory = {
+  id: number;
+  payload: Partial<TAddFaqCategory["payload"]>;
+};
+
 class Service {
   getAllFaq() {
     return instance.get(env.api.faqCategories);
@@ -49,6 +54,14 @@ class Service {
 
   addFaqCategory({ payload }: TAddFaqCategory) {
     return instance.post(env.api.faqCategories, payload);
+  }
+
+  updateFaqCategory({ id, payload }: TUpdateFaqCategory) {
+    return instance.patch(env.api.faqCategories + id + "/", payload);
+  }
+
+  deleteFaqCategory({ id }: { id: number }) {
+    return instance.delete(env.api.faqCategories + id + "/");
   }
 
   deleteFaq({ id }: { id: number }) {

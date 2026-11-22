@@ -140,6 +140,31 @@ export const FaqTabContent: React.FC<FaqTabContentProps> = ({
             />
           </Link>
         </div>
+
+        {/* Category Management Section */}
+        <div className="lg:px-10 space-y-4">
+          <h2 className="font-[600] text-[16px] text-[#181818]">
+            Categories
+          </h2>
+          <div className="flex justify-between lg:space-x-6 space-y-6 lg:space-y-0 flex-col lg:flex-row">
+            <Link href="/Dashboard/support/faq/edit-category" className="w-full">
+              <Button
+                variant="orange-deep"
+                title="EDIT CATEGORY"
+                icon="/assets/icons/mode_edit.svg"
+                full
+              />
+            </Link>
+            <Link href="/Dashboard/support/faq/delete-category" className="w-full">
+              <Button
+                variant="light-red"
+                title="DELETE CATEGORY"
+                icon="/assets/icons/delete.svg"
+                full
+              />
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

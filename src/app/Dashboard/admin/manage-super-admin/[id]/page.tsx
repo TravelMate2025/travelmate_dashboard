@@ -30,6 +30,7 @@ type Role = {
   id: string;
   name: string;
   assigned_users: AssignedUser[];
+  is_superuser?: boolean;
 };
 
 type SuperAdmin = {
@@ -41,9 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { showErrorToast } from "@/utils/toasters";
 import { LoaderCircleIcon } from "lucide-react";
 import { fetchRoles, inviteSupes, transferSupes } from "@/services/admin";
-
-const normalizeRoleName = (value?: string | null) =>
-  (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+import { getRoleDisplayName, isSuperAdminRole } from "@/utils/roles";
 
 const ManageSuperAdmin = () => {
   const [, setDefaultTab] = useState("addNewUser");
@@ -114,7 +113,7 @@ const ManageSuperAdmin = () => {
   }, []);
 
   const adminRoles = roles.filter(
-    (role) => normalizeRoleName(role.name) !== "super admin"
+    (role) => !isSuperAdminRole(role)
   );
 
   const transferSuperAdminRole = async () => {
@@ -128,7 +127,9 @@ const ManageSuperAdmin = () => {
             ?.assigned_users.find((user) => user.id === selectedUserIds[0])
             ?.email ?? "",
         transfer_action: actionTransferOption ?? "",
-        new_role_id: selectedRoleId ?? "",
+        ...(actionTransferOption === "change_role" && selectedRoleId
+          ? { new_role_id: selectedRoleId }
+          : {}),
       };
       setIsLoadTransfer(true);
       await transferSupes(payload);
@@ -152,11 +153,14 @@ const ManageSuperAdmin = () => {
         email: newSuperAdmin.email ?? "",
         name: newSuperAdmin.name ?? "",
         transfer_action: actionInviteOption ?? "",
-        new_role_id: selectedInviteRoleId ?? "",
+        ...(actionInviteOption === "change_role" && selectedInviteRoleId
+          ? { new_role_id: selectedInviteRoleId }
+          : {}),
       };
       setIsLoadInvite(true);
       await inviteSupes(payload);
       await fetchRole();
+      setShowConfirmInviteModal(false);
       setShowSuccessInviteModal(true);
       setTimeout(() => route.push("/auth/login"), 3000);
     } catch (error: any) {
@@ -286,6 +290,7 @@ const ManageSuperAdmin = () => {
                         onChange={(e) => {
                           setChangeRoleTransfer(true);
                           setActionTransferOption(e.target.value);
+                          setSelectedRoleId(null);
                         }}
                       />
                       <label htmlFor="change-role">Change my role</label>
@@ -299,6 +304,7 @@ const ManageSuperAdmin = () => {
                         onChange={(e) => {
                           setChangeRoleTransfer(false);
                           setActionTransferOption(e.target.value);
+                          setSelectedRoleId(null);
                         }}
                       />
                       <label htmlFor="remove-access">
@@ -423,6 +429,7 @@ const ManageSuperAdmin = () => {
                         onChange={(e) => {
                           setChangeRoleInvite(true);
                           setActionInviteOption(e.target.value);
+                          setSelectedInviteRoleId(null);
                         }}
                       />
                       <label htmlFor="transfer-change-role">Change my role</label>
@@ -438,6 +445,7 @@ const ManageSuperAdmin = () => {
                         onChange={(e) => {
                           setChangeRoleInvite(false);
                           setActionInviteOption(e.target.value);
+                          setSelectedInviteRoleId(null);
                         }}
                       />
                       <label htmlFor="transfer-remove-access">
@@ -485,7 +493,8 @@ const ManageSuperAdmin = () => {
                 <Button
                   disabled={
                     isLoadInvite ||
-                    selectedInviteRoleId?.length === 0 ||
+                    !newSuperAdmin.name ||
+                    !newSuperAdmin.email ||
                     !actionInviteOption ||
                     (changeRoleInvite && !selectedInviteRoleId)
                   }
@@ -510,9 +519,14 @@ const ManageSuperAdmin = () => {
                 </DialogTitle>
               </DialogHeader>
               <DialogDescription className="lg:text-base text-[12px] text-gray-700 text-left px-4 font-[500]">
-                You are about to add this selected user to this role. These
-                users will be removed from their current roles. Do you want to
-                proceed?
+                You are about to transfer Super Admin privileges to this
+                selected admin and{" "}
+                {actionTransferOption === "remove_access"
+                  ? "completely remove your access to the TravelMate dashboard"
+                  : `change your account to the ${getRoleDisplayName(
+                      adminRoles.find((role) => role.id === selectedRoleId) || null
+                    )} role`}
+                . This action cannot be undone. Do you want to proceed?
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2 justify-end lg:pt-5 pt-2">
@@ -554,7 +568,8 @@ const ManageSuperAdmin = () => {
                 className="w-20 h-20 my-6"
               />
               <DialogDescription className="lg:text-lg text-[14px] text-gray-700 text-center px-4 font-bold">
-                User Added Successfully
+                Super Admin transferred successfully. You will be redirected to
+                log in again.
               </DialogDescription>
             </div>
           </DialogContent>
@@ -632,9 +647,12 @@ const ManageSuperAdmin = () => {
               <DialogDescription className="lg:text-lg text-[14px] text-gray-700 text-center px-4 font-bold">
                 An invitation email has been sent to {newSuperAdmin.email} and
                 Your role has been changed to an{" "}
-                {adminRoles.find((role) => role.id === selectedInviteRoleId)
-                  ?.name || "Admin"}
-                .
+                {actionInviteOption === "remove_access"
+                  ? "account with no dashboard access."
+                  : `${getRoleDisplayName(
+                      adminRoles.find((role) => role.id === selectedInviteRoleId) ||
+                        null
+                    )}.`}
               </DialogDescription>
             </div>
           </DialogContent>

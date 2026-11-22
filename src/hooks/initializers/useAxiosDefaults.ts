@@ -1,6 +1,11 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
 import env from "@/config/env";
-import { knownBackendApiBases } from "@/lib/backend-api";
+import { knownBackendApiBases, isTrustedBackendHost } from "@/lib/backend-api";
+import {
+  clearAuthSession,
+  readStoredAuthState,
+  syncAuthSession,
+} from "@/lib/auth-session";
 
 type PersistedAuthState = {
   accessToken?: string;
@@ -19,28 +24,8 @@ const AUTH_EXCLUDED_PATHS = [
   "/admin/invitations/accept/",
 ];
 
-const readPersistedAuth = (): PersistedAuthState | null => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(env.auth.PERSIST_AUTH_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
-
-const writePersistedAuth = (value: PersistedAuthState) => {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(env.auth.PERSIST_AUTH_KEY, JSON.stringify(value));
-  } catch {}
-};
+const readPersistedAuth = (): PersistedAuthState | null =>
+  (readStoredAuthState() as PersistedAuthState | null) ?? null;
 
 const isAuthExcludedRoute = (url: string = "") =>
   AUTH_EXCLUDED_PATHS.some((path) => url.includes(path));
@@ -63,8 +48,11 @@ const knownBackendOrigins = new Set(
 
 const isAbsoluteHttpUrl = (value: string) => /^https?:\/\//i.test(value);
 
-const isTravelmateBackendHost = (hostname: string) =>
-  /^travelmate-backend(-[a-z0-9]+)?\.onrender\.com$/i.test(hostname);
+// isTrustedBackendHost (from lib/backend-api.ts) is the same check
+// resolveBackendApiBase uses to decide whether to honor
+// NEXT_PUBLIC_API_BASE_URL — kept as one shared implementation instead of
+// each file inventing its own copy of "what counts as our backend."
+const isTravelmateBackendHost = isTrustedBackendHost;
 
 const ensureEndpointTrailingSlash = (path: string) => {
   if (!path || path === "/") {
@@ -206,22 +194,10 @@ instance.interceptors.response.use(
               const nextAuthState = {
                 ...(persistedAuth || {}),
                 accessToken: refreshedAccessToken,
+                refreshToken,
               };
 
-              writePersistedAuth(nextAuthState);
-
-              if (typeof window !== "undefined") {
-                fetch("/api/auth/set-cookies", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    accessToken: refreshedAccessToken,
-                    refreshToken,
-                  }),
-                }).catch(() => null);
-              }
+              void syncAuthSession(nextAuthState).catch(() => null);
 
               originalRequest.headers = {
                 ...(originalRequest.headers || {}),
@@ -248,6 +224,7 @@ instance.interceptors.response.use(
       }
 
       if (typeof window !== "undefined" && !isAuthRoute && shouldForceLogout) {
+        void clearAuthSession().catch(() => null);
         window.location.href = "/auth/login";
       }
     }

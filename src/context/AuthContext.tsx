@@ -8,10 +8,9 @@ import React, {
   Dispatch,
   useContext,
 } from "react";
-import usePersistAppContext, {
-  getInitialStateFromLocalStorage,
-} from "@/hooks/context/auth/usePersistAuthContext";
+import usePersistAppContext from "@/hooks/context/auth/usePersistAuthContext";
 import instance from "@/hooks/initializers/useAxiosDefaults";
+import { clearAuthSession, syncAuthSession } from "@/lib/auth-session";
 
 import env from "@/config/env";
 
@@ -21,6 +20,11 @@ type UpdateAppStateFunction = Dispatch<SetStateAction<TAppState>>;
 
 const AuthContext = createContext<TAppState>(env.auth.INITIAL_APP_STATE);
 const AuthUpdateContext = createContext<UpdateAppStateFunction>(() => {});
+const EMPTY_AUTH_STATE: TAppState = {
+  accessToken: undefined,
+  refreshToken: undefined,
+  user: undefined,
+};
 
 // TO FETCH CURRENT AUTH_CONTEXT STATE
 export function useAuthContext() {
@@ -36,7 +40,7 @@ export function AuthContextWrapper({
   children,
 }: TAuthContextProps): React.JSX.Element {
   const [appState, setAppState] = useState<TAppState>(
-    getInitialStateFromLocalStorage
+    env.auth.INITIAL_APP_STATE
   );
   const lastVerifiedTokenRef = useRef<string | undefined>(undefined);
 
@@ -52,11 +56,20 @@ export function AuthContextWrapper({
     });
   }
 
+  const clearAuthState = () => {
+    void clearAuthSession().catch(() => null);
+    updateAppState(EMPTY_AUTH_STATE);
+  };
+
   useEffect(() => {
     const accessToken = appState?.accessToken;
     const refreshToken = appState?.refreshToken;
 
-    if (!accessToken || lastVerifiedTokenRef.current === accessToken) {
+    if (!refreshToken && !accessToken) {
+      return;
+    }
+
+    if (accessToken && lastVerifiedTokenRef.current === accessToken) {
       return;
     }
 
@@ -64,20 +77,16 @@ export function AuthContextWrapper({
 
     const verifyAndRefreshIfNeeded = async () => {
       try {
-        await instance.post(
-          env.api.jwtVerifyToken,
-          { token: accessToken },
-          { withCredentials: true }
-        );
+        if (!accessToken) {
+          throw new Error("Missing access token");
+        }
+
+        await instance.post(env.api.jwtVerifyToken, { token: accessToken }, { withCredentials: true });
         lastVerifiedTokenRef.current = accessToken;
       } catch {
         if (!refreshToken) {
           if (!isCancelled) {
-            updateAppState({
-              accessToken: undefined,
-              refreshToken: undefined,
-              user: undefined,
-            });
+            clearAuthState();
           }
           return;
         }
@@ -98,30 +107,20 @@ export function AuthContextWrapper({
           }
 
           if (!isCancelled) {
-            updateAppState((prevState) => ({
-              ...prevState,
+            const nextState = {
+              ...appState,
               accessToken: refreshedAccessToken,
               refreshToken: refreshedRefreshToken,
-            }));
+            };
 
-            fetch("/api/auth/set-cookies", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                accessToken: refreshedAccessToken,
-                refreshToken: refreshedRefreshToken,
-              }),
-            }).catch(() => null);
+            updateAppState(nextState);
+            void syncAuthSession(nextState).catch(() => null);
 
             lastVerifiedTokenRef.current = refreshedAccessToken;
           }
         } catch {
           if (!isCancelled) {
-            updateAppState({
-              accessToken: undefined,
-              refreshToken: undefined,
-              user: undefined,
-            });
+            clearAuthState();
           }
         }
       }

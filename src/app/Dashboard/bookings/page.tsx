@@ -5,7 +5,11 @@ import { Filter } from "@/components/molecues/bookings/reuseables";
 import BookingTable from "@/components/molecues/bookings/BookingTable";
 import CarBookingTable from "@/components/molecues/bookings/CarsBooking";
 import FlightBookings from "@/components/molecues/bookings/FlightBookings";
-import { useGetAllBookings, useExportBookingsCSV } from "@/hooks/api/bookings";
+import {
+  useGetAllBookings,
+  useGetAllBookingsCombined,
+  useExportBookingsCSV,
+} from "@/hooks/api/bookings";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -72,6 +76,8 @@ const BookingTab: React.FC = () => {
         return "flights";
       case "cars":
         return "transfers";
+      case "all":
+        return "all";
       default:
         return "stays";
     }
@@ -94,7 +100,7 @@ const BookingTab: React.FC = () => {
 
   const handleStatusOptionChange = (option: string) => {
     setSelectedOption(option);
-    setStatusTabFilter(mapDropdownToStatusTab(option));
+    setStatusTabFilter(option.endsWith("_refund") ? "all" : mapDropdownToStatusTab(option));
   };
 
   const handleStatusTabChange = (status: string) => {
@@ -110,7 +116,20 @@ const BookingTab: React.FC = () => {
     loading,
     loadNext,
     hasNext,
+    refetch,
   } = useGetAllBookings(apiFilters);
+
+  // "All" tab only — booking_type=all returns a differently-shaped,
+  // unpaginated response (stays/transfers/flights together), so it's a
+  // separate hook rather than something useGetAllBookings needs to also
+  // understand.
+  const {
+    stays: allStays,
+    transfers: allTransfers,
+    flights: allFlights,
+    loading: loadingAll,
+    refetch: refetchAll,
+  } = useGetAllBookingsCombined(apiFilters, activeTab === "all");
 
   // prevent redundant filter updates
   const lastFilters = useRef<string>("");
@@ -140,6 +159,16 @@ const BookingTab: React.FC = () => {
       newApiFilters.payment_status = "paid";
     } else if (normalizedOption === "failed") {
       newApiFilters.payment_status = "failed";
+    }
+    const refundStatus = normalizedOption.replace("_refund", "");
+    if (["pending", "processing", "completed", "failed", "not_applicable"].includes(refundStatus)) {
+      newApiFilters.refund_status = refundStatus;
+    } else if (normalizedOption === "stale_refund") {
+      newApiFilters.refund_stale = "true";
+    } else if (normalizedOption === "overdue_refund") {
+      newApiFilters.refund_overdue = "true";
+    } else if (normalizedOption.endsWith("_workflow")) {
+      newApiFilters.refund_workflow_status = normalizedOption.replace("_workflow", "");
     }
 
     const str = JSON.stringify(newApiFilters);
@@ -184,7 +213,13 @@ const BookingTab: React.FC = () => {
       >
         {/* Tabs Header (UNCHANGED UI) */}
         <div className="flex justify-between items-center flex-col lg:flex-row gap-4">
-          <TabsList className="lg:w-[436px] w-full bg-[#fff] rounded-[12px] flex justify-between items-center h-[64px]">
+          <TabsList className="lg:w-[580px] w-full bg-[#fff] rounded-[12px] flex justify-between items-center h-[64px]">
+            <TabsTrigger
+              value="all"
+              className="px-[24px] h-full rounded-[8px] data-[state=active]:bg-[#023E8A] data-[state=active]:text-white"
+            >
+              All
+            </TabsTrigger>
             <TabsTrigger
               value="stays"
               className="px-[24px] h-full rounded-[8px] data-[state=active]:bg-[#023E8A] data-[state=active]:text-white"
@@ -244,6 +279,9 @@ const BookingTab: React.FC = () => {
                   from_date: normalizeApiDate(selectedStartDate),
                   to_date: normalizeApiDate(selectedEndDate),
                   currency,
+                  ...(selectedOption.endsWith("_refund") && !["stale_refund", "overdue_refund"].includes(selectedOption)
+                    ? { refund_status: selectedOption.replace("_refund", "") }
+                    : selectedOption === "stale_refund" ? { refund_stale: "true" } : selectedOption === "overdue_refund" ? { refund_overdue: "true" } : {}),
                 })
               }}
             >
@@ -270,6 +308,45 @@ const BookingTab: React.FC = () => {
         />
 
         {/* Content (UNCHANGED UI) */}
+        <TabsContent value="all">
+          {/* Reuses the existing per-type tables as-is, each fed its own
+              slice of the combined response, rather than a new mixed-type
+              table — the searched/filtered result set here is expected to
+              be small (one customer's bookings), so no pagination. */}
+          <BookingTable
+            title="Stays"
+            filterProps={filterProps}
+            bookings={allStays || []}
+            loading={loadingAll}
+            onLoadMore={() => {}}
+            hasMore={false}
+            activeStatusTab={statusTabFilter}
+            onStatusTabChange={handleStatusTabChange}
+            onResynced={refetchAll}
+          />
+          <FlightBookings
+            title="Flights"
+            filterProps={filterProps}
+            bookings={allFlights || []}
+            loading={loadingAll}
+            onLoadMore={() => {}}
+            hasMore={false}
+            activeStatusTab={statusTabFilter}
+            onStatusTabChange={handleStatusTabChange}
+          />
+          <CarBookingTable
+            title="Airport Taxis"
+            filterProps={filterProps}
+            bookings={allTransfers || []}
+            loading={loadingAll}
+            onLoadMore={() => {}}
+            hasMore={false}
+            activeStatusTab={statusTabFilter}
+            onStatusTabChange={handleStatusTabChange}
+            onResynced={refetchAll}
+          />
+        </TabsContent>
+
         <TabsContent value="stays">
           <BookingTable
             title="All Stays"
@@ -280,6 +357,7 @@ const BookingTab: React.FC = () => {
             hasMore={hasNext}
             activeStatusTab={statusTabFilter}
             onStatusTabChange={handleStatusTabChange}
+            onResynced={refetch}
           />
         </TabsContent>
 
@@ -306,6 +384,7 @@ const BookingTab: React.FC = () => {
             hasMore={hasNext}
             activeStatusTab={statusTabFilter}
             onStatusTabChange={handleStatusTabChange}
+            onResynced={refetch}
           />
         </TabsContent>
       </Tabs>

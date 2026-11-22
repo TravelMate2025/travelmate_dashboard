@@ -354,20 +354,23 @@ export const UserDropdown = ({
   onActivate,
   onDeactivate,
   status,
+  canManageUsers = true,
 }: {
   parentWidth: number;
   onViewDetails: () => void;
   onActivate: () => void;
   onDeactivate: () => void;
   status: boolean;
+  canManageUsers?: boolean;
 }) => {
-  const options = [
-    { label: "View Details", action: onViewDetails },
-    {
+  const options = [{ label: "View Details", action: onViewDetails }];
+
+  if (canManageUsers) {
+    options.push({
       label: status ? "Deactivate Account" : "Activate Account",
       action: status ? onDeactivate : onActivate,
-    },
-  ];
+    });
+  }
 
   return (
     <div className="relative">

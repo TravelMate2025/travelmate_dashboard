@@ -32,6 +32,11 @@ interface BookingItem {
   total_amount?: string | number;
   check_in?: string;
   check_out?: string;
+   refund_percent?: number | null;
+  refund_amount?: number | string | null;
+  refund_status?: string | null;
+  refund_operations?: { status?: string | null; workflow_status?: string | null } | null;
+    refund?: { status?: string | null } | null;
   rooms?: Array<{ room_type?: string }>;
   customer_details?: {
     name?: string;
@@ -49,6 +54,7 @@ interface BookingTableProps {
   hasMore: boolean;
   activeStatusTab: string;
   onStatusTabChange?: (status: string) => void;
+  onResynced?: () => void;
 }
 
 const BookingTable: React.FC<BookingTableProps> = ({
@@ -60,6 +66,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
   hasMore,
   activeStatusTab,
   onStatusTabChange,
+  onResynced,
 }) => {
   const [filteredData, setFilteredData] = useState<BookingItem[]>([]);
 
@@ -84,13 +91,24 @@ const BookingTable: React.FC<BookingTableProps> = ({
 
       const bookingStatus = normalizeStatus(item.booking_status || item.status);
       const paymentStatus = normalizeStatus(item.payment_status);
+      const refundStatus = normalizeStatus(
+        item.refund_operations?.status || item.refund?.status || item.refund_status
+      );
 
       if (activeStatusTab === "ongoing") {
-        return bookingStatus === "ongoing";
+        // "ongoing" was never a real booking_status value — the backend
+        // only ever sets 'confirmed'/'cancelled'/'completed'
+        // (BookingLifecycleStatus), so this check could never match
+        // anything and the Ongoing tab was permanently empty regardless
+        // of real data. 'confirmed' bookings become 'completed' via the
+        // periodic partner-sync task once the stay concludes, so
+        // 'confirmed' reliably means "still ongoing/upcoming" without
+        // needing to re-derive it from check_in/check_out here.
+        return bookingStatus === "confirmed";
       }
 
       if (activeStatusTab === "completed") {
-        return bookingStatus === "completed" || bookingStatus === "confirmed";
+        return bookingStatus === "completed";
       }
 
       if (activeStatusTab === "pending") {
@@ -100,7 +118,7 @@ const BookingTable: React.FC<BookingTableProps> = ({
       }
 
       if (activeStatusTab === "refunded") {
-        return bookingStatus === "refunded" || paymentStatus === "refunded";
+        return bookingStatus === "refunded" || paymentStatus === "refunded" || refundStatus === "completed";
       }
 
       return bookingStatus === activeStatusTab;
@@ -128,11 +146,9 @@ const BookingTable: React.FC<BookingTableProps> = ({
 
   const formatAmount = (amount: string | number) => {
     const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
-    if (filterProps.currency === "USD") {
-      return `$${numAmount.toFixed(2)}`;
-    }
-    // Convert USD to NGN roughly for demo purposes
-    return `₦${(numAmount * 1500).toLocaleString()}`;
+    return filterProps.currency === "USD"
+      ? `$${numAmount.toFixed(2)}`
+      : `₦${numAmount.toLocaleString()}`;
   };
 
   /**
@@ -314,7 +330,12 @@ const BookingTable: React.FC<BookingTableProps> = ({
                         </div>
                       </TableCell>
                       <TableCell className="py-3 px-4 cursor-pointer">
-                        <BookingTableDropdown bookingId={item.id} bookingType="stays" />
+                        <BookingTableDropdown
+                          bookingId={item.id}
+                          bookingType="stays"
+                          bookingStatus={item.booking_status || item.status}
+                          onResynced={onResynced}
+                        />
                       </TableCell>
                     </TableRow>
                     );

@@ -1,10 +1,11 @@
 "use client";
 import { useEffect } from "react";
 import env from "@/config/env";
+import {
+  readStoredAuthState,
+  writeStoredAuthState,
+} from "@/lib/auth-session";
 
-import { saveToLocalStorage, getFromLocalStorage } from "@/utils/localStorage/AsyncStorage";
-
-const PERSIST_AUTH_KEY = env?.auth?.PERSIST_AUTH_KEY;
 const INITIAL_APP_STATE = env?.auth?.INITIAL_APP_STATE;
 
 const usePersistAppContext = ({
@@ -15,15 +16,12 @@ const usePersistAppContext = ({
   setAppState?: (value: unknown) => void;
 }) => {
   useEffect(() => {
-    getFromLocalStorage({ cb: setAppState, key: PERSIST_AUTH_KEY });
+    setAppState(readStoredAuthState());
   }, []);
 
   useEffect(() => {
     if (appState !== INITIAL_APP_STATE) {
-      saveToLocalStorage({
-        key: PERSIST_AUTH_KEY,
-        value: appState,
-      });
+      writeStoredAuthState(appState as typeof INITIAL_APP_STATE);
     }
   }, [appState]);
 
@@ -31,10 +29,7 @@ const usePersistAppContext = ({
 };
 
 export const getInitialStateFromLocalStorage = () => {
-  const storage = typeof window !== "undefined" ? window.localStorage : null;
-
-  const value = storage?.getItem(PERSIST_AUTH_KEY);
-  return value ? JSON.parse(value) : INITIAL_APP_STATE;
+  return readStoredAuthState();
 };
 
 export default usePersistAppContext;

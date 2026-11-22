@@ -200,6 +200,17 @@ export const useGetChatMessages = () => {
   return { loadingMessage, messages, onFetchMessages };
 };
 
+// How often to ping while the connection is open, and how long to wait for
+// a pong before assuming the connection is silently dead. A WebSocket can
+// stop working without ever firing `close`/`error` — an idle-timeout proxy
+// or load balancer can drop the underlying connection, or the TCP
+// connection can go "zombie" (e.g. the client's network changed) — and the
+// browser's `WebSocket` object will keep reporting `readyState === OPEN`
+// indefinitely. Without this, `send()` silently no-ops and incoming
+// broadcasts never arrive, with no visible error on either side.
+const PING_INTERVAL_MS = 25000;
+const PONG_TIMEOUT_MS = 10000;
+
 export const useWebSocketService = ({
   sessionId,
   accessToken,
@@ -242,9 +253,40 @@ export const useWebSocketService = ({
     if (socketUrl) {
       shouldReconnectRef.current = true;
       const ws = new WebSocket(socketUrl);
+      let pingIntervalId: ReturnType<typeof setInterval> | null = null;
+      let pongTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+      const clearPongTimeout = () => {
+        if (pongTimeoutId) {
+          clearTimeout(pongTimeoutId);
+          pongTimeoutId = null;
+        }
+      };
+
+      const forceReconnect = () => {
+        // Don't wait for (or trust) a natural close/error event — treat a
+        // missed pong as definitive proof the connection is dead and
+        // reconnect immediately, the same way an abnormal close does.
+        if (pingIntervalId) clearInterval(pingIntervalId);
+        clearPongTimeout();
+        shouldReconnectRef.current = true;
+        try {
+          ws.close();
+        } catch {
+          // ignore — we're replacing this socket regardless
+        }
+        clearReconnectTimer();
+        setReconnectTick((prev) => prev + 1);
+      };
 
       ws.onopen = () => {
         clearReconnectTimer();
+        pingIntervalId = setInterval(() => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          ws.send(JSON.stringify({ type: "ping" }));
+          clearPongTimeout();
+          pongTimeoutId = setTimeout(forceReconnect, PONG_TIMEOUT_MS);
+        }, PING_INTERVAL_MS);
       };
 
       ws.onerror = () => {
@@ -252,6 +294,9 @@ export const useWebSocketService = ({
       };
 
       ws.onclose = (event) => {
+        if (pingIntervalId) clearInterval(pingIntervalId);
+        clearPongTimeout();
+
         if (!shouldReconnectRef.current) {
           return;
         }
@@ -269,7 +314,23 @@ export const useWebSocketService = ({
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+
+        // Any traffic proves the connection is alive — a pong is the
+        // expected reply, but any real event resets the watchdog too.
+        clearPongTimeout();
+
+        if (data.type === "pong") {
+          return;
+        }
+
         setMessages((prev) => {
+          // Only real chat messages carry a stable, unique `id` — events
+          // like `session_update`/`notification` don't, and comparing
+          // `undefined === undefined` would make the second-ever such
+          // event look like a duplicate of the first and silently drop it.
+          if (data.id === undefined || data.id === null) {
+            return [...prev, data];
+          }
           if (!prev.some((msg) => msg.id === data.id)) {
             return [...prev, data];
           }
@@ -281,6 +342,8 @@ export const useWebSocketService = ({
 
       return () => {
         // Close the WebSocket when the component unmounts or the session changes
+        if (pingIntervalId) clearInterval(pingIntervalId);
+        clearPongTimeout();
         clearReconnectTimer();
         ws.close();
       };
