@@ -101,6 +101,13 @@ const CHANGE_KIND: Record<string, string> = {
 const local = (at?: string) => (at ? at.replace("T", " ").slice(0, 16) : "");
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "N/A");
+// Flutterwave answers a payment check with 400 "No transaction was found" while the customer hasn't
+// paid (still on the payment page, or left it). The backend reads that as "not paid yet", so it isn't
+// an error.
+type SupplierCall = AirlineOrderData["supplier_calls"][number];
+const notPaidYet = (c: SupplierCall) =>
+  c.operation === "transaction_verify_by_reference" && (c.status_code === 400 || c.status_code === 404) && /no transaction was found/i.test(c.error ?? "");
+
 const statusClass = (s: string | null) =>
   s === "CONFIRMED" ? "text-[#2D9C5E] bg-[#2D9C5E1A]" : s ? "text-[#E74C3C] bg-[#E74C3C1A]" : "text-[#4E4F52] bg-gray-100";
 
@@ -356,15 +363,19 @@ const AirlineOrder = ({ data: initial }: { data: AirlineOrderData }) => {
 
       <div>
         <h3 className="text-[14px] font-semibold text-[#181818] mb-1">Calls to Amadeus and Flutterwave</h3>
-        <p className={hint}>The latest calls for this booking. When asking Amadeus support about a failure, quote the request id shown and the Ama-Client-Ref above.</p>
+        <p className={hint}>The latest calls for this booking. When asking Amadeus support about a failure, quote the request id shown and the Ama-Client-Ref above. While a payment is open, we ask Flutterwave about it at most every 15 seconds; a grey &quot;Not paid yet&quot; just means the customer hadn&apos;t paid at that moment.</p>
         <ul className="space-y-1 text-[13px]">
           {data.supplier_calls.map((c) => (
             <li key={`${c.at}-${c.operation}`} className="flex flex-wrap gap-x-3">
-              <span className={c.succeeded ? "text-[#2D9C5E]" : "text-[#E74C3C]"}>{c.status_code ?? "no response"}</span>
+              <span className={c.succeeded ? "text-[#2D9C5E]" : notPaidYet(c) ? "text-[#4E4F52]" : "text-[#E74C3C]"}>{c.status_code ?? "no response"}</span>
               <span>{OPERATIONS[c.operation] ?? c.operation}</span>
               <span className="text-[#4E4F52]">{when(c.at)}{c.duration_ms ? ` · ${c.duration_ms} ms` : ""}</span>
               {c.ama_request_id && <span className="font-mono text-[#4E4F52]">{c.ama_request_id}</span>}
-              {c.error && <span className="text-[#E74C3C]">{c.error}</span>}
+              {notPaidYet(c) ? (
+                <span className="text-[#4E4F52]">Not paid yet: the customer hadn&apos;t completed this payment when we checked</span>
+              ) : (
+                c.error && <span className="text-[#E74C3C]">{c.error}</span>
+              )}
             </li>
           ))}
           {data.supplier_calls.length === 0 && <li className="text-[#4E4F52]">None recorded.</li>}
